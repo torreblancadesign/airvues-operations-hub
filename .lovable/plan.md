@@ -1,56 +1,58 @@
-## Status
+## What's wrong
 
-Auth handlers are now correctly at `app/api/auth/[...nextauth]/route.ts` and `app/api/auth/saml/*` ✅
+NextAuth v5 builds the OAuth callback URL from either the `AUTH_URL` env var or the incoming request host. On your new Vercel project:
 
-**But** the old copies at `app/auth/[...nextauth]/` and `app/auth/saml/` are still there — duplicates that will register phantom `/auth/...` routes and confuse Next. Need to delete them.
+1. **`AUTH_URL` is not set** → NextAuth falls back to its default (`http://localhost:3000`), which is what Google receives as the `redirect_uri`.
+2. **Google OAuth client only has the old project's callback registered** → even once we fix #1, Google will reject the new domain until it's whitelisted.
 
-Plus the Lovable scaffolding I flagged before is still there.
+There's also a latent issue in `lib/auth.ts`: no `trustHost: true` is set. On Vercel this normally isn't required when `AUTH_URL` is set, but adding it makes the app resilient to preview deployments (each preview gets a unique URL).
 
-## Cleanup to execute
+## Steps
 
-### 1. Delete duplicate auth folder
-- `app/auth/` (entire dir — duplicates of what's now in `app/api/auth/`)
+### 1. Add env vars on the new Vercel project
+In **Vercel → Settings → Environment Variables** for the new project, add (for Production + Preview + Development as appropriate):
 
-### 2. Delete Lovable scaffolding
-- `src/` (entire dir — TanStack Start router, routes, components, hooks, styles)
-- `vite.config.ts`
-- `wrangler.jsonc`
-- `bunfig.toml`
-- `bun.lock`
-- `.next/` (stale build cache if present)
-- `eslint.config.js` (Lovable flat config; Next 14 uses its own — repo can re-add `.eslintrc.json` later if wanted)
-- `components.json` (shadcn config — real repo doesn't use shadcn)
+- `AUTH_URL` = `https://<your-new-vercel-domain>` (e.g. `https://airvues-ops-v2.vercel.app` or your custom domain — no trailing slash)
+- `AUTH_TRUST_HOST` = `true` (lets preview deployments work without setting AUTH_URL per-branch)
 
-Leave alone (already Next-correct): `tsconfig.json`, `tailwind.config.ts`, `postcss.config.js`, `next.config.js`, `middleware.ts`, `package.json`, `next-env.d.ts`, `.prettierrc`, `.prettierignore`.
+Verify these are also present (they should already be, since login was previously redirecting at all):
+- `AUTH_SECRET`
+- `AUTH_GOOGLE_ID`
+- `AUTH_GOOGLE_SECRET`
+- `ALLOWED_USERS`
 
-### 3. Patch `.gitignore`
-Append:
+### 2. Update Google Cloud Console
+In **Google Cloud Console → APIs & Services → Credentials → your OAuth 2.0 Client**:
+
+- Under **Authorized redirect URIs**, add:
+  `https://<your-new-vercel-domain>/api/auth/callback/google`
+- Keep the old URI too if the old project still needs to work; otherwise remove it.
+- Under **Authorized JavaScript origins**, add:
+  `https://<your-new-vercel-domain>`
+
+Save. Changes propagate within a few minutes.
+
+### 3. Redeploy
+After adding env vars on Vercel, trigger a redeploy (env var changes don't auto-redeploy). Then test sign-in.
+
+### 4. (Optional, recommended) Code hardening
+Add `trustHost: true` to the NextAuth config in `lib/auth.ts` as a belt-and-braces measure so the app respects `x-forwarded-host` even if `AUTH_URL` is ever missing on a preview branch.
+
+```ts
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
+  providers: [ /* ... */ ],
+  // ...
+});
 ```
-# Next.js
-.next/
-out/
 
-# Env
-.env*.local
+This is a one-line change to a single file — happy to make it once you approve.
 
-# Vercel
-.vercel/
+## How to verify
 
-# Project-specific
-scripts/output/
-```
+1. Visit `https://<new-domain>/login`
+2. Click "Sign in with Google"
+3. URL during consent should show `redirect_uri=https://<new-domain>/api/auth/callback/google` (not localhost)
+4. After consent, you should land on `/` (or the `from` param), authenticated.
 
-### 4. Reinstall deps cleanly
-- `rm -rf node_modules`
-- `npm install` (produces `package-lock.json` — matches Vercel + Claude Code locally)
-
-### 5. Verification (best-effort)
-- `npx tsc --noEmit`
-- `npm run build` — likely fails without `.env.local` because `lib/auth.ts` throws if `ALLOWED_USERS` is missing in production-mode builds. That's an env concern, not code. I'll report whatever it says.
-
-## What this does NOT fix
-
-- **Lovable's preview pane will still show errors** ("Module not found: ./globals.css", etc.) — the Lovable sandbox runs Vite + TanStack Start and can't run Next.js. From here on, dev/preview happens via `npm run dev` locally (localhost:3000) and Vercel preview deploys per branch. Lovable's job is GitHub-sync code edits only.
-- Production env vars (`AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `ALLOWED_USERS`, `AIRTABLE_TOKEN`) live in Vercel — not touched here.
-
-Approve and I'll execute steps 1–5.
+If you still see localhost after step 3, double-check `AUTH_URL` was saved on the correct environment (Production vs Preview) and that you redeployed.

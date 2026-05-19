@@ -1,0 +1,402 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { updateStory } from "@/lib/mutations/story";
+
+type EngineerOption = { id: string; name: string };
+
+type Props = {
+  story: Story | null;
+  engineers?: EngineerOption[];
+  canEdit?: boolean;
+  onClose: () => void;
+  onFilterByEngineer: (engineerId: string) => void;
+  onFilterByClient: (client: string) => void;
+};
+
+const STATUS_OPTIONS = [
+  "Todo",
+  "In progress",
+  "QA Review",
+  "Completed",
+  "On Hold",
+  "Incomplete",
+  "Analysis Required",
+];
+
+const PRIORITY_OPTIONS = ["Urgent", "High", "Medium", "Low"];
+
+const fmtMoney = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+
+function statusToneText(status: string | null): string {
+  switch (status) {
+    case "In progress": return "text-emerald";
+    case "QA Review": return "text-sky";
+    case "Completed": return "text-violet";
+    case "On Hold": return "text-amber";
+    case "Incomplete": return "text-red";
+    case "Analysis Required": return "text-amber";
+    default: return "text-ink-strong";
+  }
+}
+
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="py-2.5 border-b border-rule last:border-0">
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
+        {label}
+      </div>
+      <div className="text-[13px] text-ink">{children}</div>
+      {hint && <div className="text-[10px] text-ink-faint mt-1">{hint}</div>}
+    </div>
+  );
+}
+
+const inputCls =
+  "px-2.5 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink-strong rounded-md focus:border-emerald focus:outline-none transition-colors";
+
+export function StorySheet({
+  story,
+  engineers = [],
+  canEdit = false,
+  onClose,
+  onFilterByEngineer,
+  onFilterByClient,
+}: Props) {
+  const [local, setLocal] = useState<Partial<Story>>({});
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
+
+  // Reset local edits when story switches
+  useEffect(() => {
+    setLocal({});
+    setError(null);
+  }, [story?.id]);
+
+  useEffect(() => {
+    if (!story) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [story, onClose]);
+
+  if (!story) return null;
+
+  const current: Story = { ...story, ...local };
+
+  const pct = current.hours && current.hours > 0
+    ? Math.round(((current.hoursWorked ?? 0) / current.hours) * 100)
+    : null;
+  const over = pct != null && pct > 100;
+  const sprintNum = current.sprintNumbers[0];
+  const sprintStatus = current.sprintStatuses[0];
+
+  function save(patch: Partial<Story>, payload: Parameters<typeof updateStory>[1]) {
+    setLocal((prev) => ({ ...prev, ...patch }));
+    setError(null);
+    startTransition(async () => {
+      const result = await updateStory(story!.id, payload);
+      if (!("ok" in result)) {
+        setError(result.error);
+      } else {
+        setSavedFlash(true);
+        setTimeout(() => setSavedFlash(false), 1200);
+      }
+    });
+  }
+
+  function toggleAssignee(personId: string) {
+    const existing = current.assigneeIds;
+    const personName = engineers.find((e) => e.id === personId)?.name ?? "(unknown)";
+    let nextIds: string[];
+    let nextNames: string[];
+    if (existing.includes(personId)) {
+      const idx = existing.indexOf(personId);
+      nextIds = existing.filter((id) => id !== personId);
+      nextNames = current.assigneeNames.filter((_, i) => i !== idx);
+    } else {
+      nextIds = [...existing, personId];
+      nextNames = [...current.assigneeNames, personName];
+    }
+    save(
+      { assigneeIds: nextIds, assigneeNames: nextNames },
+      { assigneeIds: nextIds },
+    );
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 bg-black/40 z-40 transition-opacity"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      <aside
+        className="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] bg-surface z-50 border-l border-rule shadow-xl overflow-y-auto"
+        role="dialog"
+        aria-label={current.name}
+      >
+        <div className="sticky top-0 bg-surface border-b border-rule px-5 py-3 flex items-center justify-between gap-3 z-10">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-ink-muted">
+              <span>Story {current.storyNumber != null ? `#${current.storyNumber}` : ""}</span>
+              {pending && <span className="text-amber">· saving…</span>}
+              {savedFlash && !pending && <span className="text-emerald">· saved</span>}
+              {error && <span className="text-red truncate">· {error}</span>}
+            </div>
+            <h2 className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
+              {current.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[20px] text-ink-muted hover:text-ink-strong w-7 h-7 flex items-center justify-center rounded hover:bg-bg-elevated shrink-0"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="px-5 py-5 bg-bg-elevated border-b border-rule">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-1">
+            Story value
+          </div>
+          <div className="text-[34px] font-semibold text-ink-strong tabnum leading-none">
+            {fmtMoney(current.invoice)}
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
+                {Math.round(COMMISSION_RATE * 100)}% commission
+              </div>
+              <div className="text-[20px] font-semibold text-emerald tabnum">
+                {fmtMoney(current.invoice * COMMISSION_RATE)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
+                Status
+              </div>
+              <div className={`text-[14px] font-medium ${statusToneText(current.status)}`}>
+                {current.status ?? "—"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {pct != null && (
+          <div className="px-5 py-4 border-b border-rule">
+            <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1.5 font-mono tabnum">
+              <span>{current.hoursWorked ?? 0}h worked / {current.hours}h scoped</span>
+              <span className={over ? "text-red" : ""}>{pct}%{over ? " · over" : ""}</span>
+            </div>
+            <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${over ? "bg-red" : "bg-emerald"}`}
+                style={{ width: `${Math.min(100, pct)}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="px-5 py-3 border-b border-rule flex gap-2 flex-wrap">
+          <a
+            href={current.airtableUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 text-[12px] bg-emerald text-bg font-medium rounded hover:bg-emerald/80 transition-colors"
+          >
+            Open in Airtable ↗
+          </a>
+          {current.assigneeIds[0] && (
+            <button
+              type="button"
+              onClick={() => onFilterByEngineer(current.assigneeIds[0])}
+              className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
+            >
+              All for {current.assigneeNames[0]?.split(" ")[0]}
+            </button>
+          )}
+          {current.clientNames[0] && (
+            <button
+              type="button"
+              onClick={() => onFilterByClient(current.clientNames[0])}
+              className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
+            >
+              All for {current.clientNames[0]}
+            </button>
+          )}
+        </div>
+
+        <div className="px-5 py-2">
+          {/* Editable Status */}
+          <Field label="Status">
+            {canEdit ? (
+              <select
+                value={current.status ?? ""}
+                onChange={(e) => save({ status: e.target.value }, { status: e.target.value })}
+                disabled={pending}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">— pick —</option>
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : (
+              <span>{current.status ?? "—"}</span>
+            )}
+          </Field>
+
+          {/* Editable Priority */}
+          <Field label="Priority">
+            {canEdit ? (
+              <select
+                value={current.priority ?? ""}
+                onChange={(e) => save({ priority: e.target.value }, { priority: e.target.value })}
+                disabled={pending}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">— none —</option>
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : (
+              <span>{current.priority ?? "—"}</span>
+            )}
+          </Field>
+
+          {/* Editable Hours */}
+          <Field label="Hours (scoped)">
+            {canEdit ? (
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                defaultValue={current.hours ?? ""}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value === "" ? null : Number(e.target.value);
+                  if (val !== current.hours) save({ hours: val }, { hours: val });
+                }}
+                className={`${inputCls} w-32`}
+              />
+            ) : (
+              <span>{current.hours ?? "—"} h</span>
+            )}
+          </Field>
+
+          {/* Editable Assignees */}
+          <Field
+            label="Assignees"
+            hint={canEdit && engineers.length > 0 ? "Click an engineer below to add or remove" : undefined}
+          >
+            {current.assigneeNames.length === 0 ? (
+              <span className="text-red">Unassigned</span>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {current.assigneeNames.map((n, i) => {
+                  const id = current.assigneeIds[i];
+                  return (
+                    <span
+                      key={id ?? i}
+                      className="px-2 py-0.5 text-[11px] bg-bg-elevated border border-rule rounded inline-flex items-center gap-1.5"
+                    >
+                      {n}
+                      {canEdit && id && (
+                        <button
+                          type="button"
+                          onClick={() => toggleAssignee(id)}
+                          disabled={pending}
+                          className="text-ink-faint hover:text-red text-[12px] leading-none"
+                          aria-label={`Remove ${n}`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            {canEdit && engineers.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {engineers
+                  .filter((e) => !current.assigneeIds.includes(e.id))
+                  .map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      onClick={() => toggleAssignee(e.id)}
+                      disabled={pending}
+                      className="px-2 py-0.5 text-[10px] bg-bg-elevated border border-rule rounded text-ink-muted hover:text-emerald hover:border-emerald transition-colors"
+                    >
+                      + {e.name.split(" ")[0]}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </Field>
+
+          <Field label="Client">{current.clientNames.join(", ") || "—"}</Field>
+          <Field label="Sprint">
+            {sprintNum != null ? (
+              <span className="font-mono">
+                #{sprintNum}
+                {sprintStatus && <span className="text-ink-muted"> · {sprintStatus}</span>}
+              </span>
+            ) : (
+              "—"
+            )}
+          </Field>
+          <Field label="Phase">{current.phase ?? "—"}</Field>
+          <Field label="Cost">{fmtMoney(current.cost)}</Field>
+          <Field label="Budget % Used">
+            {current.budgetPctUsed != null ? (
+              <span className={current.budgetPctUsed > 1 ? "text-red" : ""}>
+                {(current.budgetPctUsed * 100).toFixed(1)}%
+              </span>
+            ) : (
+              "—"
+            )}
+          </Field>
+          {current.description && (
+            <Field label="Description">
+              <div className="text-[12px] text-ink-muted whitespace-pre-wrap line-clamp-12">
+                {current.description}
+              </div>
+            </Field>
+          )}
+          {current.quoteIds.length > 0 && (
+            <Field label="Linked Quote">
+              <div className="flex flex-col gap-1">
+                {current.quoteIds.map((q) => (
+                  <a
+                    key={q}
+                    href={`https://airvues-quote.vercel.app/?quoteId=${q}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald hover:underline text-[12px] font-mono"
+                  >
+                    {q} ↗
+                  </a>
+                ))}
+              </div>
+            </Field>
+          )}
+          <Field label="Airtable Record ID">
+            <span className="font-mono text-[12px]">{current.id}</span>
+          </Field>
+        </div>
+      </aside>
+    </>
+  );
+}

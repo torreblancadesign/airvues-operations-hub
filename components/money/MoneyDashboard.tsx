@@ -188,6 +188,13 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
         mrr={kpis.mrr}
       />
 
+      {/* All-time section header */}
+      <div className="mb-3 flex items-baseline justify-between gap-4">
+        <h2 className="text-[13px] font-semibold text-ink-strong uppercase tracking-wider">All Time</h2>
+        <span className="font-mono text-[11px] text-ink-faint tabnum">Since inception</span>
+      </div>
+
+
 
       {/* KPI strip — 5 colored cards (matches target screenshot) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">

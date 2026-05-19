@@ -56,21 +56,6 @@ export function MonthlyFocus({ mtdRevenue, mtdPaidCount, mrr }: Props) {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
-        <StatCard
-          label="Revenue MTD"
-          tone="emerald"
-          value={fmtMoney(mtdRevenue)}
-          sub={`${mtdPaidCount} paid invoice${mtdPaidCount === 1 ? "" : "s"} this month`}
-        />
-        <StatCard
-          label="MRR"
-          tone="sky"
-          value={fmtMoney(mrr)}
-          sub="Recurring · subscribed"
-        />
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <GoalBar
           label="Monthly Revenue Goal"

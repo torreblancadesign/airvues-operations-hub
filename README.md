@@ -7,6 +7,7 @@ Internal operations dashboard for Airvues LLC.
 
 > ⚠️ Before touching code, read [`CLAUDE.md`](./CLAUDE.md) — it has the do's, don'ts, and patterns that already broke once.
 > If you're new to this repo, also skim [`HANDOVER.md`](./HANDOVER.md) for the lay of the land.
+> Alternative dev throught lovable.dev
 
 ## What it does
 

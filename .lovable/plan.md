@@ -1,58 +1,54 @@
-## What's wrong
+# Add Monthly Focus Section to /money
 
-NextAuth v5 builds the OAuth callback URL from either the `AUTH_URL` env var or the incoming request host. On your new Vercel project:
+Add a new section at the top of the Money page focused on the current calendar month, with goal progress bars for monthly revenue and MRR.
 
-1. **`AUTH_URL` is not set** → NextAuth falls back to its default (`http://localhost:3000`), which is what Google receives as the `redirect_uri`.
-2. **Google OAuth client only has the old project's callback registered** → even once we fix #1, Google will reject the new domain until it's whitelisted.
+## What's new
 
-There's also a latent issue in `lib/auth.ts`: no `trustHost: true` is set. On Vercel this normally isn't required when `AUTH_URL` is set, but adding it makes the app resilient to preview deployments (each preview gets a unique URL).
+**Placement:** Above the all-time KPI strip on `/money`. The existing 5-card KPI row, Outstanding/MRR row, AR aging, and invoice table stay exactly as they are — this is additive.
 
-## Steps
+**Section contents:**
+1. **Section header** — "This Month" with a small "May 2026 · 61% elapsed" eyebrow on the right (auto-calculated from days-of-month).
+2. **Two stat cards** (compact, same `StatCard` component as the KPI strip):
+   - Revenue MTD (emerald) — sum of paid invoices dated in current month, sub-label shows invoice count
+   - MRR (sky) — same calculation as the existing MRR card but surfaced here too for at-a-glance
+3. **Two `GoalBar` progress bars** side-by-side:
+   - **Monthly Revenue Goal** — $50,000 target, tone adapts to month-pacing (emerald if on/ahead, amber if behind, red if well behind, matching the `CompanyGoals` pattern)
+   - **MRR Goal** — default target $10,000 (constant at top of component, easy to edit). Tone purely based on % to target.
 
-### 1. Add env vars on the new Vercel project
-In **Vercel → Settings → Environment Variables** for the new project, add (for Production + Preview + Development as appropriate):
+## Technical details
 
-- `AUTH_URL` = `https://<your-new-vercel-domain>` (e.g. `https://airvues-ops-v2.vercel.app` or your custom domain — no trailing slash)
-- `AUTH_TRUST_HOST` = `true` (lets preview deployments work without setting AUTH_URL per-branch)
-
-Verify these are also present (they should already be, since login was previously redirecting at all):
-- `AUTH_SECRET`
-- `AUTH_GOOGLE_ID`
-- `AUTH_GOOGLE_SECRET`
-- `ALLOWED_USERS`
-
-### 2. Update Google Cloud Console
-In **Google Cloud Console → APIs & Services → Credentials → your OAuth 2.0 Client**:
-
-- Under **Authorized redirect URIs**, add:
-  `https://<your-new-vercel-domain>/api/auth/callback/google`
-- Keep the old URI too if the old project still needs to work; otherwise remove it.
-- Under **Authorized JavaScript origins**, add:
-  `https://<your-new-vercel-domain>`
-
-Save. Changes propagate within a few minutes.
-
-### 3. Redeploy
-After adding env vars on Vercel, trigger a redeploy (env var changes don't auto-redeploy). Then test sign-in.
-
-### 4. (Optional, recommended) Code hardening
-Add `trustHost: true` to the NextAuth config in `lib/auth.ts` as a belt-and-braces measure so the app respects `x-forwarded-host` even if `AUTH_URL` is ever missing on a preview branch.
-
+**New constants** (top of new component, easy to tweak later):
 ```ts
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
-  providers: [ /* ... */ ],
-  // ...
-});
+const MONTHLY_REVENUE_GOAL = 50_000;
+const MRR_GOAL = 10_000; // placeholder — user can adjust
 ```
 
-This is a one-line change to a single file — happy to make it once you approve.
+**New computation in `MoneyDashboard.tsx`** — extend the existing `kpis` useMemo to also produce `mtdRevenue` and `mtdPaidCount` by filtering paid invoices where `r.date` falls in current month (uses local timezone, same approach as the existing `arAgingBuckets`). MRR is already calculated.
 
-## How to verify
+**New component:** `components/money/MonthlyFocus.tsx` — pure presentational, takes `{ mtdRevenue, mtdPaidCount, mrr }`, renders the section header + 2 StatCards + 2 GoalBars. Reuses existing `GoalBar`, `StatCard`, and `SectionTitle` primitives — no new design tokens needed.
 
-1. Visit `https://<new-domain>/login`
-2. Click "Sign in with Google"
-3. URL during consent should show `redirect_uri=https://<new-domain>/api/auth/callback/google` (not localhost)
-4. After consent, you should land on `/` (or the `from` param), authenticated.
+**Wiring:** `MoneyDashboard.tsx` renders `<MonthlyFocus ... />` immediately after `<FilterBar />` and before the all-time KPI grid.
 
-If you still see localhost after step 3, double-check `AUTH_URL` was saved on the correct environment (Production vs Preview) and that you redeployed.
+**Goal-pacing logic** (mirrors `CompanyGoals`):
+```ts
+const now = new Date();
+const dayOfMonth = now.getDate();
+const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+const monthProgress = dayOfMonth / daysInMonth;
+const revenueProgress = mtdRevenue / MONTHLY_REVENUE_GOAL;
+const tone = revenueProgress >= monthProgress ? "emerald"
+           : revenueProgress >= monthProgress * 0.7 ? "amber"
+           : "red";
+```
+
+## Files touched
+
+- `components/money/MonthlyFocus.tsx` — **new**, ~80 lines
+- `components/money/MoneyDashboard.tsx` — extend `kpis` useMemo with MTD fields, mount the new section above the KPI strip
+- No changes to data layer, schema, mutations, or auth
+
+## Out of scope
+
+- Storing monthly goals in Airtable (constants for now; ask later if you want a `Settings` table)
+- Historical month-over-month comparison (separate feature)
+- Customizing the MRR goal — using $10k placeholder; tell me the right number and I'll swap it

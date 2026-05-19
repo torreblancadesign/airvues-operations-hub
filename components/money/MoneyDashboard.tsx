@@ -7,6 +7,7 @@ import { FilterBar } from "./FilterBar";
 import { InvoiceTable } from "./InvoiceTable";
 import { InvoiceSheet } from "./InvoiceSheet";
 import { ArAgingChart } from "./ArAgingChart";
+import { MonthlyFocus } from "./MonthlyFocus";
 import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, StatusBucket } from "./types";
 
 type Props = {
@@ -120,12 +121,24 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
     let open = 0;
     let openCount = 0;
     let mrr = 0;
+    let mtdRevenue = 0;
+    let mtdPaidCount = 0;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     for (const r of invoices) {
       if (r.status === "paid") {
         totalRevenue += r.amount;
         totalMarginProfit += r.marginProfit ?? 0;
         totalOverhead += r.amount * 0.2;
         paidCount += 1;
+        if (r.date) {
+          const d = new Date(r.date);
+          if (d >= monthStart && d < monthEnd) {
+            mtdRevenue += r.amount;
+            mtdPaidCount += 1;
+          }
+        }
       }
       if (r.status && ["open", "sent", "unsent", "past due"].includes(r.status)) {
         open += r.amount;
@@ -137,7 +150,7 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
     }
     const avgInvoice = paidCount > 0 ? totalRevenue / paidCount : 0;
     const marginPct = totalRevenue > 0 ? (totalMarginProfit / totalRevenue) * 100 : 0;
-    return { totalRevenue, totalMarginProfit, totalOverhead, paidCount, open, openCount, mrr, avgInvoice, marginPct };
+    return { totalRevenue, totalMarginProfit, totalOverhead, paidCount, open, openCount, mrr, avgInvoice, marginPct, mtdRevenue, mtdPaidCount };
   }, [invoices]);
 
   const aging = useMemo(() => arAgingBuckets(invoices), [invoices]);
@@ -167,6 +180,14 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
         totalCount={invoices.length}
         filteredCount={filtered.length}
       />
+
+      {/* This Month focus — MTD revenue, MRR, monthly goal bars */}
+      <MonthlyFocus
+        mtdRevenue={kpis.mtdRevenue}
+        mtdPaidCount={kpis.mtdPaidCount}
+        mrr={kpis.mrr}
+      />
+
 
       {/* KPI strip — 5 colored cards (matches target screenshot) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">

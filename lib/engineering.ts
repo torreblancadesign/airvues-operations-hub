@@ -151,7 +151,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   };
 
   for (const story of stories) {
-    if (story.status === "Archived") continue;
+    if (story.status === "Archived" || story.status === "On Hold") continue;
 
     if (story.assigneeIds.length === 0) {
       orphan.stories.push(story);
@@ -244,7 +244,7 @@ function tallyGlobal(stories: Story[]): EngineeringBoardData["totals"] {
   let overBudgetCount = 0;
 
   for (const s of stories) {
-    if (s.status === "Archived") continue;
+    if (s.status === "Archived" || s.status === "On Hold") continue;
     totalStories++;
     if (s.status === DONE_STATUS) {
       completedStories++;

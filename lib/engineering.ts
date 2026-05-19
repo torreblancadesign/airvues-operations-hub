@@ -1,0 +1,288 @@
+// Engineering board data layer — bulk-fetches Stories + People, groups by Assignee,
+// computes per-engineer + global rollups. Commission = 15% of Story.Invoice (flat for now).
+import "server-only";
+
+import { listRecordsCached } from "./airtable";
+import { Tables } from "./schema";
+import {
+  COMMISSION_RATE,
+  EngineerGroup,
+  EngineeringBoardData,
+  Story,
+} from "./engineering-types";
+
+export { COMMISSION_RATE };
+export type { Story, EngineerGroup, EngineeringBoardData };
+
+const DONE_STATUS = "Completed";
+const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
+
+function firstString(v: unknown): string | null {
+  if (Array.isArray(v) && v.length > 0) return String(v[0]);
+  if (typeof v === "string") return v;
+  return null;
+}
+
+function asArray<T = unknown>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : [];
+}
+
+export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
+  const sTbl = Tables.Stories;
+  const pTbl = Tables.People;
+
+  const [storyRecords, peopleRecords] = await Promise.all([
+    listRecordsCached<Record<string, unknown>>(
+      sTbl.id,
+      {
+        fields: [
+          sTbl.fields["ID"].id,
+          sTbl.fields["Story Name"].id,
+          sTbl.fields["Description"].id,
+          sTbl.fields["Hours"].id,
+          sTbl.fields["Hours Worked"].id,
+          sTbl.fields["Invoice"].id,
+          sTbl.fields["Cost"].id,
+          sTbl.fields[" Budget % Used"].id,
+          sTbl.fields["Priority"].id,
+          sTbl.fields["Phase"].id,
+          sTbl.fields["Story Status"].id,
+          sTbl.fields["Assignee"].id,
+          sTbl.fields["Client"].id,
+          sTbl.fields["Quote"].id,
+          sTbl.fields["📆Sprints"].id,
+          sTbl.fields["Sprint Number (from 📆Sprints)"].id,
+          sTbl.fields["Sprint Status (from 📆Sprints)"].id,
+        ],
+      },
+      ["engineering:stories"],
+    ),
+    listRecordsCached<Record<string, unknown>>(
+      pTbl.id,
+      {
+        fields: [
+          pTbl.fields["Full Name"].id,
+          pTbl.fields["First Name"].id,
+          pTbl.fields["Last Name"].id,
+          pTbl.fields["Role"].id,
+          pTbl.fields["Internal Type"].id,
+          pTbl.fields["Status"].id,
+          pTbl.fields["Type"].id,
+        ],
+      },
+      ["engineering:people"],
+    ),
+  ]);
+
+  type PersonRow = {
+    id: string;
+    name: string;
+    role: string | null;
+    internalType: string | null;
+    status: string | null;
+    type: string | null;
+  };
+
+  const peopleMap = new Map<string, PersonRow>();
+  for (const p of peopleRecords) {
+    const f = p.fields;
+    const fullName = (f["Full Name"] as string) ||
+      [f["First Name"], f["Last Name"]].filter(Boolean).join(" ").trim() ||
+      "(unnamed)";
+    peopleMap.set(p.id, {
+      id: p.id,
+      name: fullName,
+      role: (f["Role"] as string) ?? null,
+      internalType: (f["Internal Type"] as string) ?? null,
+      status: (f["Status"] as string) ?? null,
+      type: (f["Type"] as string) ?? null,
+    });
+  }
+
+  const stories: Story[] = storyRecords.map((r) => {
+    const f = r.fields;
+    const status = (f["Story Status"] as string) ?? null;
+    const invoice = (f["Invoice"] as number) ?? 0;
+    const assigneeIds = asArray<string>(f["Assignee"]);
+    const clientIds = asArray<string>(f["Client"]);
+    const quoteIds = asArray<string>(f["Quote"]);
+    const sprintIds = asArray<string>(f["📆Sprints"]);
+    const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
+    const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
+
+    const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
+    const clientNames = clientIds.map((id) => peopleMap.get(id)?.name ?? "(client)");
+
+    return {
+      id: r.id,
+      storyNumber: (f["ID"] as number) ?? null,
+      name: (f["Story Name"] as string) ?? "(untitled)",
+      status,
+      priority: (f["Priority"] as string) ?? null,
+      phase: (f["Phase"] as string) ?? null,
+      hours: (f["Hours"] as number) ?? null,
+      hoursWorked: (f["Hours Worked"] as number) ?? null,
+      invoice,
+      cost: (f["Cost"] as number) ?? 0,
+      commission: invoice * COMMISSION_RATE,
+      budgetPctUsed: (f[" Budget % Used"] as number) ?? null,
+      assigneeIds,
+      assigneeNames,
+      clientIds,
+      clientNames,
+      quoteIds,
+      sprintIds,
+      sprintNumbers,
+      sprintStatuses,
+      description: (f["Description"] as string) ?? "",
+      airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
+    };
+  });
+
+  const groupsMap = new Map<string, EngineerGroup>();
+  const orphan: EngineerGroup = {
+    id: "__orphan__",
+    name: "Unassigned",
+    role: null,
+    internalType: null,
+    isOrphan: true,
+    stories: [],
+    totals: emptyTotals(),
+  };
+
+  for (const story of stories) {
+    if (story.status === "Archived") continue;
+
+    if (story.assigneeIds.length === 0) {
+      orphan.stories.push(story);
+      continue;
+    }
+    for (let i = 0; i < story.assigneeIds.length; i++) {
+      const pid = story.assigneeIds[i];
+      const pname = story.assigneeNames[i] ?? "(unknown)";
+      let group = groupsMap.get(pid);
+      if (!group) {
+        const personRow = peopleMap.get(pid);
+        group = {
+          id: pid,
+          name: pname,
+          role: personRow?.role ?? null,
+          internalType: personRow?.internalType ?? null,
+          isOrphan: false,
+          stories: [],
+          totals: emptyTotals(),
+        };
+        groupsMap.set(pid, group);
+      }
+      group.stories.push(story);
+    }
+  }
+
+  for (const g of [...groupsMap.values(), orphan]) {
+    tallyGroup(g);
+  }
+
+  const groups = [...groupsMap.values()].sort(
+    (a, b) => b.totals.openCommission - a.totals.openCommission,
+  );
+
+  const board: EngineeringBoardData = {
+    groups: orphan.stories.length > 0 ? [orphan, ...groups] : groups,
+    totals: tallyGlobal(stories),
+    clients: [...new Set(stories.flatMap((s) => s.clientNames))].filter(Boolean).sort(),
+    sprints: dedupeSprints(stories),
+    statuses: [...new Set(stories.map((s) => s.status).filter(Boolean) as string[])].sort(),
+  };
+
+  return board;
+}
+
+function emptyTotals(): EngineerGroup["totals"] {
+  return {
+    storyCount: 0,
+    activeCount: 0,
+    doneCount: 0,
+    inProgressCount: 0,
+    todoCount: 0,
+    onHoldCount: 0,
+    qaCount: 0,
+    openInvoice: 0,
+    openCommission: 0,
+    earnedInvoice: 0,
+    earnedCommission: 0,
+  };
+}
+
+function tallyGroup(g: EngineerGroup): void {
+  for (const s of g.stories) {
+    g.totals.storyCount++;
+    if (s.status === DONE_STATUS) {
+      g.totals.doneCount++;
+      g.totals.earnedInvoice += s.invoice;
+      g.totals.earnedCommission += s.commission;
+    } else {
+      g.totals.openInvoice += s.invoice;
+      g.totals.openCommission += s.commission;
+    }
+    if (s.status === "In progress") g.totals.inProgressCount++;
+    if (s.status === "Todo") g.totals.todoCount++;
+    if (s.status === "On Hold") g.totals.onHoldCount++;
+    if (s.status === "QA Review") g.totals.qaCount++;
+    if (ACTIVE_STATUSES.includes(s.status ?? "")) g.totals.activeCount++;
+  }
+}
+
+function tallyGlobal(stories: Story[]): EngineeringBoardData["totals"] {
+  let totalStories = 0;
+  let activeStories = 0;
+  let orphanStories = 0;
+  let completedStories = 0;
+  let openInvoice = 0;
+  let openCommission = 0;
+  let earnedInvoice = 0;
+  let earnedCommission = 0;
+  let overBudgetCount = 0;
+
+  for (const s of stories) {
+    if (s.status === "Archived") continue;
+    totalStories++;
+    if (s.status === DONE_STATUS) {
+      completedStories++;
+      earnedInvoice += s.invoice;
+      earnedCommission += s.commission;
+    } else {
+      openInvoice += s.invoice;
+      openCommission += s.commission;
+    }
+    if (ACTIVE_STATUSES.includes(s.status ?? "")) activeStories++;
+    if (s.assigneeIds.length === 0 && s.status !== DONE_STATUS) orphanStories++;
+    if (s.budgetPctUsed != null && s.budgetPctUsed > 1) overBudgetCount++;
+  }
+
+  return {
+    totalStories,
+    activeStories,
+    orphanStories,
+    completedStories,
+    openInvoice,
+    openCommission,
+    earnedInvoice,
+    earnedCommission,
+    overBudgetCount,
+  };
+}
+
+function dedupeSprints(stories: Story[]): { number: number; status: string | null }[] {
+  const seen = new Map<number, string | null>();
+  for (const s of stories) {
+    for (let i = 0; i < s.sprintNumbers.length; i++) {
+      const n = s.sprintNumbers[i];
+      if (n == null) continue;
+      const st = s.sprintStatuses[i] ?? null;
+      if (!seen.has(n)) seen.set(n, st);
+    }
+  }
+  return [...seen.entries()]
+    .map(([number, status]) => ({ number, status }))
+    .sort((a, b) => b.number - a.number);
+}

@@ -1,0 +1,109 @@
+"use client";
+
+import { PipelineQuote } from "@/lib/pipeline";
+import { Sort, SortKey } from "./types";
+
+type Props = {
+  rows: PipelineQuote[];
+  sort: Sort;
+  setSort: (s: Sort) => void;
+  onRowClick: (q: PipelineQuote) => void;
+  selectedId: string | null;
+};
+
+const fmtCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
+
+function statusPill(status: string | null): string {
+  switch (status) {
+    case "Paid":
+      return "bg-emerald-soft text-emerald";
+    case "Approved and Signed":
+    case "Awaiting Payment":
+    case "Project In Progress":
+      return "bg-sky-soft text-sky";
+    case "Sent. Awaiting Approval.":
+      return "bg-amber-soft text-amber";
+    case "Draft":
+      return "bg-rule text-ink-muted";
+    case "Cancelled":
+    case "Rejected":
+      return "bg-red-soft text-red line-through";
+    case "Auditing 🚩":
+      return "bg-violet-soft text-violet";
+    default:
+      return "bg-rule text-ink-muted";
+  }
+}
+
+function SortHeader({ label, active, dir, align = "left", onClick }: { label: string; active: boolean; dir: "asc" | "desc"; align?: "left" | "right"; onClick: () => void }) {
+  return (
+    <th onClick={onClick} className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer select-none ${align === "right" ? "text-right" : "text-left"}`}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active && <span className="text-[8px] text-emerald">{dir === "asc" ? "▲" : "▼"}</span>}
+      </span>
+    </th>
+  );
+}
+
+export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Props) {
+  const toggle = (key: SortKey) => {
+    if (sort.key === key) setSort({ key, dir: sort.dir === "asc" ? "desc" : "asc" });
+    else setSort({ key, dir: "desc" });
+  };
+
+  return (
+    <div className="bg-surface border border-rule rounded-card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-bg-elevated border-b border-rule">
+            <tr>
+              <SortHeader label="#" active={sort.key === "autonumber"} dir={sort.dir} onClick={() => toggle("autonumber")} />
+              <SortHeader label="Prepared" active={sort.key === "preparedDate"} dir={sort.dir} onClick={() => toggle("preparedDate")} />
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Project</th>
+              <SortHeader label="Client" active={sort.key === "client"} dir={sort.dir} onClick={() => toggle("client")} />
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Prep By</th>
+              <SortHeader label="Status" active={sort.key === "status"} dir={sort.dir} onClick={() => toggle("status")} />
+              <SortHeader label="Days" align="right" active={sort.key === "daysSinceSent"} dir={sort.dir} onClick={() => toggle("daysSinceSent")} />
+              <SortHeader label="Amount" align="right" active={sort.key === "totalCost"} dir={sort.dir} onClick={() => toggle("totalCost")} />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
+            ) : (
+              rows.map((q) => {
+                const days = daysSince(q.preparedDate);
+                const stale = days != null && days > 14 && (q.status === "Sent. Awaiting Approval." || q.status === "Draft" || q.status === "Auditing 🚩");
+                return (
+                  <tr key={q.id} onClick={() => onRowClick(q)} className={`border-b border-rule-soft last:border-0 cursor-pointer transition-colors ${selectedId === q.id ? "bg-emerald-soft" : "hover:bg-bg-elevated"}`}>
+                    <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.autonumber ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.preparedDate ? new Date(q.preparedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}</td>
+                    <td className="px-3 py-2.5 text-[13px] text-ink-strong max-w-[280px] truncate">{q.projectName}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink">{q.client}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink-muted">{q.preparedBy}</td>
+                    <td className="px-3 py-2.5">
+                      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${statusPill(q.status)}`}>
+                        {q.status ?? "—"}
+                      </span>
+                    </td>
+                    <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${stale ? "text-red font-semibold" : "text-ink-muted"}`}>
+                      {days != null ? `${days}d` : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(q.totalCost)}</td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

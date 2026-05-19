@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Airvues Ops — Founder Home</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Airvues brand kit */
+    --navy: #2D3D4F;
+    --navy-dark: #1F2C3A;
+    --navy-deep: #0F1922;
+    --navy-light: #5A7088;
+    --bg: #F5F8FA;            /* brand cool background */
+    --bg-soft: #EDF2F6;
+    --card: #FFFFFF;
+    --rule: #E1E5EB;
+    --rule-strong: #1F2C3A;
+    --ink: #1A1F2C;
+    --ink-muted: #5A6878;
+    --ink-faint: #8A95A5;
+    --signal-up: #2D6A4F;
+    --signal-down: #B5453A;
+    --signal-warn: #B07D2A;
+    --accent: #C7B89A;        /* warm accent only; very small surfaces */
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+
+  .num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .display { font-family: 'Instrument Serif', 'Times New Roman', serif; font-weight: 400; letter-spacing: -0.01em; }
+
+  /* ============= Masthead ============= */
+  .masthead { border-bottom: 1px solid var(--rule); background: var(--bg); position: sticky; top: 0; z-index: 50; backdrop-filter: blur(8px); }
+  .masthead-inner { max-width: 1480px; margin: 0 auto; padding: 14px 32px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 32px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark { width: 22px; height: 22px; background: var(--navy-deep); border-radius: 3px; position: relative; }
+  .brand-mark::after { content: ''; position: absolute; inset: 6px; background: var(--bg); border-radius: 1px; }
+  .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.01em; color: var(--navy-deep); }
+  .brand-name .sep { color: var(--ink-faint); font-weight: 400; margin: 0 6px; }
+  .brand-name .sub { color: var(--ink-muted); font-weight: 500; }
+
+  .ticker { display: flex; gap: 24px; align-items: center; overflow: hidden; white-space: nowrap; font-size: 12px; }
+  .ticker-item { display: flex; align-items: baseline; gap: 6px; color: var(--ink-muted); }
+  .ticker-item strong { color: var(--ink); font-weight: 600; }
+  .ticker-up { color: var(--signal-up); }
+  .ticker-down { color: var(--signal-down); }
+  @media (max-width: 1200px) { .ticker { display: none; } }
+
+  .updated { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-muted); }
+  .updated-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--signal-up); }
+
+  .nav-toggle { display: flex; gap: 0; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .nav-toggle button { background: var(--card); border: 0; border-right: 1px solid var(--rule); padding: 6px 10px; font-family: inherit; font-size: 11px; font-weight: 500; color: var(--ink-muted); cursor: pointer; }
+  .nav-toggle button:last-child { border-right: 0; }
+  .nav-toggle button.active { background: var(--navy-deep); color: white; }
+
+  .top-nav { display: flex; gap: 20px; font-size: 13px; }
+  .top-nav a { color: var(--ink-muted); text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
+  .top-nav a.current { color: var(--ink); font-weight: 600; border-bottom-color: var(--navy-deep); }
+  .top-nav a:hover { color: var(--ink); }
+
+  /* ============= Page header ============= */
+  .page-head { max-width: 1480px; margin: 0 auto; padding: 44px 32px 28px; }
+  .head-top { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; }
+  h1.title { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 64px; line-height: 1; letter-spacing: -0.02em; color: var(--navy-deep); }
+  h1.title em { font-style: italic; color: var(--navy-light); }
+  .standfirst { font-size: 15px; line-height: 1.5; color: var(--ink-muted); max-width: 560px; margin-top: 10px; }
+  .head-meta { text-align: right; font-size: 12px; color: var(--ink-muted); line-height: 1.7; }
+  .head-meta strong { color: var(--ink); display: block; font-size: 13px; font-weight: 600; }
+
+  /* "Since yesterday" change strip */
+  .changelog { max-width: 1480px; margin: 24px auto 0; padding: 0 32px; }
+  .changelog-inner { background: var(--card); border: 1px solid var(--rule); border-left: 3px solid var(--navy-deep); padding: 14px 20px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .changelog-label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; flex-shrink: 0; }
+  .changelog-items { display: flex; gap: 24px; flex-wrap: wrap; font-size: 13px; }
+  .changelog-item { color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .changelog-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--signal-up); }
+  .changelog-item .dot.warn { background: var(--signal-warn); }
+  .changelog-item .dot.down { background: var(--signal-down); }
+  .changelog-link { margin-left: auto; font-size: 12px; color: var(--ink-muted); text-decoration: none; }
+  .changelog-link:hover { color: var(--ink); }
+
+  /* ============= Section frame ============= */
+  section.zone { max-width: 1480px; margin: 0 auto; padding: 48px 32px; }
+  section.zone + section.zone { padding-top: 0; }
+  .zone-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+  .zone-head h2 { font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 30px; line-height: 1; color: var(--navy-deep); letter-spacing: -0.015em; }
+  .zone-head h2 em { font-style: italic; color: var(--navy-light); }
+  .zone-head .meta { font-size: 12px; color: var(--ink-muted); display: flex; align-items: center; gap: 16px; }
+  .zone-head .meta a { color: var(--navy-deep); text-decoration: none; font-weight: 500; }
+  .zone-head .meta a:hover { text-decoration: underline; }
+
+  /* ============= KPI grid ============= */
+  .kpi-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; grid-template-rows: auto auto; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .kpi { background: var(--card); padding: 22px 22px 18px; display: flex; flex-direction: column; justify-content: space-between; min-height: 156px; transition: background 0.2s; }
+  .kpi:hover { background: var(--bg-soft); }
+  .kpi-hero { grid-column: span 2; grid-row: span 2; min-height: 0; padding: 32px; background: var(--navy-deep); color: var(--bg); }
+  .kpi-hero:hover { background: var(--navy-deep); }
+  .kpi .label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+  .kpi-hero .label { color: var(--accent); }
+  .kpi .value { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-variant-numeric: tabular-nums; font-size: 36px; line-height: 1; color: var(--ink); margin: 12px 0 8px; letter-spacing: -0.02em; }
+  .kpi-hero .value { font-family: 'Instrument Serif', serif; font-weight: 400; color: var(--bg); font-size: 96px; line-height: 0.95; letter-spacing: -0.025em; }
+  .kpi .delta { font-family: 'JetBrains Mono', monospace; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  .kpi .delta.up { color: var(--signal-up); }
+  .kpi-hero .delta.up { color: #8FBFA1; }
+  .kpi .delta.down { color: var(--signal-down); }
+  .kpi-hero .delta.down { color: #E8A39B; }
+  .kpi .target { font-size: 11px; color: var(--ink-faint); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+  .kpi-hero .target { color: rgba(245,248,250,0.55); }
+  .kpi .progress { height: 2px; background: var(--rule); margin-top: auto; position: relative; }
+  .kpi-hero .progress { background: rgba(245,248,250,0.15); height: 3px; }
+  .kpi .progress::after { content: ''; position: absolute; left: 0; top: 0; height: 100%; background: var(--navy-deep); width: var(--p, 50%); }
+  .kpi-hero .progress::after { background: var(--accent); }
+
+  /* ============= Two-col layout ============= */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .col { background: var(--card); padding: 0; }
+
+  /* ============= Tables ============= */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { text-align: left; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; padding: 14px 22px 10px; border-bottom: 1px solid var(--rule); background: var(--card); }
+  .data-table td { padding: 11px 22px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+  .data-table tbody tr { transition: background 0.15s; }
+  .data-table tbody tr:hover { background: var(--bg-soft); }
+  .data-table .num-cell { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
+  .data-table .right { text-align: right; }
+  .data-table tr.muted td { color: var(--ink-faint); }
+  .data-table tr.total { background: var(--bg-soft); }
+  .data-table tr.total td { font-weight: 600; }
+
+  .panel-head { font-size: 11px; color: var(--navy-deep); letter-spacing: 0.1em; font-weight: 600; padding: 14px 22px; border-bottom: 1px solid var(--rule); text-transform: uppercase; }
+
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 3px; letter-spacing: 0.04em; text-transform: uppercase; }
+  .pill::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .pill.active { color: var(--signal-up); background: rgba(45,106,79,0.10); }
+  .pill.idle { color: var(--ink-muted); background: rgba(90,104,120,0.10); }
+  .pill.warn { color: var(--signal-warn); background: rgba(176,125,42,0.10); }
+  .pill.down { color: var(--signal-down); background: rgba(181,69,58,0.10); }
+  .pill.draft { color: var(--navy-light); background: rgba(90,112,136,0.12); }
+
+  .avatar { width: 22px; height: 22px; border-radius: 50%; background: var(--navy-deep); color: var(--bg); display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; margin-right: 8px; vertical-align: middle; }
+  .row-label { display: inline-flex; align-items: center; }
+
+  /* Compact pipeline widget (counts + 1-2 deals per stage) */
+  .pipeline-compact { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .lane { background: var(--card); padding: 16px 18px; }
+  .lane-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .lane-name { font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); }
+  .lane-count { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--navy-deep); font-weight: 600; }
+  .lane-amount { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-muted); margin-bottom: 12px; }
+  .deal-mini { font-size: 12px; padding: 6px 0; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; gap: 8px; }
+  .deal-mini:first-of-type { border-top: 0; }
+  .deal-mini-name { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .deal-mini-amount { font-family: 'JetBrains Mono', monospace; color: var(--ink-muted); flex-shrink: 0; font-size: 11px; }
+
+  /* Compact team widget */
+  .team-compact .data-table th, .team-compact .data-table td { padding-left: 16px; padding-right: 16px; }
+
+  /* Stack list (config-file backed) */
+  .stack-list { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; }
+  .stack-row { display: grid; grid-template-columns: 28px 1fr auto auto auto; align-items: center; gap: 16px; padding: 12px 22px; border-bottom: 1px solid var(--rule); transition: background 0.15s; }
+  .stack-row:last-child { border-bottom: 0; }
+  .stack-row:hover { background: var(--bg-soft); }
+  .stack-icon { width: 28px; height: 28px; border-radius: 4px; background: var(--bg-soft); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--navy-deep); }
+  .stack-name { font-weight: 600; font-size: 13px; }
+  .stack-cat { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); margin-left: 8px; }
+  .stack-renew { font-size: 11px; color: var(--ink-muted); font-family: 'JetBrains Mono', monospace; }
+  .stack-cost { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--navy-deep); font-weight: 500; min-width: 90px; text-align: right; }
+  .stack-foot { padding: 12px 22px; background: var(--bg-soft); display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-muted); }
+
+  .config-note { font-size: 11px; color: var(--ink-faint); font-style: italic; margin-top: 8px; padding: 0 4px; }
+
+  footer { max-width: 1480px; margin: 0 auto; padding: 28px 32px 48px; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-faint); margin-top: 24px; }
+
+  /* Reveal animation — first paint only */
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(6px); animation: reveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+    .reveal-1 { animation-delay: 0.05s; }
+    .reveal-2 { animation-delay: 0.12s; }
+    .reveal-3 { animation-delay: 0.20s; }
+    .reveal-4 { animation-delay: 0.28s; }
+    .reveal-5 { animation-delay: 0.36s; }
+    .reveal-6 { animation-delay: 0.44s; }
+    @keyframes reveal { to { opacity: 1; transform: none; } }
+  }
+
+  /* ============= Mobile ============= */
+  @media (max-width: 1080px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .kpi-hero { grid-column: span 2; grid-row: auto; min-height: 200px; }
+    .kpi-hero .value { font-size: 72px; }
+    .pipeline-compact { grid-template-columns: 1fr 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 720px) {
+    .masthead-inner { grid-template-columns: 1fr auto; gap: 12px; padding: 12px 16px; }
+    .top-nav { display: none; }
+    .updated { font-size: 10px; }
+    .updated-dot { width: 4px; height: 4px; }
+    .changelog-inner { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .changelog-items { flex-direction: column; gap: 8px; width: 100%; }
+    .changelog-link { margin-left: 0; }
+    .page-head, .changelog, section.zone, footer { padding-left: 16px; padding-right: 16px; }
+    h1.title { font-size: 40px; }
+    .standfirst { font-size: 14px; }
+    .head-top { grid-template-columns: 1fr; }
+    .head-meta { text-align: left; }
+    .kpi-grid { grid-template-columns: 1fr; }
+    .kpi-hero { grid-column: span 1; }
+    .kpi-hero .value { font-size: 56px; }
+    .kpi { min-height: 130px; padding: 18px; }
+    .pipeline-compact { grid-template-columns: 1fr; }
+    .data-table th, .data-table td { padding: 10px 14px; font-size: 12px; }
+    .data-table .hide-sm { display: none; }
+    .stack-row { grid-template-columns: 24px 1fr auto; gap: 10px; padding: 10px 14px; }
+    .stack-row .stack-cat, .stack-row .stack-renew { display: none; }
+    .changelog-inner { padding: 12px 14px; gap: 12px; }
+    .nav-toggle button { padding: 5px 8px; font-size: 10px; }
+    footer { flex-direction: column; gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <span class="brand-name">Airvues<span class="sep">·</span><span class="sub">Ops</span></span>
+    </div>
+    <div class="ticker">
+      <span class="ticker-item"><strong>MRR</strong> <span class="num">$38,420</span> <span class="ticker-up">▲ 4.2%</span></span>
+      <span class="ticker-item"><strong>AR</strong> <span class="num">$15,750</span> <span class="ticker-down">▼ 1 overdue</span></span>
+      <span class="ticker-item"><strong>Sprints</strong> <span class="num">3</span></span>
+      <span class="ticker-item"><strong>Open quotes</strong> <span class="num">7</span></span>
+    </div>
+    <div style="display:flex; gap:16px; align-items:center;">
+      <span class="updated"><span class="updated-dot"></span>Updated 2 min ago</span>
+      <div class="nav-toggle">
+        <button class="active">Founder</button>
+        <button>Eng</button>
+        <button>Client</button>
+      </div>
+    </div>
+  </div>
+  <div style="max-width:1480px; margin:0 auto; padding: 0 32px 12px;">
+    <nav class="top-nav">
+      <a href="#" class="current">Home</a>
+      <a href="#">Pipeline</a>
+      <a href="#">Team</a>
+      <a href="#">Clients</a>
+      <a href="#">Money</a>
+      <a href="#">Stack</a>
+      <a href="#" style="margin-left:auto">Settings</a>
+    </nav>
+  </div>
+</header>
+
+<div class="page-head">
+  <div class="head-top">
+    <div>
+      <h1 class="title reveal reveal-1">Good afternoon, <em>Lee.</em></h1>
+      <p class="standfirst reveal reveal-1">A snapshot of the firm — <span class="num">7</span> measures · <span class="num">52</span> clients · <span class="num">6</span> teammates.</p>
+    </div>
+    <div class="head-meta reveal reveal-1">
+      <strong>Thursday, April 24, 2026</strong>
+      14:42 PT
+    </div>
+  </div>
+</div>
+
+<!-- Since yesterday strip -->
+<div class="changelog reveal reveal-2">
+  <div class="changelog-inner">
+    <span class="changelog-label">Since yesterday</span>
+    <div class="changelog-items">
+      <span class="changelog-item"><span class="dot"></span>3 invoices paid · $11,050</span>
+      <span class="changelog-item"><span class="dot"></span>1 new lead · Loomis Health</span>
+      <span class="changelog-item"><span class="dot warn"></span>GBNA retainer awaiting signature</span>
+      <span class="changelog-item"><span class="dot down"></span>NearU invoice 38d overdue</span>
+    </div>
+    <a href="#" class="changelog-link">Full activity →</a>
+  </div>
+</div>
+
+<!-- KPIs -->
+<section class="zone reveal reveal-2">
+  <div class="zone-head">
+    <h2>Key <em>indicators</em></h2>
+    <div class="meta">7 measures · refreshed every 5 min</div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi kpi-hero" style="--p: 38%;">
+      <div>
+        <div class="label">Annual revenue · YTD</div>
+        <div class="value">$192,400</div>
+        <div class="delta up">▲ +$28k vs Q1 plan · 38% of $500k</div>
+      </div>
+      <div class="progress"></div>
+    </div>
+    <div class="kpi" style="--p: 92%;">
+      <div>
+        <div class="label">MRR</div>
+        <div class="value">$38,420</div>
+      </div>
+      <div>
+        <div class="delta up">▲ 4.2% MoM</div>
+        <div class="target">Target $41,700 · 92%</div>
+        <div class="progress"></div>
+      </div>
+    </div>
+    <div class="kpi" style="--p: 96%;">
+      <div>
+        <div class="label">Sprint delivery</div>
+        <div class="value">86%</div>
+      </div>
+      <div>
+        <div class="delta down">▼ 4 pts vs target</div>
+        <div class="target">Target 90%</div>
+        <div class="progress"></div>
+      </div>
+    </div>
+    <div class="kpi" style="--p: 50%;">
+      <div>
+        <div class="label">Escalations · Apr</div>
+        <div class="value">1</div>
+      </div>
+      <div>
+        <div class="delta up">▼ vs Mar (3)</div>
+        <div class="target">Limit 2/mo</div>
+        <div class="progress"></div>
+      </div>
+    </div>
+    <div class="kpi" style="--p: 64%;">
+      <div>
+        <div class="label">On retainer</div>
+        <div class="value">32%</div>
+      </div>
+      <div>
+        <div class="delta up">▲ 6 pts</div>
+        <div class="target">Target 50%</div>
+        <div class="progress"></div>
+      </div>
+    </div>
+    <div class="kpi" style="--p: 97%;">
+      <div>
+        <div class="label">Renewal rate</div>
+        <div class="value">88%</div>
+      </div>
+      <div>
+        <div class="delta down">▼ 2 pts</div>
+        <div class="target">Target 90%</div>
+        <div class="progress"></div>
+      </div>
+    </div>
+    <div class="kpi" style="--p: 92%;">
+      <div>
+        <div class="label">CSAT</div>
+        <div class="value">9.2</div>
+      </div>
+      <div>
+        <div class="delta up">▲ 0.4 vs Q1</div>
+        <div class="target">Floor 8.5</div>
+        <div class="progress"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Money -->
+<section class="zone reveal reveal-3">
+  <div class="zone-head">
+    <h2>Money <em>moving</em></h2>
+    <div class="meta"><a href="#">Open ledger →</a></div>
+  </div>
+  <div class="two-col">
+    <div class="col">
+      <div class="panel-head">Top revenue clients · YTD</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Client</th><th class="right">YTD</th><th class="right hide-sm">MRR</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#7B3F4D">GB</span>Gracie Barra HQ</span></td><td class="right num-cell">$48,200</td><td class="right num-cell hide-sm">$8,000</td><td><span class="pill active">Retainer</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#3B5274">OP</span>Optimum CS</span></td><td class="right num-cell">$31,450</td><td class="right num-cell hide-sm">$5,250</td><td><span class="pill active">Active</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#2D4F3D">AP</span>Apple — Lilith</span></td><td class="right num-cell">$24,800</td><td class="right num-cell hide-sm">—</td><td><span class="pill warn">Project</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#8B6F2A">TS</span>TX School for the Deaf</span></td><td class="right num-cell">$22,300</td><td class="right num-cell hide-sm">$3,800</td><td><span class="pill active">Retainer</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#5A2D4F">NU</span>NearU</span></td><td class="right num-cell">$18,900</td><td class="right num-cell hide-sm">—</td><td><span class="pill idle">Paused</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#4F5A2D">BH</span>Brian Hilton</span></td><td class="right num-cell">$14,200</td><td class="right num-cell hide-sm">—</td><td><span class="pill warn">Phase 4</span></td></tr>
+          <tr class="muted"><td colspan="4" style="text-align:right;font-size:11px;font-style:italic">+ 18 smaller engagements →</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <div class="panel-head">Receivables · ageing</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Invoice</th><th class="hide-sm">Client</th><th class="right">Amount</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="num-cell">AIR-OPT-26-03</td><td class="hide-sm">Optimum</td><td class="right num-cell">$5,250</td><td><span class="pill warn">Net 45 · 21d</span></td></tr>
+          <tr><td class="num-cell">AIR-GBH-26-04</td><td class="hide-sm">GB HQ</td><td class="right num-cell">$2,000</td><td><span class="pill active">Sent</span></td></tr>
+          <tr><td class="num-cell">AIR-AAP-26-02</td><td class="hide-sm">Apple</td><td class="right num-cell">$3,200</td><td><span class="pill warn">Viewed · 12d</span></td></tr>
+          <tr><td class="num-cell">AIR-TSD-26-04</td><td class="hide-sm">TSD</td><td class="right num-cell">$3,800</td><td><span class="pill draft">Draft</span></td></tr>
+          <tr><td class="num-cell">AIR-NRU-25-09</td><td class="hide-sm">NearU</td><td class="right num-cell">$1,500</td><td><span class="pill down">Past due 38d</span></td></tr>
+          <tr class="total"><td colspan="2">Total outstanding</td><td class="right num-cell">$15,750</td><td><span class="pill warn">1 overdue</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Pipeline (compact) + Team (compact) -->
+<section class="zone reveal reveal-4">
+  <div class="zone-head">
+    <h2>Pipeline <em>in flight</em></h2>
+    <div class="meta">14 active · <a href="#">Open pipeline →</a></div>
+  </div>
+  <div class="pipeline-compact">
+    <div class="lane">
+      <div class="lane-head"><span class="lane-name">Scoping</span><span class="lane-count">04</span></div>
+      <div class="lane-amount">$13k pipeline</div>
+      <div class="deal-mini"><span class="deal-mini-name">GBNA Retainer</span><span class="deal-mini-amount">$2k/mo</span></div>
+      <div class="deal-mini"><span class="deal-mini-name">Vance Media</span><span class="deal-mini-amount">~$8k</span></div>
+      <div class="deal-mini" style="opacity:.55"><span class="deal-mini-name">+ 2 more</span><span class="deal-mini-amount">—</span></div>
+    </div>
+    <div class="lane">
+      <div class="lane-head"><span class="lane-name">Proposal sent</span><span class="lane-count">03</span></div>
+      <div class="lane-amount">$58k pipeline</div>
+      <div class="deal-mini"><span class="deal-mini-name">Apple Phase 4</span><span class="deal-mini-amount">$28k</span></div>
+      <div class="deal-mini"><span class="deal-mini-name">TSD Phase 3</span><span class="deal-mini-amount">$18k</span></div>
+      <div class="deal-mini" style="opacity:.55"><span class="deal-mini-name">+ 1 more</span><span class="deal-mini-amount">$12k</span></div>
+    </div>
+    <div class="lane">
+      <div class="lane-head"><span class="lane-name">Negotiating</span><span class="lane-count">02</span></div>
+      <div class="lane-amount">$28.8k pipeline</div>
+      <div class="deal-mini"><span class="deal-mini-name">Airbnb Q3 SOW</span><span class="deal-mini-amount">$22k</span></div>
+      <div class="deal-mini"><span class="deal-mini-name">Optimum CO3</span><span class="deal-mini-amount">$6.8k</span></div>
+    </div>
+    <div class="lane">
+      <div class="lane-head"><span class="lane-name">Awaiting payment</span><span class="lane-count">05</span></div>
+      <div class="lane-amount">$15.7k receivable</div>
+      <div class="deal-mini"><span class="deal-mini-name">GB HQ retainer</span><span class="deal-mini-amount">$2k</span></div>
+      <div class="deal-mini"><span class="deal-mini-name">Optimum Mar</span><span class="deal-mini-amount">$5.2k</span></div>
+      <div class="deal-mini" style="opacity:.55"><span class="deal-mini-name">+ 3 more</span><span class="deal-mini-amount">$8.5k</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="zone reveal reveal-5">
+  <div class="zone-head">
+    <h2>The <em>team</em></h2>
+    <div class="meta">5 internal · <a href="#">Full directory →</a></div>
+  </div>
+  <div class="two-col team-compact">
+    <div class="col">
+      <div class="panel-head">Active team</div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Person</th><th>Role</th><th class="hide-sm">Type</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><span class="row-label"><span class="avatar">LT</span>Lee Tsao</span></td><td>COO</td><td class="hide-sm">Founder</td><td><span class="pill active">Active</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar">EN</span>Enrique Torreblanca</span></td><td>CTO</td><td class="hide-sm">Founder</td><td><span class="pill active">Active</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#5A7088">DB</span>David Bracho</span></td><td>Principal Engineer</td><td class="hide-sm">FT · May 1</td><td><span class="pill warn">Onboarding</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#5A7088">JA</span>Jose Abreu</span></td><td>Eng Ops Lead</td><td class="hide-sm">FT · May 1</td><td><span class="pill warn">Onboarding</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#5A7088">SB</span>Shania Banton</span></td><td>Head of Client Sol.</td><td class="hide-sm">FT · May 1</td><td><span class="pill warn">Onboarding</span></td></tr>
+          <tr><td><span class="row-label"><span class="avatar" style="background:#8A95A5">CC</span>Cody Cullen</span></td><td>L1 Engineer</td><td class="hide-sm">Contractor</td><td><span class="pill active">Active</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="col">
+      <div class="panel-head" style="display:flex; justify-content:space-between; align-items:center;">Login users · access<span style="font-size:9px;letter-spacing:.12em;color:var(--ink-faint);text-transform:uppercase;font-weight:500">Admin only</span></div>
+      <table class="data-table">
+        <thead>
+          <tr><th>Email</th><th>Role</th><th class="hide-sm">Last seen</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>leetsao1@gmail.com</td><td>Admin</td><td class="num-cell hide-sm">Now</td><td><span class="pill active">Active</span></td></tr>
+          <tr><td>enrique@airvues.com</td><td>Admin</td><td class="num-cell hide-sm">2h ago</td><td><span class="pill active">Active</span></td></tr>
+          <tr><td>shania@airvues.com</td><td>Editor</td><td class="num-cell hide-sm">Pending</td><td><span class="pill draft">Invited</span></td></tr>
+          <tr><td>jose@airvues.com</td><td>Editor</td><td class="num-cell hide-sm">Pending</td><td><span class="pill draft">Invited</span></td></tr>
+          <tr><td>bracho@airvues.com</td><td>Editor</td><td class="num-cell hide-sm">Pending</td><td><span class="pill draft">Invited</span></td></tr>
+          <tr><td>cody@airvues.com</td><td>Viewer</td><td class="num-cell hide-sm">5d ago</td><td><span class="pill active">Active</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Stack -->
+<section class="zone reveal reveal-6">
+  <div class="zone-head">
+    <h2>The <em>stack</em></h2>
+    <div class="meta">8 active · $640/mo · <a href="#">Manage →</a></div>
+  </div>
+  <div class="stack-list">
+    <div class="stack-row">
+      <div class="stack-icon">AT</div>
+      <div><span class="stack-name">Airtable</span><span class="stack-cat">Database · Core</span></div>
+      <span class="stack-renew">Renews 2026-08-12</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">$240/mo</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">VC</div>
+      <div><span class="stack-name">Vercel Pro</span><span class="stack-cat">Hosting</span></div>
+      <span class="stack-renew">Renews 2026-06-01</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">$20/mo</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">SL</div>
+      <div><span class="stack-name">Slack Business+</span><span class="stack-cat">Comms</span></div>
+      <span class="stack-renew">Renews 2027-01-10</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">$90/mo</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">BV</div>
+      <div><span class="stack-name">Bluevine</span><span class="stack-cat">Banking</span></div>
+      <span class="stack-renew">—</span>
+      <span class="pill warn">Personal name</span>
+      <span class="stack-cost">$0</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">ST</div>
+      <div><span class="stack-name">Stripe</span><span class="stack-cat">Payments</span></div>
+      <span class="stack-renew">Per-txn</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">2.9% + 30¢</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">GR</div>
+      <div><span class="stack-name">Granola</span><span class="stack-cat">Meetings</span></div>
+      <span class="stack-renew">Renews 2026-07-04</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">$18/mo</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">AN</div>
+      <div><span class="stack-name">Claude · Anthropic</span><span class="stack-cat">AI · Coding</span></div>
+      <span class="stack-renew">Renews 2026-05-08</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">$200/mo</span>
+    </div>
+    <div class="stack-row">
+      <div class="stack-icon">GG</div>
+      <div><span class="stack-name">Google Workspace</span><span class="stack-cat">Calendar · Mail</span></div>
+      <span class="stack-renew">Renews 2026-09-22</span>
+      <span class="pill active">Healthy</span>
+      <span class="stack-cost">$72/mo</span>
+    </div>
+    <div class="stack-foot">
+      <span>Backed by <code style="font-family:'JetBrains Mono',monospace;">/lib/stack.ts</code> — version-controlled, not Airtable</span>
+      <span>Total · $640/mo · ~$7,680/yr</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>Airvues LLC · EIN 39-3045812 · 3400 Cottage Way, Sacramento CA</span>
+  <span>ops.airvues.com</span>
+</footer>
+
+</body>
+</html>

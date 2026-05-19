@@ -1,0 +1,221 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Operational dashboard — DARK theme.
+   Type: Manrope + JetBrains Mono. Palette: near-black surfaces, semantic accents. */
+
+:root {
+  /* Surfaces */
+  --bg: #0B0F17;
+  --bg-elevated: #131825;
+  --surface: #161C2A;
+  --surface-2: #1A2030;
+  --sidebar: #0D121C;
+
+  /* Ink (text) */
+  --ink: #E8ECF2;
+  --ink-strong: #F8FAFC;
+  --ink-muted: #8B95A5;
+  --ink-faint: #5C6675;
+
+  /* Rules */
+  --rule: #1F2735;
+  --rule-soft: #161C2A;
+  --rule-strong: #2A3245;
+
+  /* Brand */
+  --navy: #2B4257;
+  --navy-soft: rgba(43, 66, 87, 0.18);
+
+  /* Semantic accents — vivid against dark */
+  --emerald: #22D3A8;
+  --emerald-soft: rgba(34, 211, 168, 0.10);
+  --red: #FB7185;
+  --red-soft: rgba(251, 113, 133, 0.10);
+  --amber: #FBBF24;
+  --amber-soft: rgba(251, 191, 36, 0.10);
+  --sky: #7DD3FC;
+  --sky-soft: rgba(125, 211, 252, 0.10);
+  --violet: #C4B5FD;
+  --violet-soft: rgba(196, 181, 253, 0.10);
+}
+
+html { background: var(--bg); }
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), -apple-system, system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+.tabnum { font-variant-numeric: tabular-nums; }
+
+/* Legacy aliases */
+.display { font-family: var(--font-sans), sans-serif; font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Eyebrow — small all-caps label */
+.eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* Reveal — subtle, fast */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { opacity: 0; animation: reveal 0.25s ease-out forwards; }
+  .reveal-1 { animation-delay: 0.02s; }
+  .reveal-2 { animation-delay: 0.05s; }
+  .reveal-3 { animation-delay: 0.08s; }
+  .reveal-4 { animation-delay: 0.11s; }
+  .reveal-5 { animation-delay: 0.14s; }
+  .reveal-6 { animation-delay: 0.17s; }
+  .reveal-7 { animation-delay: 0.20s; }
+  .reveal-8 { animation-delay: 0.23s; }
+  @keyframes reveal { to { opacity: 1; } }
+}
+
+::selection { background: var(--emerald); color: var(--bg); }
+html { scroll-behavior: smooth; }
+
+/* Form controls — dark theme defaults so native selects/inputs don't fight us */
+input, select, textarea {
+  color-scheme: dark;
+}
+
+/* ─── Login page · brand expression ─────────────────────────────────────── */
+
+/* Aurora — drifting blurred color blobs behind the brand panel. */
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  will-change: transform, opacity;
+}
+.aurora-blob-emerald {
+  width: 720px; height: 720px;
+  background: radial-gradient(circle, rgba(34, 211, 168, 0.55), rgba(34, 211, 168, 0) 70%);
+  top: -20%; left: -10%;
+  opacity: 0.55;
+}
+.aurora-blob-navy {
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(43, 66, 87, 0.85), rgba(43, 66, 87, 0) 70%);
+  bottom: -30%; right: -15%;
+  opacity: 0.7;
+}
+.aurora-blob-deep {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(125, 211, 252, 0.18), rgba(125, 211, 252, 0) 70%);
+  top: 30%; right: 20%;
+  opacity: 0.4;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aurora-blob-emerald { animation: drift-emerald 28s ease-in-out infinite; }
+  .aurora-blob-navy    { animation: drift-navy    34s ease-in-out infinite; }
+  .aurora-blob-deep    { animation: drift-deep    24s ease-in-out infinite; }
+}
+
+@keyframes drift-emerald {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(180px, 140px) scale(1.15); }
+  66%      { transform: translate(-80px, 220px) scale(0.92); }
+}
+@keyframes drift-navy {
+  0%, 100% { transform: translate(0, 0) scale(1.05); }
+  50%      { transform: translate(-200px, -160px) scale(0.95); }
+}
+@keyframes drift-deep {
+  0%, 100% { transform: translate(0, 0) scale(0.9); opacity: 0.4; }
+  50%      { transform: translate(120px, -90px) scale(1.2); opacity: 0.25; }
+}
+
+/* Grain overlay — subtle film texture for depth. SVG noise inline as data-uri. */
+.aurora-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* Vignette — dark fade at edges so content reads against the aurora. */
+.aurora-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(11, 15, 23, 0.65) 100%);
+}
+
+/* Manifesto — four lines cross-fade on a 32s loop, 8s apart, each visible ~6s. */
+.manifesto {
+  position: relative;
+  display: block;
+  min-height: 3em;
+  line-height: 1.3;
+}
+.manifesto-line {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  opacity: 0;
+  transform: translateY(8px);
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .manifesto-line {
+    animation: manifesto-cycle 32s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Reduced motion: show only the first principle, no animation */
+  .manifesto-line { opacity: 0; }
+  .manifesto-line:first-child { opacity: 1; transform: none; }
+}
+@keyframes manifesto-cycle {
+  0%   { opacity: 0; transform: translateY(8px); }
+  6%   { opacity: 1; transform: translateY(0); }
+  22%  { opacity: 1; transform: translateY(0); }
+  28%  { opacity: 0; transform: translateY(-8px); }
+  100% { opacity: 0; transform: translateY(-8px); }
+}
+
+/* Logo reveal — slow scale-in + glow on first paint. */
+@media (prefers-reduced-motion: no-preference) {
+  .login-mark { animation: mark-enter 1.2s cubic-bezier(0.22, 1, 0.36, 1) both; }
+}
+@keyframes mark-enter {
+  from { opacity: 0; transform: scale(0.85); filter: drop-shadow(0 0 0 transparent); }
+  to   { opacity: 1; transform: scale(1); filter: drop-shadow(0 4px 24px rgba(34, 211, 168, 0.25)); }
+}
+
+/* Goal bar fill — sweep from 0 to target on mount. CSS var --fill-target. */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-safe\:animate-fill-bar {
+    animation: fill-bar 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes fill-bar {
+  from { width: 0; }
+  to   { width: var(--fill-target); }
+}
+
+/* Page entrance — quick fade-in for the main content area. */
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter { animation: page-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+}
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

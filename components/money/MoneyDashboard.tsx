@@ -7,6 +7,7 @@ import { FilterBar } from "./FilterBar";
 import { InvoiceTable } from "./InvoiceTable";
 import { InvoiceSheet } from "./InvoiceSheet";
 import { ArAgingChart } from "./ArAgingChart";
+import { MonthlyFocus } from "./MonthlyFocus";
 import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, StatusBucket } from "./types";
 
 type Props = {

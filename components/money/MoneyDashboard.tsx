@@ -181,6 +181,14 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
         filteredCount={filtered.length}
       />
 
+      {/* This Month focus — MTD revenue, MRR, monthly goal bars */}
+      <MonthlyFocus
+        mtdRevenue={kpis.mtdRevenue}
+        mtdPaidCount={kpis.mtdPaidCount}
+        mrr={kpis.mrr}
+      />
+
+
       {/* KPI strip — 5 colored cards (matches target screenshot) */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
         <StatCard

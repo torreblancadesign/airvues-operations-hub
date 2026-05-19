@@ -1,7 +1,6 @@
-// "This Month" section — current-month revenue, MRR, and goal progress bars.
+// "This Month" section — current-month revenue and MRR goal progress bars.
 // Placed at top of /money. Constants are easy to tweak inline.
 
-import { StatCard } from "@/components/ui/StatCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { GoalBar } from "@/components/home/GoalBar";
 
@@ -55,21 +54,6 @@ export function MonthlyFocus({ mtdRevenue, mtdPaidCount, mrr }: Props) {
           </span>
         }
       />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
-        <StatCard
-          label="Revenue MTD"
-          tone="emerald"
-          value={fmtMoney(mtdRevenue)}
-          sub={`${mtdPaidCount} paid invoice${mtdPaidCount === 1 ? "" : "s"} this month`}
-        />
-        <StatCard
-          label="MRR"
-          tone="sky"
-          value={fmtMoney(mrr)}
-          sub="Recurring · subscribed"
-        />
-      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <GoalBar

@@ -127,6 +127,11 @@ const GOOGLE_SCOPES = [
 ].join(" ");
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  // Trust the x-forwarded-host header from Vercel's proxy. Without this (and
+  // without AUTH_URL), NextAuth v5 falls back to http://localhost:3000 when
+  // building OAuth callback URLs — which sends users to localhost after Google
+  // consent. Safe on Vercel because the platform sets x-forwarded-host.
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,

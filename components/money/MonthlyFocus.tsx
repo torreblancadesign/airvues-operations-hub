@@ -1,7 +1,6 @@
-// "This Month" section — current-month revenue, MRR, and goal progress bars.
+// "This Month" section — current-month revenue and MRR goal progress bars.
 // Placed at top of /money. Constants are easy to tweak inline.
 
-import { StatCard } from "@/components/ui/StatCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { GoalBar } from "@/components/home/GoalBar";
 

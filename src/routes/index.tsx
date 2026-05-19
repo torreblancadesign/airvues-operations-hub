@@ -1,26 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Airvues Ops" },
+      { name: "description", content: "Internal operations dashboard for Airvues LLC." },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. For sites with multiple pages (About, Services, Contact, etc.),
-// create separate route files (about.tsx, services.tsx, contact.tsx) — don't put all pages in this file.
-function PlaceholderIndex() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
-  );
-}
-
 function Index() {
-  return <PlaceholderIndex />;
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="max-w-xl text-center">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
+          Airvues LLC
+        </p>
+        <h1 className="mt-3 text-4xl font-semibold tracking-tight text-foreground">
+          Airvues Ops
+        </h1>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Project shell ready. Push the <code className="rounded bg-muted px-1.5 py-0.5 text-xs">airvues-ops</code> repo
+          to replace this scaffolding.
+        </p>
+      </div>
+    </main>
+  );
 }

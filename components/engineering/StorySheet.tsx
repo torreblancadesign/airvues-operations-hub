@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Story } from "@/lib/engineering-types";
 import { updateStory } from "@/lib/mutations/story";
 
@@ -67,6 +68,20 @@ export function StorySheet({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!story) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [story]);
 
   // Reset local edits when story switches
   useEffect(() => {
@@ -83,7 +98,7 @@ export function StorySheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [story, onClose]);
 
-  if (!story) return null;
+  if (!story || !mounted) return null;
 
   const current: Story = { ...story, ...local };
 
@@ -127,7 +142,7 @@ export function StorySheet({
     );
   }
 
-  return (
+  return createPortal(
     <>
       <div
         className="fixed inset-0 bg-black/40 z-40 transition-opacity"
@@ -428,6 +443,7 @@ export function StorySheet({
           </Field>
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

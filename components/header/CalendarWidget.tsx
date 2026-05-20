@@ -141,7 +141,7 @@ export function CalendarWidget({ result, compact = false }: Props) {
           )}
 
           {result.kind === "ok" && result.events.length > 0 && (
-            <ul className="divide-y divide-rule max-h-[420px] overflow-y-auto">
+            <ul className="divide-y divide-rule flex-1 overflow-y-auto">
               {result.events.map((ev) => {
                 const until = timeUntil(ev.start);
                 const startingSoon = until.mins >= 0 && until.mins <= 15;

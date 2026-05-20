@@ -229,7 +229,7 @@ export function PipelineDashboard({ quotes }: Props) {
       {/* KPIs row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
         <StatCard label="Booked YTD" tone="emerald" value={fmtCurrency(kpis.bookedYtd)} sub={`${kpis.bookedYtdCount} quotes · ${goalPct.toFixed(1)}% of $500k`} />
-        <StatCard label="Collected YTD" tone="emerald" value={fmtCurrency(kpis.collectedYtd)} sub={`${kpis.collectedYtdCount} paid · ${fmtCurrency(kpis.collectedYtdOwed)} still owed`} />
+        <StatCard label="Delivered YTD" tone="emerald" value={fmtCurrency(kpis.collectedYtd)} sub={`${kpis.collectedYtdCount} paid · ${fmtCurrency(kpis.collectedYtdOwed)} still owed`} />
         <StatCard label="Open pipeline" tone="amber" value={fmtCurrency(kpis.openDollars)} sub={`${kpis.openCount} quotes · ${fmtCurrency(kpis.stalledDollars)} stalled >14d`} active={filter.stalledOnly} onClick={setStalled} />
         <StatCard label="Active work" tone="sky" value={fmtCurrency(kpis.activeDollars)} sub={`${kpis.activeCount} projects · ${fmtCurrency(kpis.activeUnpaid)} unpaid`} />
         <StatCard label="Quote → Paid" tone="emerald" value={`${kpis.conversion.toFixed(0)}%`} sub={`${kpis.paidCount} paid / ${kpis.sentCount} sent`} />

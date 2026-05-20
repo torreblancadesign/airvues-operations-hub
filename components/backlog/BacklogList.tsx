@@ -54,7 +54,7 @@ function matches(s: Story, f: BacklogFilter): boolean {
   return true;
 }
 
-export function BacklogList({ stories, engineers, clients, quotes, canEdit, initialFilter }: Props) {
+export function BacklogList({ stories, engineers, assignableEngineers, clients, quotes, canEdit, initialFilter }: Props) {
   const [filter, setFilter] = useState<BacklogFilter>({ ...EMPTY_BACKLOG_FILTER, ...initialFilter });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openStory, setOpenStory] = useState<Story | null>(null);

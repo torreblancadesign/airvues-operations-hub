@@ -443,6 +443,7 @@ export function StorySheet({
           </Field>
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

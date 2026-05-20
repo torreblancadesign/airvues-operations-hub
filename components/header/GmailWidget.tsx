@@ -5,9 +5,10 @@ import type { InboxResult } from "@/lib/gmail";
 
 type Props = {
   result: InboxResult;
+  compact?: boolean;
 };
 
-export function GmailWidget({ result }: Props) {
+export function GmailWidget({ result, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -60,7 +61,7 @@ export function GmailWidget({ result }: Props) {
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
           <polyline points="22,6 12,13 2,6" />
         </svg>
-        <span className="text-ink-strong">{chipLabel}</span>
+        <span className={compact ? "hidden" : "text-ink-strong"}>{chipLabel}</span>
         {showCountBadge && (
           <span
             className="ml-0.5 px-1.5 h-4 inline-flex items-center justify-center rounded-full bg-emerald text-bg text-[10px] font-semibold tabnum"
@@ -73,7 +74,7 @@ export function GmailWidget({ result }: Props) {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-[380px] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-2 w-[380px] max-w-[calc(100vw-1rem)] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
           role="dialog"
         >
           <div className="px-4 py-3 border-b border-rule bg-bg-elevated flex items-center justify-between">

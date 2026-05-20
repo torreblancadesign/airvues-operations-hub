@@ -8,6 +8,10 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/nav";
+import { CalendarWidget } from "@/components/header/CalendarWidget";
+import { GmailWidget } from "@/components/header/GmailWidget";
+import type { CalendarResult } from "@/lib/calendar";
+import type { InboxResult } from "@/lib/gmail";
 
 type SignOutHandler = () => Promise<void>;
 
@@ -35,9 +39,11 @@ type Props = {
   userRole: string;
   samlActive: boolean;
   signOutAction: SignOutHandler;
+  calendarResult?: CalendarResult;
+  inboxResult?: InboxResult;
 };
 
-export function MobileNav({ userEmail, userRole, samlActive, signOutAction }: Props) {
+export function MobileNav({ userEmail, userRole, samlActive, signOutAction, calendarResult, inboxResult }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -76,18 +82,26 @@ export function MobileNav({ userEmail, userRole, samlActive, signOutAction }: Pr
               <div className="text-[10px] text-ink-muted leading-none mt-0.5 uppercase tracking-wider">Operations</div>
             </div>
           </Link>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="Open menu"
-            className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface text-ink-strong"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {calendarResult && (
+              <CalendarWidget result={calendarResult} compact />
+            )}
+            {inboxResult && (
+              <GmailWidget result={inboxResult} compact />
+            )}
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-label="Open menu"
+              className="w-10 h-10 flex items-center justify-center rounded-md hover:bg-surface text-ink-strong"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
       </header>
 

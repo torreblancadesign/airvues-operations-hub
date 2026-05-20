@@ -5,6 +5,7 @@ import type { CalendarEvent, CalendarResult } from "@/lib/calendar";
 
 type Props = {
   result: CalendarResult;
+  compact?: boolean;
 };
 
 function isToday(iso: string): boolean {
@@ -27,7 +28,7 @@ function timeUntil(iso: string): { mins: number; label: string } {
   return { mins, label: `${Math.round(hours / 24)}d` };
 }
 
-export function CalendarWidget({ result }: Props) {
+export function CalendarWidget({ result, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -85,8 +86,8 @@ export function CalendarWidget({ result }: Props) {
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        <span className="text-ink-strong">{chipLabel}</span>
-        {nextEvent && (
+        <span className={compact ? "hidden" : "text-ink-strong"}>{chipLabel}</span>
+        {nextEvent && !compact && (
           <span className="text-ink-muted truncate max-w-[120px] hidden lg:inline">
             {nextEvent.title}
           </span>
@@ -95,7 +96,7 @@ export function CalendarWidget({ result }: Props) {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-[360px] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-2 w-[360px] max-w-[calc(100vw-1rem)] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
           role="dialog"
         >
           <div className="px-4 py-3 border-b border-rule bg-bg-elevated flex items-center justify-between">

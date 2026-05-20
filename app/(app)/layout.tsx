@@ -8,6 +8,8 @@ import { TopBar } from "@/components/header/TopBar";
 import { signOut } from "@/lib/auth";
 import { isSamlEnabled } from "@/lib/saml";
 import { SAML_COOKIE_NAME } from "@/lib/samlSession";
+import { getUpcomingEvents } from "@/lib/calendar";
+import { getRecentInbox } from "@/lib/gmail";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getAppSession();
@@ -23,6 +25,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     await signOut({ redirectTo: "/login" });
   }
 
+  const [calendarResult, inboxResult] = await Promise.all([
+    getUpcomingEvents().catch(
+      (err) => ({ kind: "error" as const, message: (err as Error).message }),
+    ),
+    getRecentInbox().catch(
+      (err) => ({ kind: "error" as const, message: (err as Error).message }),
+    ),
+  ]);
+
   return (
     <>
       <Sidebar />
@@ -31,6 +42,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         userRole={session.user.role}
         samlActive={samlActive}
         signOutAction={doSignOut}
+        calendarResult={calendarResult}
+        inboxResult={inboxResult}
       />
       <div className="md:ml-[208px] min-h-screen page-enter">
         <TopBar />

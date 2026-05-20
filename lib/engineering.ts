@@ -73,7 +73,28 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       },
       ["engineering:people"],
     ),
+    listRecordsCached<Record<string, unknown>>(
+      qTbl.id,
+      {
+        fields: [
+          qTbl.fields["Quote ID"].id,
+          qTbl.fields["Project Name"].id,
+          qTbl.fields["Company Name"].id,
+        ],
+      },
+      ["engineering:quotes"],
+    ),
   ]);
+
+  const quoteMap = new Map<string, string>();
+  for (const q of quoteRecords) {
+    const f = q.fields;
+    const project = (f["Project Name"] as string) ?? "";
+    const company = ((f["Company Name"] as string[] | undefined)?.[0]) ?? "";
+    const quoteId = (f["Quote ID"] as string) ?? "";
+    const label = [company, project].filter(Boolean).join(" · ") || quoteId || "(quote)";
+    quoteMap.set(q.id, label);
+  }
 
   type PersonRow = {
     id: string;

@@ -69,17 +69,25 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         {story.name}
       </div>
 
-      {quoteLabel && (
-        <div className="text-[11px] text-ink-muted mb-1.5 truncate" title={quoteLabel}>
-          <span className="text-ink-faint">Quote ·</span> {quoteLabel}
+      {client && (
+        <div className="text-[11px] text-ink-strong mb-1 truncate" title={client}>
+          <span className="text-ink-faint font-mono uppercase tracking-wider text-[10px] mr-1">Client</span>
+          {client}
         </div>
       )}
 
-      <div className="flex items-center gap-1.5 text-[11px] text-ink-muted mb-2 flex-wrap">
-        {client && <span className="truncate max-w-[140px]">{client}</span>}
-        {client && sprintNum != null && <span className="text-ink-faint">·</span>}
-        {sprintNum != null && <span className="font-mono">Sprint {sprintNum}</span>}
-      </div>
+      {quoteLabel && (
+        <div className="text-[11px] text-ink-muted mb-1.5 truncate" title={quoteLabel}>
+          <span className="text-ink-faint font-mono uppercase tracking-wider text-[10px] mr-1">Quote</span>
+          {quoteLabel}
+        </div>
+      )}
+
+      {sprintNum != null && (
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-muted mb-2 flex-wrap">
+          <span className="font-mono">Sprint {sprintNum}</span>
+        </div>
+      )}
 
       {story.description && (
         <div className="text-[11px] text-ink-muted leading-snug mb-2 line-clamp-2 whitespace-pre-wrap">

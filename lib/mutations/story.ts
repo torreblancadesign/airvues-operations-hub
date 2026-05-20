@@ -12,6 +12,7 @@ export type StoryPatch = {
   status?: string | null;
   priority?: string | null;
   hours?: number | null;
+  hoursWorked?: number | null;
   assigneeIds?: string[];
 };
 
@@ -24,6 +25,7 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   if (patch.status !== undefined) fields["Story Status"] = patch.status;
   if (patch.priority !== undefined) fields["Priority"] = patch.priority;
   if (patch.hours !== undefined) fields["Hours"] = patch.hours;
+  if (patch.hoursWorked !== undefined) fields["Hours Worked"] = patch.hoursWorked;
   if (patch.assigneeIds !== undefined) fields["Assignee"] = patch.assigneeIds;
   return fields;
 }

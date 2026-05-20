@@ -50,6 +50,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           sTbl.fields["Story Status"].id,
           sTbl.fields["Assignee"].id,
           sTbl.fields["Client"].id,
+          sTbl.fields["Client (from Epic)"].id,
           sTbl.fields["Quote"].id,
           sTbl.fields["📆Sprints"].id,
           sTbl.fields["Sprint Number (from 📆Sprints)"].id,
@@ -133,7 +134,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
 
     const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
-    const clientNames = clientIds.map((id) => peopleMap.get(id)?.name ?? "(client)");
+    const clientNames = asArray<string>(f["Client (from Epic)"]);
 
     return {
       id: r.id,

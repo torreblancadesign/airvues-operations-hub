@@ -27,8 +27,6 @@ const STATUS_OPTIONS = [
 
 const PRIORITY_OPTIONS = ["Urgent", "High", "Medium", "Low"];
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function statusToneText(status: string | null): string {
   switch (status) {
@@ -166,18 +164,18 @@ export function StorySheet({
 
         <div className="px-5 py-5 bg-bg-elevated border-b border-rule">
           <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-1">
-            Story value
+            Hours scoped
           </div>
           <div className="text-[34px] font-semibold text-ink-strong tabnum leading-none">
-            {fmtMoney(current.invoice)}
+            {current.hours ?? "—"}<span className="text-[20px] text-ink-muted">h</span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
-                Hours scoped
+                Hours worked
               </div>
               <div className="text-[20px] font-semibold text-ink-strong tabnum">
-                {current.hours ?? "—"}h
+                {current.hoursWorked ?? 0}h
               </div>
             </div>
             <div className="text-right">
@@ -190,6 +188,7 @@ export function StorySheet({
             </div>
           </div>
         </div>
+
 
         {pct != null && (
           <div className="px-5 py-4 border-b border-rule">
@@ -294,6 +293,26 @@ export function StorySheet({
             )}
           </Field>
 
+          {/* Editable Hours Worked */}
+          <Field label="Hours worked">
+            {canEdit ? (
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                defaultValue={current.hoursWorked ?? ""}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value === "" ? null : Number(e.target.value);
+                  if (val !== current.hoursWorked) save({ hoursWorked: val }, { hoursWorked: val });
+                }}
+                className={`${inputCls} w-32`}
+              />
+            ) : (
+              <span>{current.hoursWorked ?? 0} h</span>
+            )}
+          </Field>
+
           {/* Editable Assignees */}
           <Field
             label="Assignees"
@@ -358,7 +377,6 @@ export function StorySheet({
             )}
           </Field>
           <Field label="Phase">{current.phase ?? "—"}</Field>
-          <Field label="Cost">{fmtMoney(current.cost)}</Field>
           <Field label="Budget % Used">
             {current.budgetPctUsed != null ? (
               <span className={current.budgetPctUsed > 1 ? "text-red" : ""}>
@@ -378,15 +396,15 @@ export function StorySheet({
           {current.quoteIds.length > 0 && (
             <Field label="Linked Quote">
               <div className="flex flex-col gap-1">
-                {current.quoteIds.map((q) => (
+                {current.quoteIds.map((q, i) => (
                   <a
                     key={q}
                     href={`https://airvues-quote.vercel.app/?quoteId=${q}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-emerald hover:underline text-[12px] font-mono"
+                    className="text-emerald hover:underline text-[12px]"
                   >
-                    {q} ↗
+                    {current.quoteLabels[i] ?? q} ↗
                   </a>
                 ))}
               </div>

@@ -422,30 +422,7 @@ export function StorySheet({
               "—"
             )}
           </Field>
-          {current.description && (
-            <Field label="Description">
-              <div className="text-[12px] text-ink-muted whitespace-pre-wrap line-clamp-12">
-                {current.description}
-              </div>
-            </Field>
-          )}
-          {current.quoteIds.length > 0 && (
-            <Field label="Linked Quote">
-              <div className="flex flex-col gap-1">
-                {current.quoteIds.map((q, i) => (
-                  <a
-                    key={q}
-                    href={`https://airvues-quote.vercel.app/?quoteId=${q}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald hover:underline text-[12px]"
-                  >
-                    {current.quoteLabels[i] ?? q} ↗
-                  </a>
-                ))}
-              </div>
-            </Field>
-          )}
+          {/* Description and Linked Quote shown in the top Context block */}
           <Field label="Airtable Record ID">
             <span className="font-mono text-[12px]">{current.id}</span>
           </Field>

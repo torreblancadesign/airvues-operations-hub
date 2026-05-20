@@ -181,12 +181,12 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
                     <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeCount}</div>
                   </div>
                   <div className="hidden md:block">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Open $</div>
-                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{fmtMoney(g.totals.openInvoice)}</div>
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Assigned hrs</div>
+                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeHoursAssigned}h</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Open commission</div>
-                    <div className="text-[14px] font-semibold text-emerald tabnum">{fmtMoney(g.totals.openCommission)}</div>
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Worked hrs</div>
+                    <div className="text-[14px] font-semibold text-emerald tabnum">{g.totals.activeHoursWorked}h</div>
                   </div>
                   <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
                     {isCollapsed ? "+" : "−"}

@@ -1,63 +1,33 @@
-## Problem
+## Goal
+Two small fixes to the assignee picker on the engineering page (and the shared StorySheet drawer used on 6 pages):
 
-On `/engineering` (and anywhere `StorySheet` is opened from it), the "Assignee" picker only lists people who already have at least one active story. Internal engineers with no current assignments — or whose only stories are Archived/On Hold — never appear, so you can't assign work to them from the UI.
+1. Show **full names** instead of first-name-only.
+2. Only show **active internal team members** as assignable — Thao (and anyone else inactive) should no longer appear as an option.
 
-Root cause: `EngineeringBoard.tsx` derives the `engineers` prop from `data.groups`, and `data.groups` in `lib/engineering.ts` is built by walking active stories. The full People table is already fetched but only used for name lookups.
+## Why Thao still appears today
+`assignableEngineers` in `components/engineering/EngineeringBoard.tsx` is built as a **union** of:
+- `data.assignablePeople` (filtered to `Status === "Active"` + Internal in `lib/engineering.ts`), AND
+- `data.groups` (everyone with an active story, regardless of People.Status)
 
-## Fix
+Thao is no longer Active, but she still has stories assigned to her, so the group-union step re-adds her. That defeats the active filter.
 
-Surface the full set of **assignable internal people** from the data layer, independent of story assignments, and pass it through to the picker.
+## Changes
 
-### 1. `lib/engineering-types.ts`
-Add a new client-safe type and field on `EngineeringBoardData`:
+### 1. `components/engineering/StorySheet.tsx`
+- Line 412: change `+ {e.name.split(" ")[0]}` → `+ {e.name}` so the picker chips show full names (disambiguates two people with the same first name).
+- Line 274: change `All for {current.assigneeNames[0]?.split(" ")[0]}` → `All for {current.assigneeNames[0]}` for consistency in the "filter by this engineer" link.
 
-```ts
-export type AssignablePerson = {
-  id: string;
-  name: string;
-  role: string | null;
-  internalType: string | null;
-};
-
-export type EngineeringBoardData = {
-  groups: EngineerGroup[];
-  assignablePeople: AssignablePerson[]; // NEW
-  totals: { ... };
-  clients: string[];
-  sprints: { ... }[];
-  statuses: string[];
-};
-```
-
-### 2. `lib/engineering.ts`
-After building `peopleMap`, derive `assignablePeople` from it:
-
-- Include anyone with `Status === "Active"` AND `Type` ∈ {`"Internal"`, `"Internal team member"`} (mirrors the canonical-record tiebreakers already used in `lib/people.ts`).
-- Exclude the `support@airvues.com` placeholder pattern if it slips in (defensive — `lib/people.ts` already filters it, but People records here come straight from Airtable, so guard by name/email if needed).
-- Sort by name.
-- Attach to the returned board as `assignablePeople`.
-
-This is one extra `.filter().map().sort()` over data already in memory — no extra Airtable calls.
-
-### 3. `components/engineering/EngineeringBoard.tsx`
-Replace the `useMemo` that builds `engineers` from `data.groups` with one that uses `data.assignablePeople` (falling back to a union with currently-assigned people, so any one-off external assignees on existing stories don't disappear from the filter list).
-
-Two consumers of `engineers`:
-- `FilterBar` "All engineers" dropdown — should keep showing only engineers with stories in view, so pass the existing `data.groups`-derived list there (rename to `engineersWithWork`).
-- `StorySheet` assignee picker — pass the new full `assignablePeople` list (rename prop usage to `engineers={assignablePeople}` or similar).
-
-This split matches intent: filter by who has work, but assign to anyone who can do work.
-
-### 4. Other call sites of `StorySheet`
-`StorySheet` is mounted on 6 pages per `CLAUDE.md`. Quickly audit each (`backlog`, `sprints/[id]`, `sprints/[id]/plan`, `hygiene/orphans`, `me`, `engineering`) and make sure they pass the full assignable list, not a stories-derived subset. Where a page already fetches People (e.g. `lib/engineering.ts`), reuse it; where it doesn't, add a lightweight shared helper `listAssignablePeople()` in `lib/people.ts` (cached, tagged `people:assignable`) and call it from those page server components.
-
-### 5. Verification
-- `npx tsc --noEmit` and `npm run build` green.
-- Open `/engineering`, click any story, confirm the assignee list now includes engineers who currently have zero stories.
-- Confirm the FilterBar "All engineers" dropdown is unchanged (still only people with visible work).
-- Confirm assigning a story to a previously-empty engineer creates a new group on next load.
+### 2. `components/engineering/EngineeringBoard.tsx`
+- Replace the union logic in `assignableEngineers` (lines 60–70) so it is **only** `data.assignablePeople`, sorted by name. Drop the merge with `data.groups`.
+- Stories already assigned to an inactive person (e.g. Thao) still render their chip with the × remove button — that path uses `current.assigneeIds`/`assigneeNames` directly in StorySheet and does not require the person to be in the `engineers` prop. So existing assignments remain editable (removable); they just can't be re-added once removed, which is the desired behavior for inactive people.
+- `engineersWithWork` (used by the FilterBar dropdown) is unchanged — filtering by "engineers who have work" should still include Thao while she has open stories.
 
 ## Out of scope
-- No change to who counts as an "engineer" for commission/leaderboard math.
-- No change to auth/role gating — write still requires `canMutate()`.
-- No People-table dedupe work (still tracked separately per `CLAUDE.md`).
+- No changes to `lib/engineering.ts` — the `Status === "Active"` + Internal filter there is already correct.
+- No changes to the other 5 pages mounting StorySheet in this pass (backlog, sprints kanban, sprint plan, /me, orphans). If you want the same fix applied there, say the word and I'll extend it — most of them pass their own engineer list shaped differently.
+- No People-table dedupe or role gating work.
+
+## Verification
+- Open a story on `/engineering` → picker shows full names; Thao no longer appears as a "+ Add" option.
+- Open a story currently assigned to Thao → her chip still renders with × so she can be removed.
+- FilterBar "Engineer" dropdown still lists Thao while she has open stories (unchanged).

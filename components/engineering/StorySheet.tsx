@@ -271,7 +271,7 @@ export function StorySheet({
               onClick={() => onFilterByEngineer(current.assigneeIds[0])}
               className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
             >
-              All for {current.assigneeNames[0]?.split(" ")[0]}
+              All for {current.assigneeNames[0]}
             </button>
           )}
           {current.clientNames[0] && (
@@ -409,7 +409,7 @@ export function StorySheet({
                       disabled={pending}
                       className="px-2 py-0.5 text-[10px] bg-bg-elevated border border-rule rounded text-ink-muted hover:text-emerald hover:border-emerald transition-colors"
                     >
-                      + {e.name.split(" ")[0]}
+                      + {e.name}
                     </button>
                   ))}
               </div>

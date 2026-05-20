@@ -113,53 +113,47 @@ export function PipelineDashboard({ quotes }: Props) {
 
   const kpis = useMemo(() => {
     const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
-    let pipelineDollars = 0;
-    let pipelineCount = 0;
-    let stalledDollars = 0;
-    let stalledCount = 0;
-    let wonYtd = 0;
-    let wonYtdCount = 0;
-    let sentCount = 0;
-    let paidCount = 0;
-    let signedCount = 0;
-    let avgVelocityDays = 0;
-    let velocitySamples = 0;
-    let lostCount = 0;
+    let bookedYtd = 0, bookedYtdCount = 0;
+    let collectedYtd = 0, collectedYtdOwed = 0, collectedYtdCount = 0;
+    let openDollars = 0, openCount = 0;
+    let stalledDollars = 0, stalledCount = 0;
+    let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
+    let sentCount = 0, paidCount = 0, lostCount = 0;
 
     for (const q of quotes) {
       const days = daysSince(q.preparedDate);
-      const isOpen =
-        q.status === "Sent. Awaiting Approval." ||
-        q.status === "Draft" ||
-        q.status === "Auditing 🚩" ||
-        q.status === "Approved and Signed" ||
-        q.status === "Awaiting Payment" ||
-        q.status === "Project In Progress";
+      const isYtd = q.preparedDate && q.preparedDate >= yearStart;
+      const isOpen = q.status ? OPEN_STATUSES.includes(q.status) : false;
+      const isActive = q.status ? ACTIVE_STATUSES.includes(q.status) : false;
+      const isPaid = q.status === "Paid";
+      const isWon = isActive || isPaid;
 
-      if (isOpen && q.status !== "Paid") {
-        pipelineDollars += q.totalCost;
-        pipelineCount += 1;
-      }
-
-      if ((q.status === "Sent. Awaiting Approval." || q.status === "Draft" || q.status === "Auditing 🚩") && days > 14) {
-        stalledDollars += q.totalCost;
-        stalledCount += 1;
-      }
-
-      if (q.status === "Paid") {
-        paidCount += 1;
-        if (q.preparedDate && q.preparedDate >= yearStart) {
-          wonYtd += q.totalCost;
-          wonYtdCount += 1;
+      if (isOpen) {
+        openDollars += q.totalCost;
+        openCount += 1;
+        if (days > 14) {
+          stalledDollars += q.totalCost;
+          stalledCount += 1;
         }
-        if (q.preparedDate && q.signedDate) {
-          const dStart = new Date(q.preparedDate).getTime();
-          const dEnd = new Date(q.signedDate).getTime();
-          const diff = Math.floor((dEnd - dStart) / 86_400_000);
-          if (diff >= 0) {
-            avgVelocityDays += diff;
-            velocitySamples += 1;
-          }
+      }
+
+      if (isActive) {
+        activeDollars += q.totalCost;
+        activeCount += 1;
+        activeUnpaid += q.amountOwed;
+      }
+
+      if (isWon && isYtd) {
+        bookedYtd += q.totalCost;
+        bookedYtdCount += 1;
+      }
+
+      if (isPaid) {
+        paidCount += 1;
+        if (isYtd) {
+          collectedYtd += q.totalCost;
+          collectedYtdOwed += q.amountOwed;
+          collectedYtdCount += 1;
         }
       }
 
@@ -173,23 +167,21 @@ export function PipelineDashboard({ quotes }: Props) {
         sentCount += 1;
       }
 
-      if (
-        q.status === "Approved and Signed" ||
-        q.status === "Awaiting Payment" ||
-        q.status === "Project In Progress" ||
-        q.status === "Paid"
-      ) {
-        signedCount += 1;
-      }
-
       if (q.status === "Cancelled" || q.status === "Rejected") lostCount += 1;
     }
 
     const conversion = sentCount > 0 ? (paidCount / sentCount) * 100 : 0;
-    const avgVelocity = velocitySamples > 0 ? avgVelocityDays / velocitySamples : 0;
 
-    return { pipelineDollars, pipelineCount, stalledDollars, stalledCount, wonYtd, wonYtdCount, sentCount, paidCount, signedCount, conversion, avgVelocity, lostCount };
+    return {
+      bookedYtd, bookedYtdCount,
+      collectedYtd, collectedYtdOwed, collectedYtdCount,
+      openDollars, openCount,
+      stalledDollars, stalledCount,
+      activeDollars, activeCount, activeUnpaid,
+      sentCount, paidCount, lostCount, conversion,
+    };
   }, [quotes]);
+
 
   const stageBreakdown = useMemo(() => {
     const bins: Record<string, { count: number; total: number }> = {};

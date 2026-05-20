@@ -8,6 +8,10 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/nav";
+import { CalendarWidget } from "@/components/header/CalendarWidget";
+import { GmailWidget } from "@/components/header/GmailWidget";
+import type { CalendarResult } from "@/lib/calendar";
+import type { InboxResult } from "@/lib/gmail";
 
 type SignOutHandler = () => Promise<void>;
 

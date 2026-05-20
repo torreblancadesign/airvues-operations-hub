@@ -1,51 +1,25 @@
 ## Goal
-Apply the same two improvements we made on `/engineering` to `/backlog`:
-
-1. Show **full names** instead of first-name-only in assignee pickers.
-2. Only show **active internal team members** as assignable (Thao etc. should not appear as "Assign to…" options).
-
-Keep the filter dropdown unchanged — it should still let you filter by anyone who currently has open stories (including inactive people like Thao).
-
-## Why it's broken today
-
-`app/(app)/backlog/page.tsx` builds a single `engineers` list from `data.groups` (everyone with a story, regardless of `People.Status`) and passes it to **all four** consumers:
-- `BacklogList` filter dropdown
-- `StorySheet` assignee picker
-- `BulkBar` "Assign to…" select
-- `NewStoryModal` assignee chips
-
-That defeats the active-person filter for the three "assign-to" surfaces. It also still renders first-name-only chips in `NewStoryModal` (line 223 — same bug we just fixed on the engineering page).
+Remove dollar columns from the backlog list and surface hours + quote name instead. Client column already exists but make sure it's visible at the same breakpoint as the new columns.
 
 ## Changes
 
-### 1. `app/(app)/backlog/page.tsx`
-- Stop deriving a single `engineers` list from `data.groups`. Instead build two lists, mirroring `EngineeringBoard.tsx`:
-  - `engineersWithWork` — from `data.groups` (non-orphan), used for the FilterBar dropdown only.
-  - `assignableEngineers` — from `data.assignablePeople` (already filtered to active internal in `lib/engineering.ts`), sorted by name. Used everywhere a person can be assigned.
-- Pass both into `BacklogList` as separate props.
+**`components/backlog/BacklogRow.tsx`**
+- Remove the `$` (invoice) and `Comm` (commission) columns.
+- Keep the `Hrs` column and promote it so it's visible at all breakpoints (drop the `hidden sm:table-cell`).
+- Add a new `Quote` column showing `story.quoteLabels[0] ?? "—"`, truncated, hidden on small screens (`hidden lg:table-cell`).
+- Keep Client visible from `md` up (unchanged).
 
-### 2. `components/backlog/BacklogList.tsx`
-- Accept `engineersWithWork` and `assignableEngineers` instead of one `engineers` prop.
-- Filter-bar engineer `<select>` uses `engineersWithWork` (unchanged behavior).
-- `BulkBar` receives `assignableEngineers`.
-- `StorySheet` receives `assignableEngineers`.
-- `NewStoryModal` receives `assignableEngineers`.
-
-### 3. `components/backlog/NewStoryModal.tsx`
-- Line 223: `{e.name.split(" ")[0]}` → `{e.name}` so the assignee chips show full names (matches the StorySheet fix).
-
-### 4. No changes needed in
-- `BulkBar.tsx` — already renders `{eng.name}` in full.
-- `StorySheet.tsx` — already fixed in the previous turn.
-- `lib/engineering.ts` — `data.assignablePeople` already filters to active internal.
+**`components/backlog/BacklogList.tsx`**
+- Update the `<thead>` to match: remove `$` and `Comm` headers, add `Quote` header, make `Hrs` always visible.
+- Update the empty-state `colSpan` from 10 to 9 (one net column removed: -2 dollar, +1 quote).
+- Update the KPI strip: replace the "Scope value" StatCard (which shows `fmtMoney(totals.invoice)` + commission) with something hours-oriented. Proposal: keep "Scoped hours" as-is and replace "Scope value" with a second hours-related card such as **"Avg hrs / story"** (`totals.hours / filtered.length`), since dollar totals are being de-emphasized on this page.
+- Drop the unused `fmtMoney` / `COMMISSION_RATE` imports if no longer referenced.
 
 ## Out of scope
-- The other 4 pages using StorySheet (sprints kanban, sprint plan, /me, orphans) — same pattern, but each constructs its own engineer list and will need its own pass. Say the word and I'll extend it.
-- Inactive-but-currently-assigned people remain editable: their chip still renders with × in StorySheet/bulk paths; they just can't be newly added.
+- The StorySheet drawer still shows invoice/commission internally — only the list view is changing.
+- No data-layer changes; `quoteLabels` is already on `Story`.
 
 ## Verification
-- `/backlog` filter "engineer" dropdown still lists Thao while she has open stories.
-- Open a story → picker shows full names; Thao not in the "+ Add" list.
-- Bulk-select rows → "Assign to…" select shows full names of active people only.
-- "New Story" modal → assignee chips show full names; Thao not in the list.
-- Existing assignments to Thao still render with a removable × chip.
+- `/backlog` table shows: ID, Story, Status, Assignee, Client, Quote, Hrs, Sprint — no dollar columns.
+- KPI strip shows no dollar totals.
+- Existing filters, bulk-select, row click → drawer all still work.

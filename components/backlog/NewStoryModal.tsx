@@ -220,7 +220,7 @@ export function NewStoryModal({ open, onClose, engineers, quotes }: Props) {
                           : "bg-bg-elevated border-rule text-ink-muted hover:border-ink-muted hover:text-ink-strong"
                       }`}
                     >
-                      {selected ? "✓ " : ""}{e.name.split(" ")[0]}
+                      {selected ? "✓ " : ""}{e.name}
                     </button>
                   );
                 })}

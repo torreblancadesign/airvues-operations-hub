@@ -15,6 +15,7 @@ type QuoteOption = { id: string; label: string; totalCost: number; status: strin
 type Props = {
   stories: Story[];
   engineers: EngineerOption[];
+  assignableEngineers: EngineerOption[];
   clients: string[];
   quotes: QuoteOption[];
   canEdit: boolean;
@@ -53,7 +54,7 @@ function matches(s: Story, f: BacklogFilter): boolean {
   return true;
 }
 
-export function BacklogList({ stories, engineers, clients, quotes, canEdit, initialFilter }: Props) {
+export function BacklogList({ stories, engineers, assignableEngineers, clients, quotes, canEdit, initialFilter }: Props) {
   const [filter, setFilter] = useState<BacklogFilter>({ ...EMPTY_BACKLOG_FILTER, ...initialFilter });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openStory, setOpenStory] = useState<Story | null>(null);
@@ -230,7 +231,7 @@ export function BacklogList({ stories, engineers, clients, quotes, canEdit, init
       {canEdit && selected.size > 0 && (
         <BulkBar
           selectedIds={[...selected]}
-          engineers={engineers}
+          engineers={assignableEngineers}
           onClear={clearSelection}
           onSuccess={refreshAfterMutation}
         />
@@ -289,7 +290,7 @@ export function BacklogList({ stories, engineers, clients, quotes, canEdit, init
 
       <StorySheet
         story={openStory}
-        engineers={engineers}
+        engineers={assignableEngineers}
         canEdit={canEdit}
         onClose={() => setOpenStory(null)}
         onFilterByEngineer={(id) => {
@@ -305,7 +306,7 @@ export function BacklogList({ stories, engineers, clients, quotes, canEdit, init
       <NewStoryModal
         open={showNewModal}
         onClose={() => setShowNewModal(false)}
-        engineers={engineers}
+        engineers={assignableEngineers}
         quotes={quotes}
       />
     </>

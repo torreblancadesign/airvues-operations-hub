@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { EngineeringBoardData, Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { EngineeringBoardData, Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { StoryCard } from "./StoryCard";
 import { StorySheet } from "./StorySheet";
 import { EngineeringFilterBar } from "./FilterBar";
-import { Leaderboard } from "./Leaderboard";
+import { CapacityPanel } from "./CapacityPanel";
 import { EMPTY_FILTER, Filter, STATUS_GROUPS } from "./types";
 
 type Props = {

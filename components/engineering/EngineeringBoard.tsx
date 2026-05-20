@@ -55,18 +55,16 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
     [data.groups],
   );
 
-  // Full assignable list = all active internal people, unioned with anyone
-  // currently assigned to a story (covers external/legacy assignees so they
-  // remain editable in the picker).
-  const assignableEngineers = useMemo(() => {
-    const map = new Map<string, { id: string; name: string }>();
-    for (const p of data.assignablePeople) map.set(p.id, { id: p.id, name: p.name });
-    for (const g of data.groups) {
-      if (g.isOrphan) continue;
-      if (!map.has(g.id)) map.set(g.id, { id: g.id, name: g.name });
-    }
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
-  }, [data.assignablePeople, data.groups]);
+  // Assignable list = only active internal people. Inactive people (e.g.
+  // departed teammates) currently assigned to a story remain removable via
+  // their chip's × button, but cannot be added to new stories.
+  const assignableEngineers = useMemo(
+    () =>
+      data.assignablePeople
+        .map((p) => ({ id: p.id, name: p.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [data.assignablePeople],
+  );
 
 
   const filtered = useMemo(() => {

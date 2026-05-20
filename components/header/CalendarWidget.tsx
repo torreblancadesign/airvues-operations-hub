@@ -28,6 +28,33 @@ function timeUntil(iso: string): { mins: number; label: string } {
   return { mins, label: `${Math.round(hours / 24)}d` };
 }
 
+function formatStartLocal(iso: string, allDay: boolean): string {
+  if (!iso) return "";
+  if (allDay) {
+    // All-day events come as YYYY-MM-DD — parse as local date to avoid UTC shift
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      return new Intl.DateTimeFormat(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }).format(d);
+    }
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    }).format(new Date(iso));
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(iso));
+}
+
 export function CalendarWidget({ result, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);

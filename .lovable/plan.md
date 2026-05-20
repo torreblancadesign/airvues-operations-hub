@@ -1,16 +1,12 @@
 ## Plan
 
-Update the mobile calendar dropdown so it is anchored to the viewport instead of the small calendar button container.
+Fix the calendar showing event times in the server's timezone (UTC on Vercel) instead of the viewer's local timezone.
 
 ### What will change
-- In `components/header/CalendarWidget.tsx`, detect compact/mobile usage and render the open calendar panel as a fixed-position viewport overlay.
-- On mobile, place it below the sticky header with safe left/right margins and a viewport-based max height so it cannot extend off-screen.
-- Keep the desktop behavior as a normal dropdown beside the TopBar button.
-- Make the event list scroll inside the panel when there are too many events, rather than letting the whole panel get cut off.
+- Stop formatting the event start label on the server in `lib/calendar.ts`. The server returns the raw ISO `start` string already; the client will format it using the browser's local timezone.
+- In `components/header/CalendarWidget.tsx`, format `ev.start` with `Intl.DateTimeFormat` inside a small client helper that runs in the user's browser, so a 9am PST meeting renders as "Wed, 9:00 AM" for a PST user.
+- Handle all-day events with a date-only format (no time, no TZ shift).
 
 ### Technical details
-- Replace the shared `absolute right-0` panel positioning with responsive classes:
-  - mobile/compact: `fixed left-2 right-2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)]`
-  - desktop: existing `md:absolute md:right-0 md:top-auto md:left-auto`
-- Use `max-h-[calc(100dvh-4.5rem-env(safe-area-inset-bottom))]` and `overflow-hidden flex flex-col` so the header stays visible and the event list scrolls.
-- Adjust outside-click handling only if needed so tapping outside still closes the panel.
+- `lib/calendar.ts`: keep `startLabel` field for backward compat but compute it the same way it is computed today; the client will override it. Cleaner: drop the `startLabel` usage on the client and call a local `formatStart(start, allDay)` helper in `CalendarWidget` that uses `Intl.DateTimeFormat(undefined, {...})` (undefined locale + no explicit timeZone = use the browser's locale and tz).
+- For all-day events, parse `YYYY-MM-DD` manually (avoid `new Date("2026-05-20")` UTC-midnight bug) and format with weekday/month/day in local time.

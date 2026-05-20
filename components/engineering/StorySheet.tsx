@@ -293,6 +293,26 @@ export function StorySheet({
             )}
           </Field>
 
+          {/* Editable Hours Worked */}
+          <Field label="Hours worked">
+            {canEdit ? (
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                defaultValue={current.hoursWorked ?? ""}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value === "" ? null : Number(e.target.value);
+                  if (val !== current.hoursWorked) save({ hoursWorked: val }, { hoursWorked: val });
+                }}
+                className={`${inputCls} w-32`}
+              />
+            ) : (
+              <span>{current.hoursWorked ?? 0} h</span>
+            )}
+          </Field>
+
           {/* Editable Assignees */}
           <Field
             label="Assignees"

@@ -212,7 +212,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
                         <span><span className="text-amber">●</span> {g.totals.onHoldCount} hold</span>
                       )}
                       {g.totals.doneCount > 0 && (
-                        <span><span className="text-violet">●</span> {g.totals.doneCount} done · earned {fmtMoney(g.totals.earnedCommission)}</span>
+                        <span><span className="text-violet">●</span> {g.totals.doneCount} done</span>
                       )}
                     </div>
                     {!g.isOrphan && (

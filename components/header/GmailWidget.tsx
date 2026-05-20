@@ -8,7 +8,7 @@ type Props = {
   compact?: boolean;
 };
 
-export function GmailWidget({ result }: Props) {
+export function GmailWidget({ result, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 

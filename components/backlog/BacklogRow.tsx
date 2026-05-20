@@ -10,8 +10,6 @@ type Props = {
   onOpen: (s: Story) => void;
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function statusPill(status: string | null): { text: string; cls: string } {
   switch (status) {

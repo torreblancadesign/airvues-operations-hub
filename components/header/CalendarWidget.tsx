@@ -187,7 +187,7 @@ export function CalendarWidget({ result, compact = false }: Props) {
                             {ev.title}
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[11px] text-ink-muted">
-                            <span className="font-mono">{ev.startLabel}</span>
+                            <span className="font-mono">{formatStartLocal(ev.start, ev.allDay)}</span>
                             {!ev.allDay && ev.durationMins != null && (
                               <>
                                 <span className="text-ink-faint">·</span>

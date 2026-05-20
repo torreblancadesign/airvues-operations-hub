@@ -27,8 +27,6 @@ const STATUS_OPTIONS = [
 
 const PRIORITY_OPTIONS = ["Urgent", "High", "Medium", "Low"];
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function statusToneText(status: string | null): string {
   switch (status) {

@@ -30,8 +30,9 @@ function asArray<T = unknown>(v: unknown): T[] {
 export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   const sTbl = Tables.Stories;
   const pTbl = Tables.People;
+  const qTbl = Tables.Quotes;
 
-  const [storyRecords, peopleRecords] = await Promise.all([
+  const [storyRecords, peopleRecords, quoteRecords] = await Promise.all([
     listRecordsCached<Record<string, unknown>>(
       sTbl.id,
       {
@@ -72,7 +73,28 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       },
       ["engineering:people"],
     ),
+    listRecordsCached<Record<string, unknown>>(
+      qTbl.id,
+      {
+        fields: [
+          qTbl.fields["Quote ID"].id,
+          qTbl.fields["Project Name"].id,
+          qTbl.fields["Company Name"].id,
+        ],
+      },
+      ["engineering:quotes"],
+    ),
   ]);
+
+  const quoteMap = new Map<string, string>();
+  for (const q of quoteRecords) {
+    const f = q.fields;
+    const project = (f["Project Name"] as string) ?? "";
+    const company = ((f["Company Name"] as string[] | undefined)?.[0]) ?? "";
+    const quoteId = (f["Quote ID"] as string) ?? "";
+    const label = [company, project].filter(Boolean).join(" · ") || quoteId || "(quote)";
+    quoteMap.set(q.id, label);
+  }
 
   type PersonRow = {
     id: string;
@@ -131,6 +153,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       clientIds,
       clientNames,
       quoteIds,
+      quoteLabels: quoteIds.map((id) => quoteMap.get(id) ?? "(quote)"),
       sprintIds,
       sprintNumbers,
       sprintStatuses,
@@ -206,6 +229,8 @@ function emptyTotals(): EngineerGroup["totals"] {
     todoCount: 0,
     onHoldCount: 0,
     qaCount: 0,
+    activeHoursAssigned: 0,
+    activeHoursWorked: 0,
     openInvoice: 0,
     openCommission: 0,
     earnedInvoice: 0,
@@ -223,6 +248,8 @@ function tallyGroup(g: EngineerGroup): void {
     } else {
       g.totals.openInvoice += s.invoice;
       g.totals.openCommission += s.commission;
+      g.totals.activeHoursAssigned += s.hours ?? 0;
+      g.totals.activeHoursWorked += s.hoursWorked ?? 0;
     }
     if (s.status === "In progress") g.totals.inProgressCount++;
     if (s.status === "Todo") g.totals.todoCount++;

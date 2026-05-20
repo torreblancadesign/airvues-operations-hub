@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 import { updateStory } from "@/lib/mutations/story";
 
 type EngineerOption = { id: string; name: string };
@@ -174,10 +174,10 @@ export function StorySheet({
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
-                {Math.round(COMMISSION_RATE * 100)}% commission
+                Hours scoped
               </div>
-              <div className="text-[20px] font-semibold text-emerald tabnum">
-                {fmtMoney(current.invoice * COMMISSION_RATE)}
+              <div className="text-[20px] font-semibold text-ink-strong tabnum">
+                {current.hours ?? "—"}h
               </div>
             </div>
             <div className="text-right">

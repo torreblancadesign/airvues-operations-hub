@@ -21,6 +21,7 @@ export type Story = {
   clientIds: string[];
   clientNames: string[];
   quoteIds: string[];
+  quoteLabels: string[];
   sprintIds: string[];
   sprintNumbers: number[];
   sprintStatuses: string[];
@@ -43,6 +44,8 @@ export type EngineerGroup = {
     todoCount: number;
     onHoldCount: number;
     qaCount: number;
+    activeHoursAssigned: number;
+    activeHoursWorked: number;
     openInvoice: number;
     openCommission: number;
     earnedInvoice: number;

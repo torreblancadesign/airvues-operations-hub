@@ -1,15 +1,12 @@
 "use client";
 
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 
 type Props = {
   story: Story;
   onClick: (s: Story) => void;
   selected?: boolean;
 };
-
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function statusTone(status: string | null): string {
   switch (status) {
@@ -36,11 +33,12 @@ function priorityDot(p: string | null): string {
 
 export function StoryCard({ story, onClick, selected = false }: Props) {
   const pct = story.hours && story.hours > 0
-    ? Math.min(100, Math.round(((story.hoursWorked ?? 0) / story.hours) * 100))
+    ? Math.min(999, Math.round(((story.hoursWorked ?? 0) / story.hours) * 100))
     : null;
   const over = pct != null && pct > 100;
   const sprintNum = story.sprintNumbers[0] ?? null;
   const client = story.clientNames[0] ?? null;
+  const quoteLabel = story.quoteLabels[0] ?? null;
 
   return (
     <button
@@ -60,14 +58,22 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         {story.storyNumber != null && (
           <span className="text-[10px] font-mono text-ink-faint">#{story.storyNumber}</span>
         )}
-        <span className="ml-auto text-[12px] font-semibold text-ink-strong tabnum">
-          {fmtMoney(story.invoice)}
-        </span>
+        {story.hours != null && (
+          <span className="ml-auto text-[11px] font-mono text-ink-muted tabnum">
+            {story.hours}h
+          </span>
+        )}
       </div>
 
-      <div className="text-[13px] text-ink-strong font-medium leading-snug mb-2 line-clamp-2 group-hover:text-emerald transition-colors">
+      <div className="text-[13px] text-ink-strong font-medium leading-snug mb-1.5 line-clamp-2 group-hover:text-emerald transition-colors">
         {story.name}
       </div>
+
+      {quoteLabel && (
+        <div className="text-[11px] text-ink-muted mb-1.5 truncate" title={quoteLabel}>
+          <span className="text-ink-faint">Quote ·</span> {quoteLabel}
+        </div>
+      )}
 
       <div className="flex items-center gap-1.5 text-[11px] text-ink-muted mb-2 flex-wrap">
         {client && <span className="truncate max-w-[140px]">{client}</span>}
@@ -75,8 +81,14 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         {sprintNum != null && <span className="font-mono">Sprint {sprintNum}</span>}
       </div>
 
+      {story.description && (
+        <div className="text-[11px] text-ink-muted leading-snug mb-2 line-clamp-2 whitespace-pre-wrap">
+          {story.description}
+        </div>
+      )}
+
       {pct != null && (
-        <div className="mb-2">
+        <div className="pt-2 border-t border-rule">
           <div className="h-1 bg-bg-elevated rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${over ? "bg-red" : "bg-emerald"}`}
@@ -85,21 +97,12 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
           </div>
           <div className="mt-1 flex justify-between text-[10px] font-mono text-ink-faint tabnum">
             <span>
-              {story.hoursWorked ?? 0}h / {story.hours}h
+              {story.hoursWorked ?? 0}h worked / {story.hours}h scoped
             </span>
-            <span>{pct}%</span>
+            <span className={over ? "text-red" : ""}>{pct}%</span>
           </div>
         </div>
       )}
-
-      <div className="flex items-center justify-between pt-2 border-t border-rule">
-        <span className="text-[10px] text-ink-faint uppercase tracking-wider">
-          {Math.round(COMMISSION_RATE * 100)}% commission
-        </span>
-        <span className="text-[12px] font-semibold text-emerald tabnum">
-          {fmtMoney(story.commission)}
-        </span>
-      </div>
     </button>
   );
 }

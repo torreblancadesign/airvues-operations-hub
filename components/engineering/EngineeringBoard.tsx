@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { EngineeringBoardData, Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { EngineeringBoardData, Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { StoryCard } from "./StoryCard";
 import { StorySheet } from "./StorySheet";
 import { EngineeringFilterBar } from "./FilterBar";
-import { Leaderboard } from "./Leaderboard";
+import { CapacityPanel } from "./CapacityPanel";
 import { EMPTY_FILTER, Filter, STATUS_GROUPS } from "./types";
 
 type Props = {
@@ -15,8 +15,6 @@ type Props = {
   canEdit?: boolean;
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function storyMatches(s: Story, f: Filter): boolean {
   if (f.search) {
@@ -79,10 +77,10 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           sub={`${data.totals.totalStories.toLocaleString()} total · ${data.totals.completedStories} done`}
         />
         <StatCard
-          label="Open commission pool"
+          label="Open hours"
           tone="emerald"
-          value={fmtMoney(data.totals.openCommission)}
-          sub={`${Math.round(COMMISSION_RATE * 100)}% of ${fmtMoney(data.totals.openInvoice)} open scope`}
+          value={`${data.groups.reduce((sum, g) => sum + g.totals.activeHoursAssigned, 0)}h`}
+          sub="Scoped on active stories"
         />
         <StatCard
           label="Unassigned"
@@ -100,8 +98,8 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
         />
       </div>
 
-      {/* Leaderboard — gamification */}
-      <Leaderboard groups={data.groups} />
+      {/* Capacity planning — hours per engineer */}
+      <CapacityPanel groups={data.groups} />
 
       {/* Orphan banner */}
       {data.totals.orphanStories > 0 && !filter.orphanOnly && (
@@ -181,12 +179,12 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
                     <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeCount}</div>
                   </div>
                   <div className="hidden md:block">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Open $</div>
-                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{fmtMoney(g.totals.openInvoice)}</div>
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Assigned hrs</div>
+                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeHoursAssigned}h</div>
                   </div>
                   <div>
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Open commission</div>
-                    <div className="text-[14px] font-semibold text-emerald tabnum">{fmtMoney(g.totals.openCommission)}</div>
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Worked hrs</div>
+                    <div className="text-[14px] font-semibold text-emerald tabnum">{g.totals.activeHoursWorked}h</div>
                   </div>
                   <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
                     {isCollapsed ? "+" : "−"}
@@ -212,7 +210,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
                         <span><span className="text-amber">●</span> {g.totals.onHoldCount} hold</span>
                       )}
                       {g.totals.doneCount > 0 && (
-                        <span><span className="text-violet">●</span> {g.totals.doneCount} done · earned {fmtMoney(g.totals.earnedCommission)}</span>
+                        <span><span className="text-violet">●</span> {g.totals.doneCount} done</span>
                       )}
                     </div>
                     {!g.isOrphan && (

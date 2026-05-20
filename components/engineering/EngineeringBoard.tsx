@@ -150,7 +150,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
       <EngineeringFilterBar
         filter={filter}
         setFilter={setFilter}
-        engineers={engineers}
+        engineers={engineersWithWork}
         clients={data.clients}
         sprints={data.sprints}
         totalStories={data.totals.totalStories}
@@ -256,7 +256,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
 
       <StorySheet
         story={selected}
-        engineers={engineers}
+        engineers={engineersWithWork}
         canEdit={canEdit}
         onClose={() => setSelected(null)}
         onFilterByEngineer={(engineerId) => {

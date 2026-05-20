@@ -39,6 +39,8 @@ type Props = {
   userRole: string;
   samlActive: boolean;
   signOutAction: SignOutHandler;
+  calendarResult?: CalendarResult;
+  inboxResult?: InboxResult;
 };
 
 export function MobileNav({ userEmail, userRole, samlActive, signOutAction }: Props) {

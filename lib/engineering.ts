@@ -248,6 +248,8 @@ function tallyGroup(g: EngineerGroup): void {
     } else {
       g.totals.openInvoice += s.invoice;
       g.totals.openCommission += s.commission;
+      g.totals.activeHoursAssigned += s.hours ?? 0;
+      g.totals.activeHoursWorked += s.hoursWorked ?? 0;
     }
     if (s.status === "In progress") g.totals.inProgressCount++;
     if (s.status === "Todo") g.totals.todoCount++;

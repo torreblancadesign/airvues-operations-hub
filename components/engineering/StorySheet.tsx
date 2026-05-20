@@ -164,18 +164,18 @@ export function StorySheet({
 
         <div className="px-5 py-5 bg-bg-elevated border-b border-rule">
           <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-1">
-            Story value
+            Hours scoped
           </div>
           <div className="text-[34px] font-semibold text-ink-strong tabnum leading-none">
-            {fmtMoney(current.invoice)}
+            {current.hours ?? "—"}<span className="text-[20px] text-ink-muted">h</span>
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
-                Hours scoped
+                Hours worked
               </div>
               <div className="text-[20px] font-semibold text-ink-strong tabnum">
-                {current.hours ?? "—"}h
+                {current.hoursWorked ?? 0}h
               </div>
             </div>
             <div className="text-right">
@@ -188,6 +188,7 @@ export function StorySheet({
             </div>
           </div>
         </div>
+
 
         {pct != null && (
           <div className="px-5 py-4 border-b border-rule">

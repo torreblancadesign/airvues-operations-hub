@@ -50,6 +50,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           sTbl.fields["Story Status"].id,
           sTbl.fields["Assignee"].id,
           sTbl.fields["Client"].id,
+          sTbl.fields["Client (from Epic)"].id,
           sTbl.fields["Quote"].id,
           sTbl.fields["📆Sprints"].id,
           sTbl.fields["Sprint Number (from 📆Sprints)"].id,

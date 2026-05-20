@@ -5,6 +5,7 @@ import type { InboxResult } from "@/lib/gmail";
 
 type Props = {
   result: InboxResult;
+  compact?: boolean;
 };
 
 export function GmailWidget({ result }: Props) {

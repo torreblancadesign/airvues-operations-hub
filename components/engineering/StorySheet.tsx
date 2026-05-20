@@ -401,7 +401,7 @@ export function StorySheet({
             )}
           </Field>
 
-          <Field label="Client">{current.clientNames.join(", ") || "—"}</Field>
+          {/* Client shown in the top Context block */}
           <Field label="Sprint">
             {sprintNum != null ? (
               <span className="font-mono">

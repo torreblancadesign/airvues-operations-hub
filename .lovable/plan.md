@@ -1,68 +1,47 @@
 ## Goal
-Refocus `/engineering` away from $-commission gamification toward **capacity planning**: hours, scope, and what project each story belongs to. Engineers may have different commission rates, so no flat % anywhere on this page.
+
+Tighten the Story drawer (`components/engineering/StorySheet.tsx`) so it (a) lets us edit **Hours Worked**, (b) shows client and quote names instead of record IDs, and (c) drops all $-cost framing in favor of hours.
 
 ## Changes
 
-### 1. Remove all commission UI + the flat 15% constant from this page
-- `components/engineering/StoryCard.tsx` — drop the "15% commission · $X" footer row.
-- `components/engineering/EngineeringBoard.tsx`:
-  - Replace "Open commission pool" KPI with **"Open hours"** (sum of `hours` across active stories, with a sub like `X% scoped` if useful).
-  - In each engineer section header, replace `Open $` / `Open commission` columns with **`Active hrs`** (sum of `hours` on non-complete stories) and **`Worked hrs`** (sum of `hoursWorked`). Keep `Active` story count.
-  - Drop the "earned commission" mention in the per-engineer status mini-strip; keep status counts only.
-- `components/engineering/StorySheet.tsx` — remove the commission row from the drawer (keep Invoice/Cost visible to admins per existing visibility, but no "× 15%").
-- `lib/engineering.ts` / `lib/engineering-types.ts` — leave `commission` field for now (consumed elsewhere like `/me`, `/money`); just stop displaying it on `/engineering`. No type churn.
+### 1. Make `Hours Worked` editable in the drawer
 
-### 2. Surface quote + description on each StoryCard
-Stories already carry `quoteIds` but not the quote label. Add a lightweight quote lookup so each card can show **"Quote: {label}"**.
+- `lib/mutations/story.ts` — extend `StoryPatch` with `hoursWorked?: number | null`; map it to Airtable field `"Hours Worked"` in `buildStoryFields`. No schema/field-ID changes (field already in `lib/schema.ts`: `Stories."Hours Worked"`).
+- `StorySheet.tsx` — add a new editable `Field label="Hours worked"` right next to "Hours (scoped)", same `<input type="number" step="0.5">` pattern, using the existing `save()` helper. Updates flow through `updateStory` → `revalidateTag("airtable")`, so the Capacity Panel and card progress bars refresh automatically.
 
-- `lib/engineering.ts`:
-  - Fetch Quotes alongside Stories + People (parallel `Promise.all`). Pull `Quote ID`, `Project Name`, `Company Name` (lookup) from `Tables.Quotes`. Cache-tag `engineering:quotes`.
-  - Build `quoteMap: Map<recId, { label, projectName, company }>`.
-  - Add `quoteLabels: string[]` to each `Story` (mirrors `quoteIds`, falls back to `"(no quote)"`).
-- `lib/engineering-types.ts` — add `quoteLabels: string[]` to `Story`.
-- `components/engineering/StoryCard.tsx`:
-  - Add a row under the title showing `📄 {quoteLabels[0]}` (truncate, max 1).
-  - Add a 2-line clamped `description` preview below the meta row when `story.description` is non-empty.
-  - Tighten/restructure so the card stays compact: title → quote → client · sprint → description (2-line clamp) → hours progress.
+### 2. Show real Client name (not "(client)" placeholder)
 
-### 3. Replace Leaderboard with a Capacity panel
-New component `components/engineering/CapacityPanel.tsx`. Replaces the `<Leaderboard />` mount in `EngineeringBoard.tsx`.
+Today `lib/engineering.ts` resolves `Story.Client` recIds against `peopleMap`, but `Client` links to **Companies**, not People — so it currently falls back to the literal string `"(client)"`. Switch to the existing **Stories.`Client (from Epic)`** lookup field, which already returns the client display names — no extra table fetch required.
 
-Per non-orphan engineer, show one row sorted by **active hours desc**:
-- Name + role
-- **Active stories** count (stories where status ≠ Completed)
-- **Total assigned hours** (sum of `hours` on active stories)
-- **Hours worked so far** (sum of `hoursWorked` on active stories)
-- A horizontal bar = `workedHrs / assignedHrs` with over-budget tint when > 100%
-- Optional: tiny status breakdown chips (todo / in-progress / QA)
+- `lib/engineering.ts` — read `Tables.Stories.fields["Client (from Epic)"].id` in the `fields` array, and set `clientNames = asArray<string>(f["Client (from Epic)"])`. Keep `clientIds` from `Client` (still needed for the "All for {client}" filter button to keep working off recIds).
+- No type changes needed (`Story.clientNames: string[]` already exists).
 
-No commission. No medals. No `$`.
+> Note: the user referenced a field literally named "Client Name". Stories doesn't expose one — the lookup that surfaces the client's display name on a Story is `Client (from Epic)`. If a different field is intended, swap the field name in one line.
 
-Computation lives in `lib/engineering.ts` — extend `EngineerGroup.totals` with:
-- `activeHoursAssigned: number` (sum `hours` on non-complete)
-- `activeHoursWorked: number` (sum `hoursWorked` on non-complete)
+### 3. Show Quote **name** instead of recId in the linked-quote link
 
-`tallyGroup` populates these. Existing `openInvoice` / `openCommission` / `earnedCommission` stay (other surfaces still read them) but are unused on this page.
+The `quoteMap` built in `lib/engineering.ts` already produces `"Company · Project Name"` labels per quote and is stored on `story.quoteLabels[]` — drawer just isn't using it yet.
 
-### 4. Filter bar
-No structural change. The `Open commission pool` KPI tile becomes `Open hours`; everything else (search, status, engineer, client, sprint, orphan toggle) is unchanged.
+- `StorySheet.tsx` — in the "Linked Quote" block, render `current.quoteLabels[i] ?? q` as the link text instead of the raw recId `q`. Keep the existing `airvues-quote.vercel.app/?quoteId=…` URL unchanged.
+
+### 4. Remove all $/cost framing from the drawer
+
+- `StorySheet.tsx`:
+  - Delete the `fmtMoney` helper and its import sites.
+  - Replace the big "Story value · $X" hero block with an **Hours-focused header**: "Hours scoped" as the large number, with "Hours worked" + "Status" as the secondary row.
+  - Delete the `<Field label="Cost">{fmtMoney(current.cost)}</Field>` row.
+  - Leave `Budget % Used` (it's already a percentage, not money).
+
+No changes to `Story` type, `lib/engineering.ts` totals, or any other surface — `/me` and `/money` keep their commission/$ display as before.
 
 ## Files touched
-- `lib/engineering.ts` — add Quotes fetch + quote map + capacity totals
-- `lib/engineering-types.ts` — `Story.quoteLabels`, two new fields on `EngineerGroup.totals`
-- `components/engineering/StoryCard.tsx` — strip commission, add quote + description
-- `components/engineering/EngineeringBoard.tsx` — swap KPI, swap header columns, mount CapacityPanel instead of Leaderboard
-- `components/engineering/CapacityPanel.tsx` — new
-- `components/engineering/StorySheet.tsx` — remove commission row
-- `components/engineering/Leaderboard.tsx` — leave file in place (unimported) or delete; suggest delete
+
+- `lib/mutations/story.ts` — add `hoursWorked` to `StoryPatch` + field mapping
+- `lib/engineering.ts` — fetch + map `Client (from Epic)` lookup for `clientNames`
+- `components/engineering/StorySheet.tsx` — editable Hours Worked field, hours-first hero, quote names in link, drop Cost row + `fmtMoney`
 
 ## Out of scope
-- Per-engineer commission rates on the `People` table (separate effort once schema lands).
-- Capacity targets per engineer (would need `People.Weekly Capacity Hours` — same future work as Phase D.5 in `sprint-plan-types.ts`).
-- Removing commission everywhere in the app (`/me`, `/money` still display it intentionally).
 
-## Verify
-- `/engineering` shows zero `%` or `$ commission` text anywhere.
-- Each StoryCard shows quote name + description preview when present.
-- Capacity panel ranks engineers by active assigned hours.
-- `npx tsc --noEmit` clean; `npm run build` clean.
+- Capacity Panel / StoryCard styling (already hour-based)
+- Per-engineer commission rates
+- Removing `Story.cost` / `Story.invoice` from the type or other pages

@@ -12,6 +12,7 @@ export type StoryPatch = {
   status?: string | null;
   priority?: string | null;
   hours?: number | null;
+  hoursWorked?: number | null;
   assigneeIds?: string[];
 };
 

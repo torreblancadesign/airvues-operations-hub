@@ -65,12 +65,17 @@ export function TeamDashboard({ data }: { data: TeamData }) {
   }, [data]);
 
   // Filtered table
+  const activePeople = useMemo(
+    () => data.members.filter((m) => m.status === "Active"),
+    [data],
+  );
+
   const filteredPeople = useMemo(() => {
-    return data.members.filter((m) => {
+    return activePeople.filter((m) => {
       if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [data, search]);
+  }, [activePeople, search]);
 
   const filteredPayments = useMemo(() => {
     return data.payments.filter((p) => {

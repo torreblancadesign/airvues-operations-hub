@@ -64,9 +64,13 @@ export default async function BacklogPage({
     }
   }
 
-  const engineers = data.groups
+  const engineersWithWork = data.groups
     .filter((g) => !g.isOrphan)
     .map((g) => ({ id: g.id, name: g.name }));
+
+  const assignableEngineers = [...data.assignablePeople]
+    .map((p) => ({ id: p.id, name: p.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const editable = await canMutate();
 

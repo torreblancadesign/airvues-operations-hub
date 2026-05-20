@@ -30,8 +30,9 @@ function asArray<T = unknown>(v: unknown): T[] {
 export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   const sTbl = Tables.Stories;
   const pTbl = Tables.People;
+  const qTbl = Tables.Quotes;
 
-  const [storyRecords, peopleRecords] = await Promise.all([
+  const [storyRecords, peopleRecords, quoteRecords] = await Promise.all([
     listRecordsCached<Record<string, unknown>>(
       sTbl.id,
       {

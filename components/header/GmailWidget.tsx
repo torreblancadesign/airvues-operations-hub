@@ -61,7 +61,7 @@ export function GmailWidget({ result, compact = false }: Props) {
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
           <polyline points="22,6 12,13 2,6" />
         </svg>
-        <span className="text-ink-strong">{chipLabel}</span>
+        <span className={compact ? "hidden" : "text-ink-strong"}>{chipLabel}</span>
         {showCountBadge && (
           <span
             className="ml-0.5 px-1.5 h-4 inline-flex items-center justify-center rounded-full bg-emerald text-bg text-[10px] font-semibold tabnum"

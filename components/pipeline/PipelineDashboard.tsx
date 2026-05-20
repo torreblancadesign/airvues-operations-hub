@@ -21,6 +21,10 @@ const STAGE_STATUSES: Record<StageBucket, string[]> = {
   auditing: ["Auditing 🚩"],
 };
 
+const OPEN_STATUSES = ["Draft", "Sent. Awaiting Approval.", "Auditing 🚩"];
+const ACTIVE_STATUSES = ["Approved and Signed", "Awaiting Payment", "Project In Progress"];
+
+
 function daysSince(iso: string | null): number {
   if (!iso) return -1;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);

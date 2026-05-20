@@ -231,7 +231,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
       {canEdit && selected.size > 0 && (
         <BulkBar
           selectedIds={[...selected]}
-          engineers={engineers}
+          engineers={assignableEngineers}
           onClear={clearSelection}
           onSuccess={refreshAfterMutation}
         />
@@ -290,7 +290,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
 
       <StorySheet
         story={openStory}
-        engineers={engineers}
+        engineers={assignableEngineers}
         canEdit={canEdit}
         onClose={() => setOpenStory(null)}
         onFilterByEngineer={(id) => {
@@ -306,7 +306,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
       <NewStoryModal
         open={showNewModal}
         onClose={() => setShowNewModal(false)}
-        engineers={engineers}
+        engineers={assignableEngineers}
         quotes={quotes}
       />
     </>

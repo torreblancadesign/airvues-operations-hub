@@ -65,12 +65,17 @@ export function TeamDashboard({ data }: { data: TeamData }) {
   }, [data]);
 
   // Filtered table
+  const activePeople = useMemo(
+    () => data.members.filter((m) => m.status === "Active"),
+    [data],
+  );
+
   const filteredPeople = useMemo(() => {
-    return data.members.filter((m) => {
+    return activePeople.filter((m) => {
       if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [data, search]);
+  }, [activePeople, search]);
 
   const filteredPayments = useMemo(() => {
     return data.payments.filter((p) => {
@@ -142,7 +147,7 @@ export function TeamDashboard({ data }: { data: TeamData }) {
             onClick={() => setTab("people")}
             className={`px-3 py-1.5 text-[12px] rounded ${tab === "people" ? "bg-emerald text-bg font-medium" : "text-ink-muted hover:text-ink-strong"}`}
           >
-            People ({data.members.length})
+            People ({activePeople.length})
           </button>
           <button
             type="button"

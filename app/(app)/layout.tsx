@@ -8,6 +8,8 @@ import { TopBar } from "@/components/header/TopBar";
 import { signOut } from "@/lib/auth";
 import { isSamlEnabled } from "@/lib/saml";
 import { SAML_COOKIE_NAME } from "@/lib/samlSession";
+import { getUpcomingEvents } from "@/lib/calendar";
+import { getRecentInbox } from "@/lib/gmail";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getAppSession();

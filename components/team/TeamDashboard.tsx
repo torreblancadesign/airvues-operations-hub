@@ -147,7 +147,7 @@ export function TeamDashboard({ data }: { data: TeamData }) {
             onClick={() => setTab("people")}
             className={`px-3 py-1.5 text-[12px] rounded ${tab === "people" ? "bg-emerald text-bg font-medium" : "text-ink-muted hover:text-ink-strong"}`}
           >
-            People ({data.members.length})
+            People ({activePeople.length})
           </button>
           <button
             type="button"

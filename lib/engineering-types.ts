@@ -44,6 +44,8 @@ export type EngineerGroup = {
     todoCount: number;
     onHoldCount: number;
     qaCount: number;
+    activeHoursAssigned: number;
+    activeHoursWorked: number;
     openInvoice: number;
     openCommission: number;
     earnedInvoice: number;

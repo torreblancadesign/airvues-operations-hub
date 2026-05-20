@@ -92,7 +92,8 @@ export default async function BacklogPage({
       />
       <BacklogList
         stories={stories}
-        engineers={engineers}
+        engineers={engineersWithWork}
+        assignableEngineers={assignableEngineers}
         clients={data.clients}
         quotes={quotes}
         canEdit={editable}

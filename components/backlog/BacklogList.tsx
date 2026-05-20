@@ -15,6 +15,7 @@ type QuoteOption = { id: string; label: string; totalCost: number; status: strin
 type Props = {
   stories: Story[];
   engineers: EngineerOption[];
+  assignableEngineers: EngineerOption[];
   clients: string[];
   quotes: QuoteOption[];
   canEdit: boolean;

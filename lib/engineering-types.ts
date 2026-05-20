@@ -53,8 +53,16 @@ export type EngineerGroup = {
   };
 };
 
+export type AssignablePerson = {
+  id: string;
+  name: string;
+  role: string | null;
+  internalType: string | null;
+};
+
 export type EngineeringBoardData = {
   groups: EngineerGroup[];
+  assignablePeople: AssignablePerson[];
   totals: {
     totalStories: number;
     activeStories: number;
@@ -70,3 +78,4 @@ export type EngineeringBoardData = {
   sprints: { number: number; status: string | null }[];
   statuses: string[];
 };
+

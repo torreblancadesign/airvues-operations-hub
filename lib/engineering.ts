@@ -210,13 +210,29 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     (a, b) => b.totals.openCommission - a.totals.openCommission,
   );
 
+  const assignablePeople = [...peopleMap.values()]
+    .filter(
+      (p) =>
+        p.status === "Active" &&
+        (p.type === "Internal" || p.type === "Internal team member"),
+    )
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      role: p.role,
+      internalType: p.internalType,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   const board: EngineeringBoardData = {
     groups: orphan.stories.length > 0 ? [orphan, ...groups] : groups,
+    assignablePeople,
     totals: tallyGlobal(stories),
     clients: [...new Set(stories.flatMap((s) => s.clientNames))].filter(Boolean).sort(),
     sprints: dedupeSprints(stories),
     statuses: [...new Set(stories.map((s) => s.status).filter(Boolean) as string[])].sort(),
   };
+
 
   return board;
 }

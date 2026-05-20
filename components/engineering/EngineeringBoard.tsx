@@ -47,13 +47,27 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
     });
   };
 
-  const engineers = useMemo(
+  const engineersWithWork = useMemo(
     () =>
       data.groups
         .filter((g) => !g.isOrphan)
         .map((g) => ({ id: g.id, name: g.name })),
     [data.groups],
   );
+
+  // Full assignable list = all active internal people, unioned with anyone
+  // currently assigned to a story (covers external/legacy assignees so they
+  // remain editable in the picker).
+  const assignableEngineers = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const p of data.assignablePeople) map.set(p.id, { id: p.id, name: p.name });
+    for (const g of data.groups) {
+      if (g.isOrphan) continue;
+      if (!map.has(g.id)) map.set(g.id, { id: g.id, name: g.name });
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [data.assignablePeople, data.groups]);
+
 
   const filtered = useMemo(() => {
     let groups = data.groups;
@@ -136,7 +150,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
       <EngineeringFilterBar
         filter={filter}
         setFilter={setFilter}
-        engineers={engineers}
+        engineers={engineersWithWork}
         clients={data.clients}
         sprints={data.sprints}
         totalStories={data.totals.totalStories}
@@ -242,7 +256,8 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
 
       <StorySheet
         story={selected}
-        engineers={engineers}
+        engineers={assignableEngineers}
+
         canEdit={canEdit}
         onClose={() => setSelected(null)}
         onFilterByEngineer={(engineerId) => {

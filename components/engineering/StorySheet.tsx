@@ -396,15 +396,15 @@ export function StorySheet({
           {current.quoteIds.length > 0 && (
             <Field label="Linked Quote">
               <div className="flex flex-col gap-1">
-                {current.quoteIds.map((q) => (
+                {current.quoteIds.map((q, i) => (
                   <a
                     key={q}
                     href={`https://airvues-quote.vercel.app/?quoteId=${q}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-emerald hover:underline text-[12px] font-mono"
+                    className="text-emerald hover:underline text-[12px]"
                   >
-                    {q} ↗
+                    {current.quoteLabels[i] ?? q} ↗
                   </a>
                 ))}
               </div>

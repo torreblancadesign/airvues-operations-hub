@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 import { updateStory } from "@/lib/mutations/story";
 
 type EngineerOption = { id: string; name: string };

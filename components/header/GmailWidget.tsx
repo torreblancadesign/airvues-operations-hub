@@ -74,7 +74,7 @@ export function GmailWidget({ result, compact = false }: Props) {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-[380px] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-2 w-[380px] max-w-[calc(100vw-1rem)] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
           role="dialog"
         >
           <div className="px-4 py-3 border-b border-rule bg-bg-elevated flex items-center justify-between">

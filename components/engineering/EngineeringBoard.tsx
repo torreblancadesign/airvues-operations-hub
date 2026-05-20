@@ -79,10 +79,10 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           sub={`${data.totals.totalStories.toLocaleString()} total · ${data.totals.completedStories} done`}
         />
         <StatCard
-          label="Open commission pool"
+          label="Open hours"
           tone="emerald"
-          value={fmtMoney(data.totals.openCommission)}
-          sub={`${Math.round(COMMISSION_RATE * 100)}% of ${fmtMoney(data.totals.openInvoice)} open scope`}
+          value={`${data.groups.reduce((sum, g) => sum + g.totals.activeHoursAssigned, 0)}h`}
+          sub="Scoped on active stories"
         />
         <StatCard
           label="Unassigned"
@@ -100,8 +100,8 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
         />
       </div>
 
-      {/* Leaderboard — gamification */}
-      <Leaderboard groups={data.groups} />
+      {/* Capacity planning — hours per engineer */}
+      <CapacityPanel groups={data.groups} />
 
       {/* Orphan banner */}
       {data.totals.orphanStories > 0 && !filter.orphanOnly && (

@@ -1,19 +1,16 @@
-## Problem
+## Plan
 
-The Story drawer uses `position: fixed`, which *should* anchor it to the viewport. But the `(app)` layout wraps page content in a `.page-enter` div, and that class animates `transform: translateY(...)` and lands at `transform: translateY(0)` via `both` fill mode. Any non-`none` `transform` on an ancestor turns it into the containing block for `position: fixed` descendants — so the drawer is positioned relative to that wrapper instead of the viewport. When you scroll the page and then open a story, the drawer renders at the top of the wrapper (now scrolled off-screen) instead of pinned to the visible viewport.
+Update the mobile calendar dropdown so it is anchored to the viewport instead of the small calendar button container.
 
-## Fix
+### What will change
+- In `components/header/CalendarWidget.tsx`, detect compact/mobile usage and render the open calendar panel as a fixed-position viewport overlay.
+- On mobile, place it below the sticky header with safe left/right margins and a viewport-based max height so it cannot extend off-screen.
+- Keep the desktop behavior as a normal dropdown beside the TopBar button.
+- Make the event list scroll inside the panel when there are too many events, rather than letting the whole panel get cut off.
 
-Portal the drawer (overlay + `<aside>`) to `document.body` so it escapes the transformed ancestor entirely. Body is not animated, so `fixed` resolves against the viewport as intended.
-
-### Changes
-
-- **`components/engineering/StorySheet.tsx`** — wrap the existing returned JSX (overlay div + aside) in `createPortal(..., document.body)`. Guard with a `mounted` flag (`useEffect` setting `true`) so SSR doesn't try to read `document`. No styling, props, or behavior changes — just the render target. While the drawer is open, also set `document.body.style.overflow = "hidden"` and restore on close/unmount so the page behind doesn't scroll when the user wheels over the drawer.
-
-That's it — one file, ~10 lines of wrapper code. The `.page-enter` animation stays as-is (it's intentional for page transitions), and every other consumer of StorySheet automatically benefits.
-
-## Out of scope
-
-- Touching `.page-enter` itself or any other page's layout
-- Replacing the drawer with a different component
-- Other drawers (`InvoiceSheet`, `QuoteSheet`, `ClientSheet`) — none were reported broken, and they may or may not have the same issue depending on their mount point. Happy to apply the same portal fix to them in a follow-up if you want.
+### Technical details
+- Replace the shared `absolute right-0` panel positioning with responsive classes:
+  - mobile/compact: `fixed left-2 right-2 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)]`
+  - desktop: existing `md:absolute md:right-0 md:top-auto md:left-auto`
+- Use `max-h-[calc(100dvh-4.5rem-env(safe-area-inset-bottom))]` and `overflow-hidden flex flex-col` so the header stays visible and the event list scrolls.
+- Adjust outside-click handling only if needed so tapping outside still closes the panel.

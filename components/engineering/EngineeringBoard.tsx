@@ -15,8 +15,6 @@ type Props = {
   canEdit?: boolean;
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function storyMatches(s: Story, f: Filter): boolean {
   if (f.search) {

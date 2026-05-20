@@ -377,7 +377,6 @@ export function StorySheet({
             )}
           </Field>
           <Field label="Phase">{current.phase ?? "—"}</Field>
-          <Field label="Cost">{fmtMoney(current.cost)}</Field>
           <Field label="Budget % Used">
             {current.budgetPctUsed != null ? (
               <span className={current.budgetPctUsed > 1 ? "text-red" : ""}>

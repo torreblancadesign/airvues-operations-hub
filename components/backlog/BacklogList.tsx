@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { StorySheet } from "@/components/engineering/StorySheet";
 import { BacklogRow } from "./BacklogRow";
@@ -22,8 +22,6 @@ type Props = {
   initialFilter?: Partial<BacklogFilter>;
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 const inputCls =
   "px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none transition-colors";
@@ -63,15 +61,13 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
   const filtered = useMemo(() => stories.filter((s) => matches(s, filter)), [stories, filter]);
 
   const totals = useMemo(() => {
-    let invoice = 0;
     let hours = 0;
     let orphan = 0;
     for (const s of filtered) {
-      invoice += s.invoice;
       hours += s.hours ?? 0;
       if (s.assigneeIds.length === 0) orphan++;
     }
-    return { invoice, hours, orphan };
+    return { hours, orphan };
   }, [filtered]);
 
   const allSelected = filtered.length > 0 && filtered.every((s) => selected.has(s.id));
@@ -142,10 +138,9 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
           sub="Estimated work in view"
         />
         <StatCard
-          label="Scope value"
-          tone="emerald"
-          value={fmtMoney(totals.invoice)}
-          sub={`${fmtMoney(totals.invoice * COMMISSION_RATE)} commission @ ${Math.round(COMMISSION_RATE * 100)}%`}
+          label="Avg hrs / story"
+          value={filtered.length ? `${(totals.hours / filtered.length).toFixed(1)}h` : "—"}
+          sub="Across stories in view"
         />
       </div>
 
@@ -259,16 +254,15 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden md:table-cell">Status</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Assignee</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden md:table-cell">Client</th>
-                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden sm:table-cell text-right">Hrs</th>
-                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint text-right">$</th>
-                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell text-right">Comm</th>
+                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Quote</th>
+                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint text-right">Hrs</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Sprint</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-[12px] text-ink-muted">
+                  <td colSpan={9} className="px-4 py-8 text-center text-[12px] text-ink-muted">
                     No stories match the current filter.
                   </td>
                 </tr>

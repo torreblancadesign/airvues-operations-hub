@@ -1,6 +1,6 @@
 "use client";
 
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 
 type Props = {
   story: Story;
@@ -10,8 +10,6 @@ type Props = {
   onOpen: (s: Story) => void;
 };
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function statusPill(status: string | null): { text: string; cls: string } {
   switch (status) {
@@ -95,14 +93,11 @@ export function BacklogRow({ story, selected, active, onSelect, onOpen }: Props)
       <td className="px-2 py-2 hidden md:table-cell text-[12px] text-ink-muted whitespace-nowrap max-w-[140px] truncate">
         {story.clientNames[0] ?? "—"}
       </td>
-      <td className="px-2 py-2 hidden sm:table-cell text-right text-[12px] tabnum text-ink-muted">
-        {story.hours ?? "—"}
+      <td className="px-2 py-2 hidden lg:table-cell text-[12px] text-ink-muted whitespace-nowrap max-w-[180px] truncate">
+        {story.quoteLabels[0] ?? "—"}
       </td>
       <td className="px-2 py-2 text-right text-[12px] tabnum text-ink-strong font-semibold whitespace-nowrap">
-        {fmtMoney(story.invoice)}
-      </td>
-      <td className="px-2 py-2 hidden lg:table-cell text-right text-[11px] tabnum text-emerald whitespace-nowrap">
-        {fmtMoney(story.invoice * COMMISSION_RATE)}
+        {story.hours ?? "—"}
       </td>
       <td className="px-2 py-2 hidden lg:table-cell text-[11px] font-mono text-ink-faint tabnum">
         {sprintNum != null ? `#${sprintNum}` : "—"}

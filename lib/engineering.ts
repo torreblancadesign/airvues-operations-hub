@@ -134,7 +134,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
 
     const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
-    const clientNames = asArray<string>(f["Client (from Epic)"]);
+    const clientNames = asArray<string>(f["Client Name (from Quote)"]);
 
     return {
       id: r.id,

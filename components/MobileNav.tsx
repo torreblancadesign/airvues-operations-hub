@@ -43,7 +43,7 @@ type Props = {
   inboxResult?: InboxResult;
 };
 
-export function MobileNav({ userEmail, userRole, samlActive, signOutAction }: Props) {
+export function MobileNav({ userEmail, userRole, samlActive, signOutAction, calendarResult, inboxResult }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 

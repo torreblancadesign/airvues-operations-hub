@@ -153,6 +153,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       clientIds,
       clientNames,
       quoteIds,
+      quoteLabels: quoteIds.map((id) => quoteMap.get(id) ?? "(quote)"),
       sprintIds,
       sprintNumbers,
       sprintStatuses,

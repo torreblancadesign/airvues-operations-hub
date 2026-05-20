@@ -190,6 +190,42 @@ export function StorySheet({
         </div>
 
 
+        {/* Context: Client / Quote / Description — surfaced near the top so you instantly know what this story is */}
+        <div className="px-5 py-3 border-b border-rule space-y-2.5">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Client</div>
+            <div className="text-[13px] text-ink-strong">
+              {current.clientNames.join(", ") || "—"}
+            </div>
+          </div>
+          {current.quoteIds.length > 0 && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Quote</div>
+              <div className="flex flex-col gap-0.5">
+                {current.quoteIds.map((q, i) => (
+                  <a
+                    key={q}
+                    href={`https://airvues-quote.vercel.app/?quoteId=${q}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald hover:underline text-[13px]"
+                  >
+                    {current.quoteLabels[i] ?? q} ↗
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+          {current.description && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Description</div>
+              <div className="text-[12px] text-ink-muted whitespace-pre-wrap leading-snug max-h-48 overflow-y-auto">
+                {current.description}
+              </div>
+            </div>
+          )}
+        </div>
+
         {pct != null && (
           <div className="px-5 py-4 border-b border-rule">
             <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1.5 font-mono tabnum">
@@ -365,7 +401,7 @@ export function StorySheet({
             )}
           </Field>
 
-          <Field label="Client">{current.clientNames.join(", ") || "—"}</Field>
+          {/* Client shown in the top Context block */}
           <Field label="Sprint">
             {sprintNum != null ? (
               <span className="font-mono">
@@ -386,30 +422,7 @@ export function StorySheet({
               "—"
             )}
           </Field>
-          {current.description && (
-            <Field label="Description">
-              <div className="text-[12px] text-ink-muted whitespace-pre-wrap line-clamp-12">
-                {current.description}
-              </div>
-            </Field>
-          )}
-          {current.quoteIds.length > 0 && (
-            <Field label="Linked Quote">
-              <div className="flex flex-col gap-1">
-                {current.quoteIds.map((q, i) => (
-                  <a
-                    key={q}
-                    href={`https://airvues-quote.vercel.app/?quoteId=${q}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-emerald hover:underline text-[12px]"
-                  >
-                    {current.quoteLabels[i] ?? q} ↗
-                  </a>
-                ))}
-              </div>
-            </Field>
-          )}
+          {/* Description and Linked Quote shown in the top Context block */}
           <Field label="Airtable Record ID">
             <span className="font-mono text-[12px]">{current.id}</span>
           </Field>

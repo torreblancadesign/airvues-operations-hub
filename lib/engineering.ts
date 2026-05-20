@@ -229,6 +229,8 @@ function emptyTotals(): EngineerGroup["totals"] {
     todoCount: 0,
     onHoldCount: 0,
     qaCount: 0,
+    activeHoursAssigned: 0,
+    activeHoursWorked: 0,
     openInvoice: 0,
     openCommission: 0,
     earnedInvoice: 0,

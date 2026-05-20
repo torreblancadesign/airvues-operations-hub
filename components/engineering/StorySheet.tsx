@@ -98,7 +98,7 @@ export function StorySheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [story, onClose]);
 
-  if (!story) return null;
+  if (!story || !mounted) return null;
 
   const current: Story = { ...story, ...local };
 

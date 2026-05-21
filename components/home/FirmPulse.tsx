@@ -1,10 +1,11 @@
 "use client";
 
-// Hero bento for the home page. One oversized YTD revenue tile flanked by a
+// Hero bento for the home page. One oversized revenue tile flanked by a
 // stack of three pipeline/recurring KPIs, then a three-up row of operational
-// numbers. Every tile deep-links into the underlying page.
+// numbers. A YTD/MTD toggle re-scopes only the time-bound tiles (revenue,
+// booked, sold rate); snapshot tiles stay as-is. Every tile deep-links.
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { FirmPulse } from "@/lib/firm-pulse";
 import { NumberTicker } from "@/components/ui/NumberTicker";
 
@@ -20,6 +21,7 @@ const fmtCompact = (n: number) =>
   }).format(n);
 
 type Tone = "emerald" | "amber" | "red" | "sky" | "violet" | "neutral";
+type Window = "ytd" | "mtd";
 
 const TONE_DOT: Record<Tone, string> = {
   emerald: "bg-emerald",
@@ -92,19 +94,58 @@ function Satellite({
   );
 }
 
+function WindowToggle({ value, onChange }: { value: Window; onChange: (w: Window) => void }) {
+  const btn = (w: Window, label: string) => {
+    const active = value === w;
+    return (
+      <button
+        key={w}
+        type="button"
+        onClick={() => onChange(w)}
+        className={`px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider transition-colors rounded-sm ${
+          active
+            ? "bg-emerald/15 text-emerald"
+            : "text-ink-faint hover:text-ink-muted"
+        }`}
+        aria-pressed={active}
+      >
+        {label}
+      </button>
+    );
+  };
+  return (
+    <div className="inline-flex items-center gap-0.5 bg-bg border border-rule rounded-md p-0.5">
+      {btn("ytd", "YTD")}
+      {btn("mtd", "MTD")}
+    </div>
+  );
+}
+
 export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
-  const r = pulse.revenue;
+  const [win, setWin] = useState<Window>("ytd");
+  const r = pulse.revenue[win];
+  const booked = pulse.booked[win];
+  const conv = pulse.conversion[win];
+  const windowLabel = win === "ytd" ? "YTD" : "MTD";
+
   const verdictTone: Tone = r.verdict === "ahead" ? "emerald" : r.verdict === "on-pace" ? "amber" : "red";
   const verdictGlyph = r.verdict === "ahead" ? "✓" : r.verdict === "on-pace" ? "◐" : "✗";
   const verdictColor =
     r.verdict === "ahead" ? "text-emerald" : r.verdict === "on-pace" ? "text-amber" : "text-red";
 
   const trackPct = Math.min(100, Math.max(0, r.pct * 100));
-  const yearPct = Math.floor(((Date.now() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (365 * 86_400_000)) * 100);
+
+  // Elapsed-time marker on the progress bar (year for YTD, month for MTD).
+  const now = new Date();
+  const elapsedPct =
+    win === "ytd"
+      ? Math.floor(((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / (365 * 86_400_000)) * 100)
+      : Math.floor((now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) * 100);
+  const elapsedLabel = win === "ytd" ? "Year" : "Month";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-      {/* ── Hero: YTD revenue ──────────────────────────── */}
+      {/* ── Hero: revenue ──────────────────────────────── */}
       <Link
         href="/money"
         className="group relative lg:col-span-7 bg-surface border border-rule rounded-card p-6 sm:p-7 overflow-hidden transition-all duration-200 hover:border-emerald/50 hover:-translate-y-px hover:shadow-[0_16px_40px_-16px_rgba(0,0,0,0.7),0_0_36px_-12px_rgba(34,211,168,0.35)]"
@@ -117,9 +158,20 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
         />
         <div className="relative">
           <div className="flex items-baseline justify-between gap-4 mb-3">
-            <Eyebrow dot="emerald">YTD Revenue · Collected</Eyebrow>
-            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
-              {Math.round(r.pct * 100)}% of {fmtCompact(r.target)}
+            <Eyebrow dot="emerald">{windowLabel} Revenue · Collected</Eyebrow>
+            <div className="flex items-center gap-3">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
+                {Math.round(r.pct * 100)}% of {fmtCompact(r.target)}
+              </div>
+              <div
+                onClickCapture={(e) => {
+                  // Prevent the hero <Link> from swallowing toggle clicks.
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              >
+                <WindowToggle value={win} onChange={setWin} />
+              </div>
             </div>
           </div>
 
@@ -137,11 +189,11 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
                 boxShadow: "0 0 16px -2px rgba(34,211,168,0.55)",
               }}
             />
-            {/* Year-pace marker */}
+            {/* Elapsed marker */}
             <div
               className="absolute top-[-4px] bottom-[-4px] w-px bg-ink-muted/70"
-              style={{ left: `${Math.min(100, yearPct)}%` }}
-              title={`Year is ${yearPct}% complete`}
+              style={{ left: `${Math.min(100, elapsedPct)}%` }}
+              title={`${elapsedLabel} is ${elapsedPct}% complete`}
             />
           </div>
 
@@ -151,7 +203,7 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
               {r.verdictLabel}
             </div>
             <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
-              Year {yearPct}% elapsed
+              {elapsedLabel} {elapsedPct}% elapsed
             </div>
           </div>
         </div>
@@ -161,16 +213,16 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
       <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
         <Satellite
           href="/pipeline?stage=won"
-          label="Booked YTD"
-          value={fmt(pulse.booked.value)}
-          numeric={pulse.booked.value}
+          label={`Booked ${windowLabel}`}
+          value={fmt(booked.value)}
+          numeric={booked.value}
           format="currency"
           delay={120}
           tone="emerald"
           sub={
             <>
-              <span className="text-ink-strong tabnum">{pulse.booked.count}</span> signed{" "}
-              {pulse.booked.count === 1 ? "deal" : "deals"} this year
+              <span className="text-ink-strong tabnum">{booked.count}</span> signed{" "}
+              {booked.count === 1 ? "deal" : "deals"} {win === "ytd" ? "this year" : "this month"}
             </>
           }
         />
@@ -256,16 +308,17 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
         />
         <Satellite
           href="/pipeline"
-          label="Quote → Sold"
-          value={`${Math.round(pulse.conversion.pct * 100)}%`}
-          numeric={pulse.conversion.pct * 100}
+          label={`Quote → Sold · ${windowLabel}`}
+          value={`${Math.round(conv.soldPct * 100)}%`}
+          numeric={conv.soldPct * 100}
           format="percent"
           delay={520}
-          tone={pulse.conversion.pct >= 0.5 ? "emerald" : pulse.conversion.pct >= 0.3 ? "amber" : "red"}
+          tone={conv.soldPct >= 0.5 ? "emerald" : conv.soldPct >= 0.3 ? "amber" : "red"}
           sub={
             <>
-              <span className="text-ink-strong tabnum">{pulse.conversion.won}</span> sold /{" "}
-              <span className="tabnum">{pulse.conversion.sent}</span> sent lifetime
+              <span className="text-ink-strong tabnum">{conv.sold}</span> started /{" "}
+              <span className="tabnum">{conv.sent}</span> sent · {" "}
+              <span className="tabnum text-ink-muted">{Math.round(conv.paidPct * 100)}% fully paid</span>
             </>
           }
         />

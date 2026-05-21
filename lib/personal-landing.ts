@@ -20,6 +20,8 @@ export type PersonalDay = {
   nextToShip: Story[];
   totalOpenInvoice: number;
   totalOpenCommission: number;
+  totalAssignedHours: number;
+  totalHoursWorked: number;
   // Sprint context
   currentSprintActive: number;
   currentSprintDone: number;

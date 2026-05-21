@@ -119,6 +119,7 @@ export function PipelineDashboard({ quotes }: Props) {
     let stalledDollars = 0, stalledCount = 0;
     let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
     let sentCount = 0, paidCount = 0, lostCount = 0;
+    let wonCount = 0, sentWithLost = 0;
 
     for (const q of quotes) {
       const days = daysSince(q.preparedDate);
@@ -127,6 +128,7 @@ export function PipelineDashboard({ quotes }: Props) {
       const isActive = q.status ? ACTIVE_STATUSES.includes(q.status) : false;
       const isPaid = q.status === "Paid";
       const isWon = isActive || isPaid;
+      const isLost = q.status === "Cancelled" || q.status === "Rejected";
 
       if (isOpen) {
         openDollars += q.totalCost;
@@ -167,10 +169,14 @@ export function PipelineDashboard({ quotes }: Props) {
         sentCount += 1;
       }
 
-      if (q.status === "Cancelled" || q.status === "Rejected") lostCount += 1;
+      if (isWon) wonCount += 1;
+      if (q.status === "Sent. Awaiting Approval." || isWon || isLost) sentWithLost += 1;
+
+      if (isLost) lostCount += 1;
     }
 
     const conversion = sentCount > 0 ? (paidCount / sentCount) * 100 : 0;
+    const soldRate = sentWithLost > 0 ? (wonCount / sentWithLost) * 100 : 0;
 
     return {
       bookedYtd, bookedYtdCount,
@@ -179,6 +185,7 @@ export function PipelineDashboard({ quotes }: Props) {
       stalledDollars, stalledCount,
       activeDollars, activeCount, activeUnpaid,
       sentCount, paidCount, lostCount, conversion,
+      wonCount, sentWithLost, soldRate,
     };
   }, [quotes]);
 

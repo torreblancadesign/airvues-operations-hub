@@ -1,58 +1,127 @@
 // Aggregated home-page hero: pulls together the most important firm-wide
 // numbers from Earnings (Invoices) and Pipeline (Quotes) in one cached call.
+// Time-bound tiles (revenue, booked, conversion) are returned for both YTD
+// and MTD windows so the UI can toggle without a refetch.
 import "server-only";
 
-import { revenueYtd, mrr, openReceivables } from "./kpi";
+import { revenueYtd, revenueMtd, mrr, openReceivables } from "./kpi";
 import { listAllQuotes } from "./pipeline";
 
 const OPEN_STATUSES = ["Draft", "Sent. Awaiting Approval.", "Auditing 🚩"];
 const ACTIVE_STATUSES = ["Approved and Signed", "Awaiting Payment", "Project In Progress"];
+// "Sold" = project actually started (initial invoice paid).
+const SOLD_STATUSES = ["Project In Progress", "Paid"];
 
 const daysSince = (iso: string | null): number => {
   if (!iso) return 0;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 };
 
+const fmt = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+
+export type RevenueWindow = {
+  value: number;
+  target: number;
+  pct: number; // 0..1+
+  paceDelta: number; // + ahead, - behind
+  needPerPeriod: number; // $/month for YTD, $/day for MTD
+  verdict: "ahead" | "on-pace" | "behind";
+  verdictLabel: string;
+};
+
 export type FirmPulse = {
-  revenue: {
-    value: number;
-    target: number;
-    pct: number; // 0..1+
-    paceDelta: number; // + ahead, - behind
-    needPerMonth: number;
-    verdict: "ahead" | "on-pace" | "behind";
-    verdictLabel: string;
-  };
-  booked: { value: number; count: number };
+  revenue: { ytd: RevenueWindow; mtd: RevenueWindow };
+  booked: { ytd: { value: number; count: number }; mtd: { value: number; count: number } };
   pipeline: { value: number; count: number; stalledValue: number; stalledCount: number };
   mrr: { value: number; target: number; pct: number; subs: number };
   active: { value: number; count: number; unpaid: number };
   ar: { value: number; count: number; overdue: number };
-  conversion: { pct: number; won: number; sent: number };
+  // sold = Project In Progress + Paid; paid = Paid only. Both over sent (incl. lost).
+  conversion: {
+    ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
+    mtd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
+  };
 };
 
+function buildRevenueWindow(
+  value: number,
+  target: number,
+  windowName: "ytd" | "mtd",
+): RevenueWindow {
+  const now = new Date();
+  let elapsed: number;
+  let total: number;
+  let perPeriodLabel: (n: number) => string;
+  if (windowName === "ytd") {
+    const yearStart = new Date(now.getFullYear(), 0, 1);
+    total = 365;
+    elapsed = Math.floor((now.getTime() - yearStart.getTime()) / 86_400_000);
+  } else {
+    total = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    elapsed = now.getDate();
+  }
+  const requiredByNow = target * (elapsed / total);
+  const paceDelta = value - requiredByNow;
+  const remaining = Math.max(0.1, total - elapsed);
+  const needPerPeriod =
+    windowName === "ytd"
+      ? Math.max(0, (target - value) / (remaining / 30.44))
+      : Math.max(0, (target - value) / remaining);
+  perPeriodLabel = windowName === "ytd" ? (n) => `${fmt(n)}/mo` : (n) => `${fmt(n)}/day`;
+  const verdict: "ahead" | "on-pace" | "behind" =
+    paceDelta >= 0 ? "ahead" : paceDelta > -target * 0.05 ? "on-pace" : "behind";
+  const verdictLabel =
+    verdict === "ahead"
+      ? `Ahead of pace by ${fmt(paceDelta)}`
+      : verdict === "on-pace"
+        ? `On pace · ${perPeriodLabel(needPerPeriod)} to hit target`
+        : `Behind pace by ${fmt(-paceDelta)} · need ${perPeriodLabel(needPerPeriod)}`;
+
+  return {
+    value,
+    target,
+    pct: target > 0 ? value / target : 0,
+    paceDelta,
+    needPerPeriod,
+    verdict,
+    verdictLabel,
+  };
+}
+
 export async function getFirmPulse(): Promise<FirmPulse> {
-  const [rev, mrrRes, ar, quotes] = await Promise.all([
+  const [revYtd, revMtd, mrrRes, ar, quotes] = await Promise.all([
     revenueYtd(),
+    revenueMtd(),
     mrr(),
     openReceivables(),
     listAllQuotes(),
   ]);
 
-  const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
+  const now = new Date();
+  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+
   let bookedYtd = 0, bookedYtdCount = 0;
+  let bookedMtd = 0, bookedMtdCount = 0;
   let openDollars = 0, openCount = 0, stalledDollars = 0, stalledCount = 0;
   let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
-  let sentCount = 0, wonCount = 0;
+  let sentYtd = 0, soldYtd = 0, paidQYtd = 0;
+  let sentMtd = 0, soldMtd = 0, paidQMtd = 0;
 
   for (const q of quotes) {
     const days = daysSince(q.preparedDate);
-    const isYtd = q.preparedDate && q.preparedDate >= yearStart;
+    const inYtd = !!(q.preparedDate && q.preparedDate >= yearStart);
+    const inMtd = !!(q.preparedDate && q.preparedDate >= monthStart);
     const isOpen = q.status ? OPEN_STATUSES.includes(q.status) : false;
     const isActive = q.status ? ACTIVE_STATUSES.includes(q.status) : false;
     const isPaid = q.status === "Paid";
+    const isSold = q.status ? SOLD_STATUSES.includes(q.status) : false;
     const isWon = isActive || isPaid;
     const isLost = q.status === "Cancelled" || q.status === "Rejected";
+    // "Sent" = quote left Draft (includes lost)
+    const isSent =
+      q.status === "Sent. Awaiting Approval." || isWon || isLost;
 
     if (isOpen) {
       openDollars += q.totalCost;
@@ -67,42 +136,28 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       activeCount += 1;
       activeUnpaid += q.amountOwed;
     }
-    if (isWon && isYtd) {
+    if (isWon && inYtd) {
       bookedYtd += q.totalCost;
       bookedYtdCount += 1;
     }
-    // Sent = anything that left Draft (including lost deals)
-    if (
-      q.status === "Sent. Awaiting Approval." ||
-      isWon ||
-      isLost
-    ) {
-      sentCount += 1;
+    if (isWon && inMtd) {
+      bookedMtd += q.totalCost;
+      bookedMtdCount += 1;
     }
-    if (isWon) wonCount += 1;
+    if (isSent && inYtd) {
+      sentYtd += 1;
+      if (isSold) soldYtd += 1;
+      if (isPaid) paidQYtd += 1;
+    }
+    if (isSent && inMtd) {
+      sentMtd += 1;
+      if (isSold) soldMtd += 1;
+      if (isPaid) paidQMtd += 1;
+    }
   }
 
-  // Pace math (mirrors revenueYtd internals)
-  const now = new Date();
-  const yearStartDate = new Date(now.getFullYear(), 0, 1);
-  const daysInYear = 365;
-  const daysIntoYear = Math.floor((now.getTime() - yearStartDate.getTime()) / 86_400_000);
-  const target = rev.target ?? 500_000;
-  const value = rev.value ?? 0;
-  const requiredByNow = target * (daysIntoYear / daysInYear);
-  const paceDelta = value - requiredByNow;
-  const remainingMonths = Math.max(0.1, (daysInYear - daysIntoYear) / 30.44);
-  const needPerMonth = Math.max(0, (target - value) / remainingMonths);
-  const fmt = (n: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
-  const verdict: "ahead" | "on-pace" | "behind" =
-    paceDelta >= 0 ? "ahead" : paceDelta > -target * 0.05 ? "on-pace" : "behind";
-  const verdictLabel =
-    verdict === "ahead"
-      ? `Ahead of pace by ${fmt(paceDelta)}`
-      : verdict === "on-pace"
-        ? `On pace · ${fmt(needPerMonth)}/mo to hit target`
-        : `Behind pace by ${fmt(-paceDelta)} · need ${fmt(needPerMonth)}/mo`;
+  const annualTarget = revYtd.target ?? 500_000;
+  const monthlyTarget = revMtd.target ?? annualTarget / 12;
 
   const mrrTarget = mrrRes.target ?? 41_700;
   const mrrValue = mrrRes.value ?? 0;
@@ -111,15 +166,13 @@ export async function getFirmPulse(): Promise<FirmPulse> {
 
   return {
     revenue: {
-      value,
-      target,
-      pct: target > 0 ? value / target : 0,
-      paceDelta,
-      needPerMonth,
-      verdict,
-      verdictLabel,
+      ytd: buildRevenueWindow(revYtd.value ?? 0, annualTarget, "ytd"),
+      mtd: buildRevenueWindow(revMtd.value ?? 0, monthlyTarget, "mtd"),
     },
-    booked: { value: bookedYtd, count: bookedYtdCount },
+    booked: {
+      ytd: { value: bookedYtd, count: bookedYtdCount },
+      mtd: { value: bookedMtd, count: bookedMtdCount },
+    },
     pipeline: {
       value: openDollars,
       count: openCount,
@@ -130,9 +183,20 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     active: { value: activeDollars, count: activeCount, unpaid: activeUnpaid },
     ar: { value: ar.total, count: ar.count, overdue: ar.overdue },
     conversion: {
-      pct: sentCount > 0 ? wonCount / sentCount : 0,
-      won: wonCount,
-      sent: sentCount,
+      ytd: {
+        soldPct: sentYtd > 0 ? soldYtd / sentYtd : 0,
+        paidPct: sentYtd > 0 ? paidQYtd / sentYtd : 0,
+        sold: soldYtd,
+        paid: paidQYtd,
+        sent: sentYtd,
+      },
+      mtd: {
+        soldPct: sentMtd > 0 ? soldMtd / sentMtd : 0,
+        paidPct: sentMtd > 0 ? paidQMtd / sentMtd : 0,
+        sold: soldMtd,
+        paid: paidQMtd,
+        sent: sentMtd,
+      },
     },
   };
 }

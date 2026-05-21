@@ -77,7 +77,13 @@ export async function getPersonalDay(personId: string | null): Promise<PersonalD
     .slice(0, 3);
 
   let totalOpenInvoice = 0;
-  for (const s of active) totalOpenInvoice += s.invoice;
+  let totalAssignedHours = 0;
+  let totalHoursWorked = 0;
+  for (const s of active) {
+    totalOpenInvoice += s.invoice;
+    totalAssignedHours += s.hours ?? 0;
+    totalHoursWorked += s.hoursWorked ?? 0;
+  }
   const totalOpenCommission = totalOpenInvoice * COMMISSION_RATE;
 
   // Current sprint context — stories assigned to user in any "In Progress" sprint

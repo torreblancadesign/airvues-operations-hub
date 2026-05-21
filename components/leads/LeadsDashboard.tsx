@@ -147,8 +147,14 @@ export function LeadsDashboard({ leads, initialFilter }: Props) {
         <div className="eyebrow">Pulse · {windowLabel}</div>
         <WindowToggle value={win} onChange={setWin} />
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-3 mb-3">
         <StatCard label={`New Leads (${windowLabel})`} tone="sky" value={kpis.newLeads.toString()} sub="created in window" />
+        <StatCard
+          label={`Avg time between leads (${windowLabel})`}
+          tone="sky"
+          value={kpis.avgGap != null ? `${kpis.avgGap.toFixed(1)}d` : "—"}
+          sub="cadence of new leads"
+        />
         <StatCard
           label="In Proposal"
           tone="amber"

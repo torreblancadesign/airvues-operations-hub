@@ -317,6 +317,8 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
           }
         />
       </div>
+      </div>
     </div>
   );
 }
+

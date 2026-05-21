@@ -230,8 +230,8 @@ export function PipelineDashboard({ quotes }: Props) {
         <StatCard label="Delivered YTD" tone="emerald" value={fmtCurrency(kpis.collectedYtd)} sub={`${kpis.collectedYtdCount} paid · ${fmtCurrency(kpis.collectedYtdOwed)} still owed`} />
         <StatCard label="Open pipeline" tone="amber" value={fmtCurrency(kpis.openDollars)} sub={`${kpis.openCount} quotes · ${fmtCurrency(kpis.stalledDollars)} stalled >14d`} active={filter.stalledOnly} onClick={setStalled} />
         <StatCard label="Active work" tone="sky" value={fmtCurrency(kpis.activeDollars)} sub={`${kpis.activeCount} projects · ${fmtCurrency(kpis.activeUnpaid)} unpaid`} />
-        <StatCard label="Quote → Sold" tone="emerald" value={`${kpis.soldRate.toFixed(0)}%`} sub={`${kpis.soldCount} started / ${kpis.sentWithLost} sent`} />
-        <StatCard label="Quote → Paid" tone="emerald" value={`${kpis.paidRate.toFixed(0)}%`} sub={`${kpis.paidCount} collected / ${kpis.sentWithLost} sent`} />
+        <StatCard label="Quote → Project started" tone="emerald" value={`${kpis.soldRate.toFixed(0)}%`} sub={`${kpis.soldCount} started / ${kpis.sentWithLost} sent · initial invoice paid`} />
+        <StatCard label="Quote → Fully collected" tone="emerald" value={`${kpis.paidRate.toFixed(0)}%`} sub={`${kpis.paidCount} collected / ${kpis.sentWithLost} sent · all invoices paid`} />
       </div>
 
       {/* KPIs row 2 — stage buckets */}

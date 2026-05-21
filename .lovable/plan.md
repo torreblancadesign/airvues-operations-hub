@@ -1,73 +1,90 @@
-## Clarify conversion metrics + add YTD/MTD toggle to Firm Pulse
+## Leads dashboard — `/leads`
 
-### Problem
+A new top-level page for the `⚪️ Leads` Airtable table, modeled after the existing Pipeline / Money pages so it inherits the same data + UI patterns (server fetch → client dashboard, StatCard tiles, drill-in sheet, deep-link filters).
 
-Two issues today on the home Firm Pulse and Pipeline KPIs:
+### Information architecture
 
-1. **"Quote → Sold" and "Quote → Paid" are confusing and overlapping.** The current "Sold" counts a signature as sold even before the client pays anything, which doesn't match how the team thinks about a sale. "Paid" overlaps because every Paid project also counts as Sold.
-2. **Firm Pulse has no time window control.** Everything is YTD or lifetime. The team wants to flip between **YTD** and **MTD** without making the section taller.
+```text
+PageHeader: "Leads"  · "Inbound demand, intro meetings, conversion"
+                          · {count} leads loaded · 5-min cache
 
-### New metric definitions (single source of truth)
+┌─ KPI strip (YTD ⇄ MTD toggle on the right) ────────────────────────┐
+│ New Leads │ In Proposal │ Sold │ Not Sold │ Win rate │ Avg time-to-meeting │
+└────────────────────────────────────────────────────────────────────┘
 
-- **Sent** (denominator for both rates): any quote that left Draft — `Sent. Awaiting Approval.`, `Approved and Signed`, `Awaiting Payment`, `Project In Progress`, `Paid`, `Cancelled`, `Rejected`.
-- **Sold** (project actually started — initial invoice paid): status in `Project In Progress` or `Paid`. *Changes from today: excludes `Approved and Signed` and `Awaiting Payment`.*
-- **Paid** (fully completed, all invoices collected): status = `Paid`.
+┌─ Upcoming intro meetings (next 14 days) ───────────────────────────┐
+│ Vertical timeline grouped by day                                    │
+│  • time · lead name · company · budget chip · source chip           │
+│  • [Join Meet] button (opens Meeting Link) when within ±15 min      │
+│  • [Open in Airtable] · [View details] (opens LeadSheet)            │
+│  Empty state: "No upcoming intros — schedule one in Airtable"       │
+└────────────────────────────────────────────────────────────────────┘
 
-So the funnel reads: **Sent → Sold → Paid**, with Paid as a strict subset of Sold.
+┌─ Status funnel ──────────────┐  ┌─ Sources & budgets ──────────────┐
+│ Horizontal bar per status:   │  │ Source breakdown (Fillout vs     │
+│  New Lead → Needs Review →   │  │  Manually Scheduled) — count + % │
+│  In Proposal → Sold/Not Sold │  │ Budget breakdown (<$500, $1k-2k, │
+│ Each segment clickable to    │  │  $5k+) — count + share           │
+│ filter the table below       │  │ Conversion by source (sold / all)│
+└──────────────────────────────┘  └──────────────────────────────────┘
 
-Tile labels + subs:
-- **Quote → Sold** · `{sold}/{sent}` · "projects started"
-- **Quote → Paid** · `{paid}/{sent}` · "fully collected"
+┌─ All leads table ──────────────────────────────────────────────────┐
+│ Filter bar: search · status · source · budget · meeting window      │
+│ Columns: Created · Name · Company · Title · Budget · Source ·       │
+│          Meeting Date · Status · Quotes count                       │
+│ Row click → LeadSheet (drawer) with full lead detail + transcript + │
+│   linked quotes + assessor                                          │
+└────────────────────────────────────────────────────────────────────┘
+```
 
-### YTD / MTD toggle
+### Metrics (definitions)
 
-A small segmented control in the Firm Pulse header: `[ YTD | MTD ]`. Default YTD. State is local (no URL param needed).
+Window = `ytd` (Jan 1 → today) or `mtd` (1st of month → today), toggled like Firm Pulse. Time-bound on `Created Time`.
 
-**Scope (time-bound tiles only — others remain point-in-time snapshots):**
+- **New Leads** — count of leads created in window.
+- **In Proposal** — count with status `In Proposal Stage` (lifetime, not windowed — pipeline state).
+- **Sold** — count with status `Sold` created in window.
+- **Not Sold** — count with status `Not Sold` created in window.
+- **Win rate** — `Sold / (Sold + Not Sold)` for leads created in window. "—" if denominator 0.
+- **Avg time-to-meeting** — mean of `Meeting Date − Created Time` (days) for leads created in window that have a Meeting Date.
 
-| Tile | YTD/MTD aware? | Notes |
-|---|---|---|
-| Revenue (hero) | yes | Sum collected within window; target prorated (target × elapsed/total of window) for the progress bar and pace verdict |
-| Booked | yes | Sum + count of won deals signed within window |
-| Quote → Sold rate | yes | Numerator and denominator both filtered to quotes prepared within window |
-| Open Pipeline | no | Live snapshot |
-| MRR | no | Point-in-time |
-| Active Work | no | Live snapshot |
-| Open AR | no | Live snapshot |
+Each KPI tile is clickable and deep-links to the leads page with the matching filter applied (`/leads?status=sold`, etc.), same pattern as Money/Pipeline.
 
-When MTD is active, the affected tile eyebrows append "· MTD" so it's obvious which numbers shifted (e.g. "YTD Revenue · Collected" → "MTD Revenue · Collected").
+### Upcoming intro meetings timeline
 
-### Changes
+- Query: leads with `Meeting Date` ≥ now AND ≤ now+14d, sorted ascending.
+- Grouped by day with sticky day headers ("Today", "Tomorrow", "Thu May 22").
+- Each card: time (e.g. `9:00 AM PDT`), name, company, status chip, budget chip, source chip, one-line preview of "What are you looking to build?" (truncated).
+- **Join Meet button**: primary CTA when `now` is within ±15 min of `Meeting Date` and `Meeting Link` exists; otherwise shows as secondary "Copy link" + "Add to calendar (.ics)" actions. Tooltip shows full meeting time.
+- Past meetings (today, already ended) collapse into a "Earlier today" accordion so the timeline always opens on what's next.
 
-1. **`lib/firm-pulse.ts`**
-   - `getFirmPulse()` accepts no args but returns both windows precomputed: `revenue`, `booked`, `conversion` each become `{ ytd, mtd }` shaped. Cheaper than a second fetch and the loop is already O(n).
-   - Add `mtdStart` alongside `yearStart`. Loop tallies booked + sold/sent buckets per window.
-   - Rewrite the sold/sent logic to the new definitions above. Drop the current `wonCount`-as-sold conflation.
-   - Pace math runs twice with the appropriate prorated target.
+### Extra ideas worth adding (lead-gen quality of life)
 
-2. **`components/home/FirmPulse.tsx`**
-   - Add a `useState<"ytd"|"mtd">` toggle and a segmented control in the top-right of the hero section (above or inline with the hero tile's eyebrow row).
-   - Hero, Booked, and Quote → Sold tiles read from `pulse.revenue[window]`, `pulse.booked[window]`, `pulse.conversion[window]`.
-   - Eyebrows on those three tiles append `· MTD` when window is MTD.
-   - Update Quote → Sold sub to `{sold} sold / {sent} sent` and tile description to "projects started".
-
-3. **`components/pipeline/PipelineDashboard.tsx`**
-   - Recompute KPIs with the new definitions: `soldCount` = In Progress + Paid; `paidCount` = Paid; denominator = sentWithLost.
-   - Keep both tiles in the row 1 grid (`lg:grid-cols-6`). Update subs:
-     - Quote → Sold: `{soldCount} started / {sent} sent`
-     - Quote → Paid: `{paidCount} collected / {sent} sent`
-   - No time toggle on Pipeline (out of scope — pipeline page already has its own date filters).
+1. **Stale lead alerts** — leads in `New Lead` or `Needs Review` for >3 days surface as a small red banner above the table with a "Triage now" link.
+2. **No-meeting-scheduled flag** — leads created >24h ago with no `Meeting Date` shown as an inline warning chip; helps catch dropped intros.
+3. **Conversion-by-source mini chart** — answers "is Fillout actually producing sold deals or just noise?"
+4. **Linked Quotes preview in LeadSheet** — clicking a quote opens the existing QuoteSheet so the lead → quote → invoice chain is one click apart.
+5. **Assessor avatar** on each row (Team Member Lead Assesser link) so accountability is visible at a glance.
+6. **Sparkline of new leads / week** in the New Leads tile (last 12 weeks) for trend at a glance.
 
 ### Technical notes
 
-- `Project In Progress` and `Paid` are exact strings from Airtable `Quotes.Status`. Already referenced elsewhere in `lib/firm-pulse.ts` so no new schema lookups needed.
-- MTD window = first of current month, local time, to now. Use the same `daysSince` style math.
-- Prorated MTD revenue target = `annualTarget × (daysIntoMonth / daysInMonth)` for pace verdict.
-- Type change to `FirmPulse` is internal to `lib/firm-pulse.ts` and `components/home/FirmPulse.tsx` — no other consumers (verified: only `app/(app)/page.tsx` imports `getFirmPulse`, and it passes the result through).
+- New `lib/leads.ts` (server-only): `listAllLeads()` using `listRecordsCached` with the field IDs above, cache tag `leads:all`. Returns a flat `Lead` shape with parsed dates and resolved single-link names.
+- New `lib/leads-kpi.ts`: pure derivations for the 6 KPI tiles + funnel buckets + source/budget rollups, parameterized by `window`.
+- New `app/(app)/leads/page.tsx`: server component → `LeadsDashboard` client component, accepts `searchParams` (`?status=`, `?source=`, `?budget=`) and seeds `initialFilter`.
+- New components:
+  - `components/leads/LeadsDashboard.tsx` — orchestrates KPI strip + timeline + funnel + table; owns `window` and filter state.
+  - `components/leads/KpiStrip.tsx` — reuses `StatCard` and `NumberTicker`; window toggle on the right.
+  - `components/leads/UpcomingMeetings.tsx` — timeline component with Join Meet logic (1-min `setInterval` to re-evaluate ±15-min window).
+  - `components/leads/StatusFunnel.tsx` — horizontal stacked bar with click-to-filter.
+  - `components/leads/SourceBudgetBreakdown.tsx` — two small grouped lists with percentages.
+  - `components/leads/LeadsTable.tsx` + `LeadSheet.tsx` + `FilterBar.tsx` + `types.ts` — mirrors `pipeline/` structure.
+- Add `/leads` entry to `lib/nav.ts` (sidebar + mobile + optional `showOnHome`).
+- No mutations in v1 (read-only). Future: status update from the sheet, gated by `requireRole`.
+- No schema changes — all field IDs already exist in `lib/schema.ts` under `Tables.Leads`.
 
-### Out of scope
+### Out of scope (v1)
 
-- Time-windowing pipeline/MRR/AR/Active.
-- Custom date ranges (QTD, last 30d, etc.).
-- Persisting toggle state across reloads.
-- Per-preparer breakdowns.
+- Editing lead status / assignee from the dashboard.
+- Email/Slack notifications on stale leads (banner only).
+- Calendar two-way sync (we only read `Meeting Date` from Airtable).

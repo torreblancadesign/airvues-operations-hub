@@ -33,6 +33,13 @@ export const NAV_ITEMS: NavItem[] = [
     showOnHome: true,
   },
   {
+    href: "/leads",
+    label: "Leads",
+    desc: "Inbound demand · intro meetings · funnel · YTD/MTD",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+  {
     href: "/pipeline",
     label: "Sales Pipeline",
     desc: "Stalled quotes · funnel · goal tracker · stage breakdown",

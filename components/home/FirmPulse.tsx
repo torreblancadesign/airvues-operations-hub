@@ -144,7 +144,11 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
   const elapsedLabel = win === "ytd" ? "Year" : "Month";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <WindowToggle value={win} onChange={setWin} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
       {/* ── Hero: revenue ──────────────────────────────── */}
       <Link
         href="/money"
@@ -159,21 +163,11 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
         <div className="relative">
           <div className="flex items-baseline justify-between gap-4 mb-3">
             <Eyebrow dot="emerald">{windowLabel} Revenue · Collected</Eyebrow>
-            <div className="flex items-center gap-3">
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
-                {Math.round(r.pct * 100)}% of {fmtCompact(r.target)}
-              </div>
-              <div
-                onClickCapture={(e) => {
-                  // Prevent the hero <Link> from swallowing toggle clicks.
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              >
-                <WindowToggle value={win} onChange={setWin} />
-              </div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
+              {Math.round(r.pct * 100)}% of {fmtCompact(r.target)}
             </div>
           </div>
+
 
           <div className="text-[44px] sm:text-[56px] font-semibold leading-[0.95] tabnum text-ink-strong">
             <NumberTicker value={r.value} format="currency" />
@@ -323,6 +317,8 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
           }
         />
       </div>
+      </div>
     </div>
   );
 }
+

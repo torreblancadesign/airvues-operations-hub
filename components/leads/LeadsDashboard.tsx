@@ -97,11 +97,13 @@ export function LeadsDashboard({ leads, initialFilter }: Props) {
     const cutoff = windowStart(win);
     let newLeads = 0, sold = 0, notSold = 0, inProposal = 0;
     let meetingDays = 0, meetingDaysCount = 0;
+    let earliestInWindow = Infinity;
     for (const l of leads) {
       const created = new Date(l.createdTime).getTime();
       const inWindow = created >= cutoff;
       if (inWindow) {
         newLeads += 1;
+        if (created < earliestInWindow) earliestInWindow = created;
         if (l.status === "Sold") sold += 1;
         if (l.status === "Not Sold") notSold += 1;
         if (l.meetingDate) {
@@ -114,7 +116,13 @@ export function LeadsDashboard({ leads, initialFilter }: Props) {
     }
     const winRate = newLeads > 0 ? (sold / newLeads) * 100 : null;
     const avgTtm = meetingDaysCount > 0 ? meetingDays / meetingDaysCount : null;
-    return { newLeads, sold, notSold, inProposal, winRate, avgTtm };
+    // Avg time-between-leads: (now − earliest lead in window) / count.
+    // Using "now" as the right edge means a quiet recent stretch correctly
+    // raises the average, so the number reflects current cadence.
+    const avgGap = newLeads >= 2
+      ? ((Date.now() - earliestInWindow) / 86_400_000) / newLeads
+      : null;
+    return { newLeads, sold, notSold, inProposal, winRate, avgTtm, avgGap };
   }, [leads, win]);
 
   const staleCount = useMemo(() => {

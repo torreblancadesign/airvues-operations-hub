@@ -1,15 +1,15 @@
 // Grand Central — personal-first daily landing.
-// 1) Greeting + status line  2) Your day (calendar + stories)  3) The Board (team operational)
-// 4) THE STACK  5) Small firm snapshot strip at the bottom.
+// 1) Greeting + status line  2) Firm pulse (hero KPIs)  3) Your day  4) The Board  5) THE STACK.
 import { getAppSession } from "@/lib/session";
-import { mrr, openReceivables, revenueYtd } from "@/lib/kpi";
 import { getLandingBoards } from "@/lib/landing";
 import { resolvePersonByEmail } from "@/lib/people";
 import { getPersonalDay } from "@/lib/personal-landing";
+import { getFirmPulse } from "@/lib/firm-pulse";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StationBoard } from "@/components/home/DeparturesBoard";
 import { TheStack } from "@/components/home/TheStack";
 import { YourDay } from "@/components/home/YourDay";
+import { FirmPulse } from "@/components/home/FirmPulse";
 
 async function safe<T>(fn: () => Promise<T>): Promise<T | { error: string }> {
   try {
@@ -19,9 +19,6 @@ async function safe<T>(fn: () => Promise<T>): Promise<T | { error: string }> {
     return { error: (err as Error).message };
   }
 }
-
-const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
 function firstName(name: string | null | undefined, email: string | null | undefined): string {
   if (name && name.trim()) return name.trim().split(/\s+/)[0];
@@ -41,12 +38,10 @@ export default async function HomePage() {
   const personName =
     person && "firstName" in person ? person.firstName : firstName(sessionName, sessionEmail);
 
-  const [day, boards, revenue, mrrR, receivables] = await Promise.all([
+  const [day, boards, pulse] = await Promise.all([
     safe(() => getPersonalDay(personId)),
     safe(getLandingBoards),
-    safe(revenueYtd),
-    safe(mrr),
-    safe(openReceivables),
+    safe(getFirmPulse),
   ]);
 
   const today = new Date();
@@ -97,6 +92,28 @@ export default async function HomePage() {
         />
       </header>
 
+      {/* ── Firm pulse (HERO) ────────────────────────────────── */}
+      <div className="mb-10">
+        <SectionTitle
+          title="Firm pulse"
+          aside={
+            <a
+              href="/money"
+              className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline whitespace-nowrap"
+            >
+              Open Earnings →
+            </a>
+          }
+        />
+        {"revenue" in pulse ? (
+          <FirmPulse pulse={pulse} />
+        ) : (
+          <div className="bg-surface border border-red/30 rounded-card p-4 text-[12px] text-red">
+            Failed to load firm pulse: {pulse.error}
+          </div>
+        )}
+      </div>
+
       {/* ── Your day ─────────────────────────────────────────── */}
       <div className="mb-10">
         <SectionTitle title="Your day" aside="Today's agenda + stories in flight" />
@@ -133,54 +150,10 @@ export default async function HomePage() {
       )}
 
       {/* ── The Stack ────────────────────────────────────────── */}
-      <div className="mb-10">
+      <div>
         <SectionTitle title="The stack" aside="External tools the team lives in" />
         <TheStack />
       </div>
-
-      {/* ── Firm snapshot — small strip at the bottom ────────── */}
-      <div>
-        <SectionTitle title="Firm snapshot" aside="One line. Open Earnings for the full picture." />
-        <div className="bg-surface border border-rule rounded-card px-5 py-3 flex items-center gap-6 flex-wrap text-[12px]">
-          <SnapshotItem
-            label="YTD revenue"
-            value={"value" in revenue && revenue.value != null ? fmtCurrency(revenue.value) : "—"}
-            note={"targetLabel" in revenue ? revenue.targetLabel : undefined}
-          />
-          <div className="w-px h-8 bg-rule hidden sm:block" />
-          <SnapshotItem
-            label="MRR"
-            value={"value" in mrrR && mrrR.value != null ? fmtCurrency(mrrR.value) : "—"}
-            note={"targetLabel" in mrrR ? mrrR.targetLabel : undefined}
-          />
-          <div className="w-px h-8 bg-rule hidden sm:block" />
-          <SnapshotItem
-            label="Open AR"
-            value={"total" in receivables ? fmtCurrency(receivables.total) : "—"}
-            note={
-              "count" in receivables
-                ? `${receivables.count} unpaid${receivables.overdue > 0 ? ` · ${receivables.overdue} overdue` : ""}`
-                : undefined
-            }
-          />
-          <a
-            href="/money"
-            className="ml-auto text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline whitespace-nowrap"
-          >
-            Open Earnings →
-          </a>
-        </div>
-      </div>
     </main>
-  );
-}
-
-function SnapshotItem({ label, value, note }: { label: string; value: string; note?: string }) {
-  return (
-    <div>
-      <div className="text-[9px] font-mono uppercase tracking-wider text-ink-faint">{label}</div>
-      <div className="text-[15px] font-semibold text-ink-strong tabnum">{value}</div>
-      {note && <div className="text-[10px] text-ink-muted">{note}</div>}
-    </div>
   );
 }

@@ -107,6 +107,8 @@ export async function getPersonalDay(personId: string | null): Promise<PersonalD
     nextToShip,
     totalOpenInvoice,
     totalOpenCommission,
+    totalAssignedHours,
+    totalHoursWorked,
     currentSprintActive,
     currentSprintDone,
     hasPerson: !!personId,

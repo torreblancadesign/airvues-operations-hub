@@ -7,7 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { NAV_ITEMS } from "@/lib/nav";
+import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
 import { CalendarWidget } from "@/components/header/CalendarWidget";
 import { GmailWidget } from "@/components/header/GmailWidget";
 import type { CalendarResult } from "@/lib/calendar";
@@ -23,6 +23,7 @@ function I(svg: React.ReactNode) {
 const ICONS: Record<string, React.ReactNode> = {
   "/": I(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></>),
   "/me": I(<><circle cx="12" cy="8" r="5" /><path d="M3 21v-2a7 7 0 0 1 14 0v2" /></>),
+  "/leads": I(<><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></>),
   "/money": I(<><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></>),
   "/pipeline": I(<><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></>),
   "/engineering": I(<><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></>),
@@ -140,22 +141,35 @@ export function MobileNav({ userEmail, userRole, samlActive, signOutAction, cale
             </div>
 
             <nav className="flex-1 px-3 overflow-y-auto">
-              <ul className="space-y-0.5">
-                {NAV_ITEMS.filter((n) => n.showInSidebar).map((item) => {
-                  const active = pathname === item.href;
+              <ul className="space-y-4">
+                {NAV_GROUPS.map((group) => {
+                  const groupItems = NAV_ITEMS.filter((n) => n.showInSidebar && n.group === group.id);
+                  if (groupItems.length === 0) return null;
                   return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`flex items-center gap-3 px-3 py-3 text-[14px] rounded-md transition-colors ${
-                          active
-                            ? "bg-surface text-ink-strong"
-                            : "text-ink-muted hover:text-ink-strong hover:bg-surface/60"
-                        }`}
-                      >
-                        <span className={active ? "text-emerald" : "text-ink-faint"}>{ICONS[item.href]}</span>
-                        <span>{item.label}</span>
-                      </Link>
+                    <li key={group.id}>
+                      <div className="px-3 pb-1.5 text-[10px] font-mono text-ink-faint uppercase tracking-wider">
+                        {group.label}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {groupItems.map((item) => {
+                          const active = pathname === item.href;
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                className={`flex items-center gap-3 px-3 py-3 text-[14px] rounded-md transition-colors ${
+                                  active
+                                    ? "bg-surface text-ink-strong"
+                                    : "text-ink-muted hover:text-ink-strong hover:bg-surface/60"
+                                }`}
+                              >
+                                <span className={active ? "text-emerald" : "text-ink-faint"}>{ICONS[item.href]}</span>
+                                <span>{item.label}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </li>
                   );
                 })}

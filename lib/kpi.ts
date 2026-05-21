@@ -66,6 +66,47 @@ export async function revenueYtd(): Promise<KpiResult> {
   };
 }
 
+/** MTD revenue: SUM(Invoice Amount) WHERE Status='paid' AND Date >= MONTH_START.
+ *  Target is the monthly slice of the annual $500K goal. Pace is intra-month. */
+export async function revenueMtd(): Promise<KpiResult> {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStartISO = monthStart.toISOString().slice(0, 10);
+  const t = Tables.Invoices;
+  const records = await listRecordsCached<{ "Invoice Amount"?: number }>(
+    t.id,
+    {
+      filterByFormula: `AND({Invoice Status} = 'paid', IS_AFTER({Date}, '${monthStartISO}'))`,
+      fields: [t.fields["Invoice Amount"].id, t.fields["Date"].id],
+      returnFieldsByFieldId: false,
+    },
+    ["kpi:revenue-mtd"],
+  );
+  const total = records.reduce((sum, r) => sum + (r.fields["Invoice Amount"] || 0), 0);
+  const annualTarget = 500_000;
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const monthlyTarget = annualTarget / 12;
+  const daysIntoMonth = now.getDate();
+  const requiredByNow = monthlyTarget * (daysIntoMonth / daysInMonth);
+  const aheadOrBehind = total - requiredByNow;
+  const remainingDays = Math.max(0.1, daysInMonth - daysIntoMonth);
+  const needPerDay = remainingDays > 0 ? (monthlyTarget - total) / remainingDays : 0;
+  const pacingNote =
+    aheadOrBehind >= 0
+      ? `Ahead of pace by ${fmtCurrency(aheadOrBehind)}`
+      : `Behind pace by ${fmtCurrency(-aheadOrBehind)} · need ${fmtCurrency(needPerDay)}/day`;
+
+  return {
+    value: total,
+    formatted: fmtCurrency(total),
+    delta: null,
+    target: monthlyTarget,
+    targetLabel: `${Math.round((total / monthlyTarget) * 100)}% of ${fmtCurrency(monthlyTarget)}`,
+    asOf: now,
+    note: pacingNote,
+  };
+}
+
 /** MRR: SUM(Invoice Amount) WHERE Type='Recurring' AND Status='paid' AND Date in current month */
 /** MRR: sum of Invoice Amount across active recurring subscriptions.
  *  Source: Invoices where Invoice Type = 'Recurring' AND Invoice Status = 'subscribed'.

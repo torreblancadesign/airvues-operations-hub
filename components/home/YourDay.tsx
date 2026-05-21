@@ -128,11 +128,13 @@ export function YourDay({ day }: Props) {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[12px] font-semibold text-ink-strong tabnum">
-                        {fmtMoney(s.invoice)}
+                        {s.hours != null ? fmtHours(s.hours) : "—"}
                       </div>
-                      <div className="text-[10px] font-mono text-emerald tabnum">
-                        {fmtMoney(s.commission)}
-                      </div>
+                      {s.hoursWorked != null && s.hoursWorked > 0 && (
+                        <div className="text-[10px] font-mono text-emerald tabnum">
+                          {fmtHours(s.hoursWorked)} worked
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>

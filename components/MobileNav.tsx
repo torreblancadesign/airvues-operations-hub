@@ -141,22 +141,35 @@ export function MobileNav({ userEmail, userRole, samlActive, signOutAction, cale
             </div>
 
             <nav className="flex-1 px-3 overflow-y-auto">
-              <ul className="space-y-0.5">
-                {NAV_ITEMS.filter((n) => n.showInSidebar).map((item) => {
-                  const active = pathname === item.href;
+              <ul className="space-y-4">
+                {NAV_GROUPS.map((group) => {
+                  const groupItems = NAV_ITEMS.filter((n) => n.showInSidebar && n.group === group.id);
+                  if (groupItems.length === 0) return null;
                   return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={`flex items-center gap-3 px-3 py-3 text-[14px] rounded-md transition-colors ${
-                          active
-                            ? "bg-surface text-ink-strong"
-                            : "text-ink-muted hover:text-ink-strong hover:bg-surface/60"
-                        }`}
-                      >
-                        <span className={active ? "text-emerald" : "text-ink-faint"}>{ICONS[item.href]}</span>
-                        <span>{item.label}</span>
-                      </Link>
+                    <li key={group.id}>
+                      <div className="px-3 pb-1.5 text-[10px] font-mono text-ink-faint uppercase tracking-wider">
+                        {group.label}
+                      </div>
+                      <ul className="space-y-0.5">
+                        {groupItems.map((item) => {
+                          const active = pathname === item.href;
+                          return (
+                            <li key={item.href}>
+                              <Link
+                                href={item.href}
+                                className={`flex items-center gap-3 px-3 py-3 text-[14px] rounded-md transition-colors ${
+                                  active
+                                    ? "bg-surface text-ink-strong"
+                                    : "text-ink-muted hover:text-ink-strong hover:bg-surface/60"
+                                }`}
+                              >
+                                <span className={active ? "text-emerald" : "text-ink-faint"}>{ICONS[item.href]}</span>
+                                <span>{item.label}</span>
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </li>
                   );
                 })}

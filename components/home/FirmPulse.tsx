@@ -256,7 +256,7 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
         />
         <Satellite
           href="/pipeline"
-          label="Quote → Paid"
+          label="Quote → Sold"
           value={`${Math.round(pulse.conversion.pct * 100)}%`}
           numeric={pulse.conversion.pct * 100}
           format="percent"
@@ -264,7 +264,7 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
           tone={pulse.conversion.pct >= 0.5 ? "emerald" : pulse.conversion.pct >= 0.3 ? "amber" : "red"}
           sub={
             <>
-              <span className="text-ink-strong tabnum">{pulse.conversion.paid}</span> paid /{" "}
+              <span className="text-ink-strong tabnum">{pulse.conversion.won}</span> sold /{" "}
               <span className="tabnum">{pulse.conversion.sent}</span> sent lifetime
             </>
           }

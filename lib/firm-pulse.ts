@@ -28,7 +28,7 @@ export type FirmPulse = {
   mrr: { value: number; target: number; pct: number; subs: number };
   active: { value: number; count: number; unpaid: number };
   ar: { value: number; count: number; overdue: number };
-  conversion: { pct: number; paid: number; sent: number };
+  conversion: { pct: number; won: number; sent: number };
 };
 
 export async function getFirmPulse(): Promise<FirmPulse> {

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { PersonalDay } from "@/lib/personal-landing";
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+const fmtHours = (n: number) =>
+  `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(1)}h`;
 
 function priorityDot(p: string | null): string {
   switch (p) {

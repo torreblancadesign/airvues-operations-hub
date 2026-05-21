@@ -20,6 +20,8 @@ export type PersonalDay = {
   nextToShip: Story[];
   totalOpenInvoice: number;
   totalOpenCommission: number;
+  totalAssignedHours: number;
+  totalHoursWorked: number;
   // Sprint context
   currentSprintActive: number;
   currentSprintDone: number;
@@ -75,7 +77,13 @@ export async function getPersonalDay(personId: string | null): Promise<PersonalD
     .slice(0, 3);
 
   let totalOpenInvoice = 0;
-  for (const s of active) totalOpenInvoice += s.invoice;
+  let totalAssignedHours = 0;
+  let totalHoursWorked = 0;
+  for (const s of active) {
+    totalOpenInvoice += s.invoice;
+    totalAssignedHours += s.hours ?? 0;
+    totalHoursWorked += s.hoursWorked ?? 0;
+  }
   const totalOpenCommission = totalOpenInvoice * COMMISSION_RATE;
 
   // Current sprint context — stories assigned to user in any "In Progress" sprint
@@ -99,6 +107,8 @@ export async function getPersonalDay(personId: string | null): Promise<PersonalD
     nextToShip,
     totalOpenInvoice,
     totalOpenCommission,
+    totalAssignedHours,
+    totalHoursWorked,
     currentSprintActive,
     currentSprintDone,
     hasPerson: !!personId,

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { PersonalDay } from "@/lib/personal-landing";
 
-const fmtMoney = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
+const fmtHours = (n: number) =>
+  `${n % 1 === 0 ? n.toFixed(0) : n.toFixed(1)}h`;
 
 function priorityDot(p: string | null): string {
   switch (p) {
@@ -112,7 +112,7 @@ export function YourDay({ day }: Props) {
               <Stat label="Active" value={day.active.length} tone="neutral" />
               <Stat label="In progress" value={day.inProgress.length} tone="emerald" />
               <Stat label="QA" value={day.qa.length} tone="sky" />
-              <Stat label="Open $" value={fmtMoney(day.totalOpenInvoice)} tone="ink" wide />
+              <Stat label="Hours" value={fmtHours(day.totalAssignedHours)} tone="ink" />
             </div>
             <ul className="divide-y divide-rule">
               {day.nextToShip.map((s) => (
@@ -128,11 +128,13 @@ export function YourDay({ day }: Props) {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[12px] font-semibold text-ink-strong tabnum">
-                        {fmtMoney(s.invoice)}
+                        {s.hours != null ? fmtHours(s.hours) : "—"}
                       </div>
-                      <div className="text-[10px] font-mono text-emerald tabnum">
-                        {fmtMoney(s.commission)}
-                      </div>
+                      {s.hoursWorked != null && s.hoursWorked > 0 && (
+                        <div className="text-[10px] font-mono text-emerald tabnum">
+                          {fmtHours(s.hoursWorked)} worked
+                        </div>
+                      )}
                     </div>
                   </div>
                 </li>

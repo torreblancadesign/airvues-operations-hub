@@ -169,7 +169,7 @@ export function LeadsDashboard({ leads, initialFilter }: Props) {
           label={`Win rate (${windowLabel})`}
           tone="emerald"
           value={kpis.winRate != null ? `${kpis.winRate.toFixed(0)}%` : "—"}
-          sub={`${kpis.sold} sold / ${kpis.sold + kpis.notSold} decided`}
+          sub={`${kpis.sold} sold / ${kpis.newLeads} leads`}
         />
         <StatCard
           label="Avg time-to-meeting"

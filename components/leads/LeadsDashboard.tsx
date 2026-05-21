@@ -112,8 +112,7 @@ export function LeadsDashboard({ leads, initialFilter }: Props) {
       // In Proposal is a current pipeline state — lifetime, not windowed.
       if (l.status === "In Proposal Stage") inProposal += 1;
     }
-    const decided = sold + notSold;
-    const winRate = decided > 0 ? (sold / decided) * 100 : null;
+    const winRate = newLeads > 0 ? (sold / newLeads) * 100 : null;
     const avgTtm = meetingDaysCount > 0 ? meetingDays / meetingDaysCount : null;
     return { newLeads, sold, notSold, inProposal, winRate, avgTtm };
   }, [leads, win]);

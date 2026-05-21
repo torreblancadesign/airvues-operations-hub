@@ -112,7 +112,7 @@ export function YourDay({ day }: Props) {
               <Stat label="Active" value={day.active.length} tone="neutral" />
               <Stat label="In progress" value={day.inProgress.length} tone="emerald" />
               <Stat label="QA" value={day.qa.length} tone="sky" />
-              <Stat label="Open $" value={fmtMoney(day.totalOpenInvoice)} tone="ink" wide />
+              <Stat label="Hours" value={fmtHours(day.totalAssignedHours)} tone="ink" />
             </div>
             <ul className="divide-y divide-rule">
               {day.nextToShip.map((s) => (

@@ -118,8 +118,9 @@ export function PipelineDashboard({ quotes }: Props) {
     let openDollars = 0, openCount = 0;
     let stalledDollars = 0, stalledCount = 0;
     let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
-    let sentCount = 0, paidCount = 0, lostCount = 0;
-    let wonCount = 0, sentWithLost = 0;
+    // Sold = project actually started (initial invoice paid): Project In Progress + Paid.
+    // Paid = fully collected: Paid only. Both over sentWithLost (any quote that left Draft).
+    let sentWithLost = 0, soldCount = 0, paidCount = 0, lostCount = 0;
 
     for (const q of quotes) {
       const days = daysSince(q.preparedDate);
@@ -127,6 +128,7 @@ export function PipelineDashboard({ quotes }: Props) {
       const isOpen = q.status ? OPEN_STATUSES.includes(q.status) : false;
       const isActive = q.status ? ACTIVE_STATUSES.includes(q.status) : false;
       const isPaid = q.status === "Paid";
+      const isSold = q.status === "Project In Progress" || isPaid;
       const isWon = isActive || isPaid;
       const isLost = q.status === "Cancelled" || q.status === "Rejected";
 
@@ -159,24 +161,13 @@ export function PipelineDashboard({ quotes }: Props) {
         }
       }
 
-      if (
-        q.status === "Sent. Awaiting Approval." ||
-        q.status === "Approved and Signed" ||
-        q.status === "Awaiting Payment" ||
-        q.status === "Project In Progress" ||
-        q.status === "Paid"
-      ) {
-        sentCount += 1;
-      }
-
-      if (isWon) wonCount += 1;
+      if (isSold) soldCount += 1;
       if (q.status === "Sent. Awaiting Approval." || isWon || isLost) sentWithLost += 1;
-
       if (isLost) lostCount += 1;
     }
 
-    const conversion = sentCount > 0 ? (paidCount / sentCount) * 100 : 0;
-    const soldRate = sentWithLost > 0 ? (wonCount / sentWithLost) * 100 : 0;
+    const soldRate = sentWithLost > 0 ? (soldCount / sentWithLost) * 100 : 0;
+    const paidRate = sentWithLost > 0 ? (paidCount / sentWithLost) * 100 : 0;
 
     return {
       bookedYtd, bookedYtdCount,
@@ -184,8 +175,8 @@ export function PipelineDashboard({ quotes }: Props) {
       openDollars, openCount,
       stalledDollars, stalledCount,
       activeDollars, activeCount, activeUnpaid,
-      sentCount, paidCount, lostCount, conversion,
-      wonCount, sentWithLost, soldRate,
+      sentWithLost, soldCount, paidCount, lostCount,
+      soldRate, paidRate,
     };
   }, [quotes]);
 

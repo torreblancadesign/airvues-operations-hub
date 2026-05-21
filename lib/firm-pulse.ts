@@ -28,7 +28,7 @@ export type FirmPulse = {
   mrr: { value: number; target: number; pct: number; subs: number };
   active: { value: number; count: number; unpaid: number };
   ar: { value: number; count: number; overdue: number };
-  conversion: { pct: number; paid: number; sent: number };
+  conversion: { pct: number; won: number; sent: number };
 };
 
 export async function getFirmPulse(): Promise<FirmPulse> {
@@ -43,7 +43,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
   let bookedYtd = 0, bookedYtdCount = 0;
   let openDollars = 0, openCount = 0, stalledDollars = 0, stalledCount = 0;
   let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
-  let sentCount = 0, paidCount = 0;
+  let sentCount = 0, wonCount = 0;
 
   for (const q of quotes) {
     const days = daysSince(q.preparedDate);
@@ -52,6 +52,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     const isActive = q.status ? ACTIVE_STATUSES.includes(q.status) : false;
     const isPaid = q.status === "Paid";
     const isWon = isActive || isPaid;
+    const isLost = q.status === "Cancelled" || q.status === "Rejected";
 
     if (isOpen) {
       openDollars += q.totalCost;
@@ -70,16 +71,15 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       bookedYtd += q.totalCost;
       bookedYtdCount += 1;
     }
+    // Sent = anything that left Draft (including lost deals)
     if (
       q.status === "Sent. Awaiting Approval." ||
-      q.status === "Approved and Signed" ||
-      q.status === "Awaiting Payment" ||
-      q.status === "Project In Progress" ||
-      q.status === "Paid"
+      isWon ||
+      isLost
     ) {
       sentCount += 1;
     }
-    if (isPaid) paidCount += 1;
+    if (isWon) wonCount += 1;
   }
 
   // Pace math (mirrors revenueYtd internals)
@@ -130,8 +130,8 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     active: { value: activeDollars, count: activeCount, unpaid: activeUnpaid },
     ar: { value: ar.total, count: ar.count, overdue: ar.overdue },
     conversion: {
-      pct: sentCount > 0 ? paidCount / sentCount : 0,
-      paid: paidCount,
+      pct: sentCount > 0 ? wonCount / sentCount : 0,
+      won: wonCount,
       sent: sentCount,
     },
   };

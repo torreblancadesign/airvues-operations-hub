@@ -130,8 +130,8 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     active: { value: activeDollars, count: activeCount, unpaid: activeUnpaid },
     ar: { value: ar.total, count: ar.count, overdue: ar.overdue },
     conversion: {
-      pct: sentCount > 0 ? paidCount / sentCount : 0,
-      paid: paidCount,
+      pct: sentCount > 0 ? wonCount / sentCount : 0,
+      won: wonCount,
       sent: sentCount,
     },
   };

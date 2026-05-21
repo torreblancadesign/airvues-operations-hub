@@ -257,9 +257,9 @@ export async function getLandingBoards(): Promise<LandingBoards> {
         "",
       ),
       href: `${baseUrl}/${Tables.Stories.id}/${s.id}`,
-      badge: fmtMoney(s.invoice),
+      badge: s.hours != null ? `${s.hours % 1 === 0 ? s.hours.toFixed(0) : s.hours.toFixed(1)}h` : "—",
       urgency: s.assigneeIds.length === 0 ? "amber" : "violet",
-      amount: s.invoice,
+      amount: s.hours ?? 0,
     });
   }
 

@@ -15,6 +15,14 @@ export type LeadBudget = "<$500" | "$1000 - $2000" | "$5000+";
 
 export type LeadSource = "Manually Scheduled" | "From Fillout";
 
+export type LeadAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  type: string | null;
+  size: number | null;
+};
+
 export type Lead = {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ export type Lead = {
   whatToBuild: string | null;
   clientIntro: string | null;
   transcript: string | null;
+  attachments: LeadAttachment[];
   createdTime: string;               // ISO datetime
   daysToMeeting: number | null;
   assessor: string | null;

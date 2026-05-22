@@ -4,33 +4,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { requireRole, AuthzError } from "@/lib/authz";
-
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
-
-const ALLOWED_MIME = [
-  "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/webp",
-  "image/gif",
-  "text/plain",
-  "text/csv",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "video/mp4",
-  "video/quicktime",
-];
-
-function sanitize(name: string): string {
-  return name
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/_+/g, "_")
-    .slice(0, 200);
-}
+import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BYTES } from "@/lib/uploads";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
@@ -61,21 +35,19 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (typeof leadId !== "string" || !leadId.startsWith("rec")) {
           throw new Error("Invalid leadId");
         }
-        // pathname comes from the client. Enforce our own scheme.
         const expectedPrefix = `leads/${leadId}/`;
         if (!pathname.startsWith(expectedPrefix)) {
           throw new Error("Invalid upload path");
         }
         return {
-          allowedContentTypes: ALLOWED_MIME,
-          maximumSizeInBytes: MAX_BYTES,
+          allowedContentTypes: [...UPLOAD_ALLOWED_MIME],
+          maximumSizeInBytes: UPLOAD_MAX_BYTES,
           addRandomSuffix: false,
           tokenPayload: JSON.stringify({ leadId }),
         };
       },
       onUploadCompleted: async () => {
-        // No-op. The client calls attachLeadFiles() after upload to persist into Airtable,
-        // so we get the rehydrated attachment record back synchronously.
+        // No-op. The client calls attachLeadFiles() after upload to persist into Airtable.
       },
     });
     return NextResponse.json(json);
@@ -83,6 +55,3 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }
 }
-
-// Helper export for the client to build a sanitized pathname.
-export const sanitizeUploadFilename = sanitize;

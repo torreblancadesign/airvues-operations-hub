@@ -1,8 +1,11 @@
-// Server Actions for Lead mutations — Status, Transcript edits from the dashboard.
+// Server Actions for Lead mutations — Status, Transcript, Attachment uploads.
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { patchRecords } from "../airtable";
+import { getRecord, patchRecords } from "../airtable";
+import { Tables } from "../schema";
+import { requireRole, AuthzError } from "../authz";
+import type { LeadStatus, LeadAttachment } from "../leads";
 import { Tables } from "../schema";
 import { requireRole, AuthzError } from "../authz";
 import type { LeadStatus } from "../leads";

@@ -25,6 +25,7 @@ export type Story = {
   sprintIds: string[];
   sprintNumbers: number[];
   sprintStatuses: string[];
+  sprintEnds: string[];
   description: string;
   airtableUrl: string;
 };

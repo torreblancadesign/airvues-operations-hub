@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Scorecard, ScorecardEngineer } from "@/lib/scorecard-types";
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { GoalBar } from "@/components/home/GoalBar";

@@ -114,7 +114,7 @@ export async function attachLeadFiles(args: {
   }
 
   const denied = await gate();
-  if (denied) return denied;
+  if (denied) return { error: denied.error };
 
   try {
     type Existing = Array<{ id: string; url?: string; filename?: string; type?: string; size?: number }>;

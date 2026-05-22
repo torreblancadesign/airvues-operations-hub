@@ -29,8 +29,8 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
   const [selected, setSelected] = useState<Story | null>(null);
   const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 
-  const totalPotential = totals.openInvoice + totals.earnedInvoice;
-  const totalPotentialCommission = totalPotential * commissionPct;
+  const totalPotentialCost = totals.openCost + totals.earnedCost;
+  const totalPotentialCommission = totalPotentialCost * commissionPct;
   const pctLabel = `${(commissionPct * 100).toFixed(commissionPct * 100 % 1 === 0 ? 0 : 1)}%`;
 
   const now = new Date();

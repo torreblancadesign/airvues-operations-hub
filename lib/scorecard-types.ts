@@ -60,6 +60,7 @@ export type Scorecard = {
     earnedCommission: number;
   };
   earnings: EarningsBuckets;
+  payments: ScorecardPayment[];
   shipped: ShippedBuckets;
   /**
    * Annual earnings goal from People.Annual Earnings Goal (USD).

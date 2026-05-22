@@ -58,7 +58,7 @@ export function LeadsTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-[13px] text-ink-muted">No leads match the current filters.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-8 text-center text-[13px] text-ink-muted">No leads match the current filters.</td></tr>
             ) : (
               rows.map((l) => (
                 <tr key={l.id} onClick={() => onRowClick(l)} className={`border-b border-rule-soft last:border-0 cursor-pointer transition-colors ${selectedId === l.id ? "bg-emerald-soft" : "hover:bg-bg-elevated"}`}>

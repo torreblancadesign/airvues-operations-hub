@@ -203,7 +203,7 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
       {/* Commission projections (reframed) */}
       <SectionTitle
         title="Commission Projections"
-        aside={`${pctLabel} of story invoice · projected, not yet paid`}
+        aside={`${pctLabel} of story cost · projected, not yet paid`}
       />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <StatCard

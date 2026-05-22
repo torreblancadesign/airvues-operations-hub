@@ -168,6 +168,7 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   const monthStart = startOfMonth(now);
 
   const earnings: EarningsBuckets = { lifetime: 0, ytd: 0, mtd: 0, outstanding: 0 };
+  const paymentsDetail: ScorecardPayment[] = [];
   for (const rec of paymentRecords) {
     const f = rec.fields;
     const lookup = f["Internal Team Member Account (from Link to Expenses)"];
@@ -177,6 +178,21 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     if (payeeName === "airvues consulting") continue;
 
     const amt = f.Amount ?? 0;
+
+    // Capture detail for ledger (both Paid and Needs Payment).
+    if (f.Status === "Paid" || f.Status === "Needs Payment") {
+      paymentsDetail.push({
+        id: rec.id,
+        amount: amt,
+        status: f.Status ?? null,
+        date: f.Date ?? null,
+        function: f.Function ?? null,
+        client: f.Client ?? null,
+        project: (f.Project ?? [])[0] ?? null,
+        airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${tT.id}/${rec.id}`,
+      });
+    }
+
     if (f.Status === "Needs Payment") {
       earnings.outstanding += amt;
       continue;
@@ -190,6 +206,11 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
       if (d >= monthStart) earnings.mtd += amt;
     }
   }
+  paymentsDetail.sort((a, b) => {
+    if ((a.date ?? "") < (b.date ?? "")) return 1;
+    if ((a.date ?? "") > (b.date ?? "")) return -1;
+    return 0;
+  });
 
   // === Stories shipped buckets ===
   // Prefer the real Completed Date field; fall back to latest sprint end

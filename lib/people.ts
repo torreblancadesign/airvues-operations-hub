@@ -153,15 +153,13 @@ export async function resolvePersonByEmail(
     typeof p === "string" && (ALL_PERMISSIONS as string[]).includes(p),
   );
 
-  if (DEBUG) {
-    console.log("[permissions] resolved", {
-      email: lower,
-      winnerId: winner.id,
-      winnerEmail: f["Primary Email"],
-      rawPerms,
-      permissions,
-    });
-  }
+  console.log("[permissions] resolved", {
+    email: lower,
+    winnerId: winner.id,
+    winnerEmail: f["Primary Email"],
+    rawPerms,
+    permissions,
+  });
 
   return {
     id: winner.id,

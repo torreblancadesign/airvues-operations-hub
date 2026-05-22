@@ -94,6 +94,7 @@ export async function listAllLeads(): Promise<Lead[]> {
     "Team Member Lead Assesser"?: string[];
     "\u26aa\ufe0f Quotes"?: string[];
     "Status (from \u26aa\ufe0f Quotes)"?: string[];
+    "Attach Supporting Documentations"?: Array<{ id: string; filename?: string; url?: string; type?: string; size?: number }>;
   }>(
     t.id,
     {

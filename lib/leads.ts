@@ -43,7 +43,8 @@ export type Lead = {
   attachments: LeadAttachment[];
   createdTime: string;               // ISO datetime
   daysToMeeting: number | null;
-  assessor: string | null;
+  assessorId: string | null;
+  assessorName: string | null;
   quotesCount: number;
   quoteStatuses: string[];
   airtableUrl: string;

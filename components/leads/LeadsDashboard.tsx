@@ -14,6 +14,7 @@ import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, Window } from "./types";
 type Props = {
   leads: Lead[];
   initialFilter?: Partial<Filter>;
+  canEdit?: boolean;
 };
 
 function windowStart(win: Window): number {

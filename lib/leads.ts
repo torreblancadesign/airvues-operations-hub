@@ -43,7 +43,8 @@ export type Lead = {
   attachments: LeadAttachment[];
   createdTime: string;               // ISO datetime
   daysToMeeting: number | null;
-  assessor: string | null;
+  assessorId: string | null;
+  assessorName: string | null;
   quotesCount: number;
   quoteStatuses: string[];
   airtableUrl: string;
@@ -125,8 +126,40 @@ export async function listAllLeads(): Promise<Lead[]> {
     ["leads:all"],
   );
 
+  // Collect all unique assessor recIds and resolve to Full Name via People table.
+  const assessorIds = new Set<string>();
+  for (const r of records) {
+    const ids = r.fields["Team Member Lead Assesser"] as string[] | undefined;
+    if (Array.isArray(ids)) ids.forEach((id) => assessorIds.add(id));
+  }
+
+  const nameById = new Map<string, string>();
+  if (assessorIds.size > 0) {
+    const ids = Array.from(assessorIds);
+    const formula = `OR(${ids.map((id) => `RECORD_ID()="${id}"`).join(",")})`;
+    const people = await listRecordsCached<{ "Full Name"?: string; "First Name"?: string; "Last Name"?: string }>(
+      Tables.People.id,
+      {
+        fields: [
+          Tables.People.fields["Full Name"].id,
+          Tables.People.fields["First Name"].id,
+          Tables.People.fields["Last Name"].id,
+        ],
+        filterByFormula: formula,
+      },
+      ["people:lead-assessors"],
+    );
+    for (const p of people) {
+      const fullName = asText(p.fields["Full Name"]);
+      const composed = [asText(p.fields["First Name"]), asText(p.fields["Last Name"])].filter(Boolean).join(" ").trim();
+      const name = fullName ?? (composed.length > 0 ? composed : null);
+      if (name) nameById.set(p.id, name);
+    }
+  }
+
   return records.map((r) => {
     const f = r.fields;
+    const assessorId = first(f["Team Member Lead Assesser"] as string[] | undefined) ?? null;
     return {
       id: r.id,
       name: asText(f["Name"]) ?? "(no name)",
@@ -153,10 +186,12 @@ export async function listAllLeads(): Promise<Lead[]> {
       })),
       createdTime: (f["Created Time"] as string) ?? r.createdTime,
       daysToMeeting: typeof f["Days to Meeting"] === "number" ? (f["Days to Meeting"] as number) : null,
-      assessor: first(f["Team Member Lead Assesser"] as string[] | undefined) ?? null,
+      assessorId,
+      assessorName: assessorId ? nameById.get(assessorId) ?? null : null,
       quotesCount: Array.isArray(f["\u26aa\ufe0f Quotes"]) ? (f["\u26aa\ufe0f Quotes"] as string[]).length : 0,
       quoteStatuses: (f["Status (from \u26aa\ufe0f Quotes)"] as string[]) ?? [],
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
     };
   });
 }
+

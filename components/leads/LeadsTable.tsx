@@ -48,6 +48,7 @@ export function LeadsTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <SortHeader label="Name" active={sort.key === "name"} dir={sort.dir} onClick={() => toggle("name")} />
               <SortHeader label="Company" active={sort.key === "company"} dir={sort.dir} onClick={() => toggle("company")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Title</th>
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Assessor</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Budget</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Source</th>
               <SortHeader label="Meeting" active={sort.key === "meetingDate"} dir={sort.dir} onClick={() => toggle("meetingDate")} />
@@ -57,7 +58,7 @@ export function LeadsTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-[13px] text-ink-muted">No leads match the current filters.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-8 text-center text-[13px] text-ink-muted">No leads match the current filters.</td></tr>
             ) : (
               rows.map((l) => (
                 <tr key={l.id} onClick={() => onRowClick(l)} className={`border-b border-rule-soft last:border-0 cursor-pointer transition-colors ${selectedId === l.id ? "bg-emerald-soft" : "hover:bg-bg-elevated"}`}>
@@ -65,6 +66,7 @@ export function LeadsTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                   <td className="px-3 py-2.5 text-[13px] text-ink-strong">{l.name}</td>
                   <td className="px-3 py-2.5 text-[12px] text-ink">{l.company ?? "—"}</td>
                   <td className="px-3 py-2.5 text-[12px] text-ink-muted max-w-[200px] truncate">{l.title ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-[12px] text-ink-muted">{l.assessorName ?? <span className="text-ink-faint">—</span>}</td>
                   <td className="px-3 py-2.5 text-[12px] text-ink-muted font-mono">{l.budget ?? "—"}</td>
                   <td className="px-3 py-2.5 text-[11px] text-ink-muted">{l.source ?? "—"}</td>
                   <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtDateTime(l.meetingDate)}</td>

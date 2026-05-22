@@ -6,6 +6,7 @@ import { LeadsDashboard } from "@/components/leads/LeadsDashboard";
 import type { Filter } from "@/components/leads/types";
 import type { LeadStatus, LeadBudget, LeadSource } from "@/lib/leads";
 import { assertCanAccess } from "@/lib/page-guard";
+import { canMutate } from "@/lib/authz";
 
 type SearchParams = { status?: string; source?: string; budget?: string };
 

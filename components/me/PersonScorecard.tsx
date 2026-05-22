@@ -28,7 +28,7 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 
   const totalPotentialCost = totals.openCost + totals.earnedCost;
   const totalPotentialCommission = totalPotentialCost * commissionPct;

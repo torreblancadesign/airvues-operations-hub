@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Lead } from "@/lib/leads";
 import { STATUS_PILL } from "./types";
 
@@ -22,6 +23,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function LeadSheet({ lead, onClose }: Props) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!lead) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [lead]);
+
   useEffect(() => {
     if (!lead) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -29,7 +45,7 @@ export function LeadSheet({ lead, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [lead, onClose]);
 
-  if (!lead) return null;
+  if (!lead || !mounted) return null;
 
   const now = Date.now();
   const meetMs = lead.meetingDate ? new Date(lead.meetingDate).getTime() : null;
@@ -37,10 +53,11 @@ export function LeadSheet({ lead, onClose }: Props) {
   const isJoinable =
     !!lead.meetingLink && meetMs != null && endMs != null && now >= meetMs - 15 * 60_000 && now <= endMs + 5 * 60_000;
 
-  return (
+  return createPortal(
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} aria-hidden="true" />
       <aside className="fixed top-0 right-0 bottom-0 w-full sm:w-[520px] bg-surface z-50 border-l border-rule shadow-xl overflow-y-auto" role="dialog">
+
         <div className="sticky top-0 bg-surface border-b border-rule px-5 py-3 flex items-center justify-between gap-3 z-10">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted">Lead</div>

@@ -44,6 +44,24 @@ function first<T>(x: T[] | undefined): T | null {
   return Array.isArray(x) && x.length > 0 ? x[0] : null;
 }
 
+// Airtable AI fields return { state, value, isStale } objects, not plain strings.
+// Normalize to a string for safe rendering.
+function asText(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v.length > 0 ? v : null;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) {
+    const parts = v.map(asText).filter((s): s is string => !!s);
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+  if (typeof v === "object") {
+    const obj = v as { value?: unknown };
+    if ("value" in obj) return asText(obj.value);
+    return null;
+  }
+  return null;
+}
+
 export async function listAllLeads(): Promise<Lead[]> {
   const t = Tables.Leads;
   const records = await listRecordsCached<{

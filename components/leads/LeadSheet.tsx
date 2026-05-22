@@ -1,41 +1,237 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { Lead } from "@/lib/leads";
+import { Lead, LeadStatus } from "@/lib/leads";
 import { STATUS_PILL } from "./types";
+import { updateLeadStatus, updateLeadTranscript } from "@/lib/mutations/lead";
 
 type Props = {
   lead: Lead | null;
   onClose: () => void;
+  canEdit?: boolean;
 };
+
+const STATUS_CHOICES: LeadStatus[] = [
+  "New Lead",
+  "Needs Review",
+  "In Proposal Stage",
+  "Sold",
+  "Not Sold",
+];
 
 const fmtDateTime = (s: string | null) =>
   s ? new Date(s).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function fmtBytes(n: number | null): string {
+  if (n == null) return "";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="py-2.5 border-b border-rule last:border-0">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1">{label}</div>
-      <div className="text-[13px] text-ink whitespace-pre-wrap">{children}</div>
+    <div className="px-5 pt-5 pb-2 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+      {children}
     </div>
   );
 }
 
-export function LeadSheet({ lead, onClose }: Props) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="px-5 py-2.5 grid grid-cols-[140px_1fr] gap-3 border-b border-rule-soft last:border-0">
+      <div className="text-[12px] text-ink-muted pt-0.5">{label}</div>
+      <div className="text-[13px] text-ink whitespace-pre-wrap break-words">{children}</div>
+    </div>
+  );
+}
+
+function StatusEditor({
+  leadId,
+  current,
+  canEdit,
+}: {
+  leadId: string;
+  current: LeadStatus | null;
+  canEdit: boolean;
+}) {
+  const [value, setValue] = useState<LeadStatus | "">(current ?? "");
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => setValue(current ?? ""), [current, leadId]);
+
+  if (!canEdit) {
+    return current ? (
+      <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${STATUS_PILL[current]}`}>
+        {current}
+      </span>
+    ) : <span className="text-ink-faint">—</span>;
+  }
+
+  const onChange = (next: LeadStatus) => {
+    const prev = value;
+    setValue(next);
+    setError(null);
+    startTransition(async () => {
+      const res = await updateLeadStatus({ leadId, status: next });
+      if ("error" in res) {
+        setError(res.error);
+        setValue(prev);
+      }
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as LeadStatus)}
+        disabled={isPending}
+        className="bg-bg-elevated border border-rule rounded px-2 py-1 text-[12px] text-ink focus:outline-none focus:border-emerald disabled:opacity-50"
+      >
+        <option value="" disabled>— select —</option>
+        {STATUS_CHOICES.map((s) => (
+          <option key={s} value={s}>{s}</option>
+        ))}
+      </select>
+      {isPending && <span className="text-[11px] text-ink-faint">Saving…</span>}
+      {error && <span className="text-[11px] text-red">{error}</span>}
+    </div>
+  );
+}
+
+function TranscriptEditor({
+  leadId,
+  current,
+  canEdit,
+}: {
+  leadId: string;
+  current: string | null;
+  canEdit: boolean;
+}) {
+  const [value, setValue] = useState(current ?? "");
+  const [editing, setEditing] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { setValue(current ?? ""); setEditing(false); }, [current, leadId]);
+
+  if (!canEdit) {
+    return current ? (
+      <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
+    ) : <span className="text-ink-faint text-[12px]">—</span>;
+  }
+
+  const save = () => {
+    setError(null);
+    startTransition(async () => {
+      const res = await updateLeadTranscript({ leadId, transcript: value });
+      if ("error" in res) setError(res.error);
+      else setEditing(false);
+    });
+  };
+
+  if (!editing && current) {
+    return (
+      <div>
+        <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="mt-1.5 text-[11px] text-emerald hover:underline"
+        >
+          Edit
+        </button>
+      </div>
+    );
+  }
+
+  if (!editing && !current) {
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="w-full text-left px-3 py-2 bg-bg-elevated border border-dashed border-rule rounded text-[12px] text-ink-muted hover:border-ink-muted hover:text-ink"
+      >
+        Paste the meeting transcript here or any other meeting notes or email communication. Anything that is relevant as discovery for creating a proposal.
+      </button>
+    );
+  }
+
+  return (
+    <div>
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        rows={8}
+        placeholder="Paste meeting transcript…"
+        className="w-full bg-bg-elevated border border-rule rounded p-2 text-[13px] text-ink focus:outline-none focus:border-emerald font-mono"
+        disabled={isPending}
+      />
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={save}
+          disabled={isPending}
+          className="px-3 py-1.5 text-[12px] font-medium bg-emerald text-bg rounded hover:bg-emerald/80 disabled:opacity-50"
+        >
+          {isPending ? "Saving…" : "Save"}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setValue(current ?? ""); setEditing(false); setError(null); }}
+          disabled={isPending}
+          className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted"
+        >
+          Cancel
+        </button>
+        {error && <span className="text-[11px] text-red">{error}</span>}
+        <span className="ml-auto text-[10px] text-ink-faint font-mono">{value.length.toLocaleString()} chars</span>
+      </div>
+    </div>
+  );
+}
+
+function Attachments({ lead }: { lead: Lead }) {
+  if (lead.attachments.length === 0) {
+    return (
+      <div className="px-3 py-3 bg-bg-elevated border border-dashed border-rule rounded text-[12px] text-ink-faint text-center">
+        No supporting documents attached. Add files directly in Airtable.
+      </div>
+    );
+  }
+  return (
+    <ul className="space-y-1.5">
+      {lead.attachments.map((a) => (
+        <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-bg-elevated border border-rule rounded">
+          <a
+            href={a.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[12px] text-emerald hover:underline truncate"
+            title={a.filename}
+          >
+            📎 {a.filename}
+          </a>
+          <span className="text-[10px] font-mono text-ink-faint shrink-0">{fmtBytes(a.size)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!lead) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return () => { document.body.style.overflow = prev; };
   }, [lead]);
 
   useEffect(() => {
@@ -56,34 +252,17 @@ export function LeadSheet({ lead, onClose }: Props) {
   return createPortal(
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} aria-hidden="true" />
-      <aside className="fixed top-0 right-0 bottom-0 w-full sm:w-[520px] bg-surface z-50 border-l border-rule shadow-xl overflow-y-auto" role="dialog">
+      <aside className="fixed top-0 right-0 bottom-0 w-full sm:w-[560px] bg-surface z-50 border-l border-rule shadow-xl overflow-y-auto" role="dialog">
 
         <div className="sticky top-0 bg-surface border-b border-rule px-5 py-3 flex items-center justify-between gap-3 z-10">
-          <div>
+          <div className="min-w-0">
             <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted">Lead</div>
-            <h2 className="text-[16px] font-semibold text-ink-strong leading-tight max-w-[400px]">{lead.name}</h2>
+            <h2 className="text-[16px] font-semibold text-ink-strong leading-tight truncate">{lead.name}</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-[20px] text-ink-muted hover:text-ink-strong w-7 h-7 flex items-center justify-center rounded hover:bg-bg-elevated" aria-label="Close">×</button>
+          <button type="button" onClick={onClose} className="text-[20px] text-ink-muted hover:text-ink-strong w-7 h-7 flex items-center justify-center rounded hover:bg-bg-elevated shrink-0" aria-label="Close">×</button>
         </div>
 
-        <div className="px-5 py-5 bg-bg-elevated border-b border-rule">
-          <div className="text-[20px] font-semibold text-ink-strong leading-tight">{lead.company ?? "—"}</div>
-          <div className="mt-1 text-[12px] text-ink-muted">{lead.title ?? "—"}</div>
-          <div className="mt-3 flex items-center gap-2 flex-wrap">
-            {lead.status && (
-              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${STATUS_PILL[lead.status]}`}>
-                {lead.status}
-              </span>
-            )}
-            {lead.budget && (
-              <span className="inline-block px-2 py-0.5 rounded text-[10px] font-mono bg-violet-soft text-violet">{lead.budget}</span>
-            )}
-            {lead.source && (
-              <span className="inline-block px-2 py-0.5 rounded text-[10px] bg-rule text-ink-muted">{lead.source}</span>
-            )}
-          </div>
-        </div>
-
+        {/* Action buttons */}
         <div className="px-5 py-3 border-b border-rule flex gap-2 flex-wrap">
           {lead.meetingLink && (
             <a
@@ -100,25 +279,71 @@ export function LeadSheet({ lead, onClose }: Props) {
             </a>
           )}
           {lead.email && (
-            <a href={`mailto:${lead.email}`} className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors">Email ↗</a>
+            <a href={`mailto:${lead.email}`} className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted">Email ↗</a>
           )}
-          <a href={lead.airtableUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors">Airtable ↗</a>
+          <a href={lead.airtableUrl} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted">Airtable ↗</a>
         </div>
 
-        <div className="px-5 py-2">
-          <Field label="Email">{lead.email ?? "—"}</Field>
-          <Field label="Meeting">{fmtDateTime(lead.meetingDate)}</Field>
-          <Field label="Created">{fmtDateTime(lead.createdTime)}</Field>
-          <Field label="Assessor">{lead.assessor ?? "—"}</Field>
-          <Field label="What they want to build">{lead.whatToBuild ?? "—"}</Field>
-          {lead.clientIntro && <Field label="Client introduction (AI)">{lead.clientIntro}</Field>}
+        {/* Lead Details (read-only — sourced from intake) */}
+        <SectionHeader>Lead Details</SectionHeader>
+        <div className="border-t border-rule">
+          <Row label="Email">
+            {lead.email ? (
+              <a href={`mailto:${lead.email}`} className="text-emerald hover:underline">{lead.email}</a>
+            ) : "—"}
+          </Row>
+          <Row label="Title">{lead.title ?? "—"}</Row>
+          <Row label="Company Name">{lead.company ?? "—"}</Row>
+          <Row label="Meeting Date">{fmtDateTime(lead.meetingDate)}</Row>
+          <Row label="Meeting Link">
+            {lead.meetingLink ? (
+              <a href={lead.meetingLink} target="_blank" rel="noopener noreferrer" className="text-emerald hover:underline break-all">{lead.meetingLink}</a>
+            ) : "—"}
+          </Row>
+          <Row label="Budget">
+            {lead.budget ? (
+              <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-mono bg-violet-soft text-violet">{lead.budget}</span>
+            ) : "—"}
+          </Row>
+          <Row label="What are you looking to build?">
+            <span className="text-[13px]">{lead.whatToBuild ?? "—"}</span>
+          </Row>
+        </div>
+
+        {/* Lead Assessment — editable */}
+        <SectionHeader>
+          Lead Assessment {canEdit ? <span className="ml-1 text-emerald normal-case font-normal">· editable</span> : <span className="ml-1 text-ink-faint normal-case font-normal">· read-only</span>}
+        </SectionHeader>
+        <div className="border-t border-rule">
+          <Row label="Paste Meeting Transcript">
+            <TranscriptEditor leadId={lead.id} current={lead.transcript} canEdit={canEdit} />
+          </Row>
+          <Row label="Attach Supporting Documentations">
+            <Attachments lead={lead} />
+          </Row>
+          <Row label="Status">
+            <StatusEditor leadId={lead.id} current={lead.status} canEdit={canEdit} />
+            <div className="mt-1 text-[11px] text-ink-faint">
+              Once all details have been entered above and lead is ready to move to proposal stage, update status to &quot;In Proposal Stage&quot;. If lead is not going to work out then move to &quot;Not Sold&quot;.
+            </div>
+          </Row>
+        </div>
+
+        {/* More context (operational extras not in Airtable interface) */}
+        <SectionHeader>More Context</SectionHeader>
+        <div className="border-t border-rule pb-6">
+          <Row label="Source">{lead.source ?? "—"}</Row>
+          <Row label="Created">{fmtDateTime(lead.createdTime)}</Row>
+          <Row label="Assessor">{lead.assessor ?? "—"}</Row>
+          {lead.clientIntro && <Row label="Client Introduction (AI)">{lead.clientIntro}</Row>}
           {lead.quotesCount > 0 && (
-            <Field label={`Linked quotes (${lead.quotesCount})`}>
+            <Row label={`Linked Quotes (${lead.quotesCount})`}>
               {lead.quoteStatuses.length > 0 ? lead.quoteStatuses.join(" · ") : "—"}
-            </Field>
+            </Row>
           )}
-          {lead.transcript && <Field label="Meeting transcript">{lead.transcript}</Field>}
-          <Field label="Airtable Record ID"><span className="font-mono text-[12px]">{lead.id}</span></Field>
+          <Row label="Airtable Record ID">
+            <span className="font-mono text-[11px] text-ink-muted">{lead.id}</span>
+          </Row>
         </div>
       </aside>
     </>,

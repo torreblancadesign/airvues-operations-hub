@@ -48,6 +48,7 @@ export function LeadsTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <SortHeader label="Name" active={sort.key === "name"} dir={sort.dir} onClick={() => toggle("name")} />
               <SortHeader label="Company" active={sort.key === "company"} dir={sort.dir} onClick={() => toggle("company")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Title</th>
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Assessor</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Budget</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Source</th>
               <SortHeader label="Meeting" active={sort.key === "meetingDate"} dir={sort.dir} onClick={() => toggle("meetingDate")} />

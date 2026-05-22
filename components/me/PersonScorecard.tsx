@@ -81,6 +81,20 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
                   <span>{engineer.internalType}</span>
                 </>
               )}
+              <span className="text-ink-faint">·</span>
+              <span
+                className="px-2 py-0.5 bg-bg-elevated border border-rule rounded font-mono uppercase tracking-wider text-[10px] text-emerald"
+                title={
+                  commissionPctSource === "person"
+                    ? "Your commission rate from People.Commission Percentage"
+                    : "Default rate — set Commission Percentage on your People record in Airtable"
+                }
+              >
+                Commission · {pctLabel}
+                {commissionPctSource === "default" && (
+                  <span className="ml-1 text-ink-faint normal-case">(default)</span>
+                )}
+              </span>
             </div>
           </div>
           <PersonPicker current={engineer.id} engineers={engineers} />

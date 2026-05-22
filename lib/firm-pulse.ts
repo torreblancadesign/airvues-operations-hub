@@ -227,8 +227,8 @@ export async function getFirmPulse(): Promise<FirmPulse> {
 
   return {
     revenue: {
-      ytd: buildRevenueWindow(revYtd.value ?? 0, annualTarget, "ytd"),
-      mtd: buildRevenueWindow(revMtd.value ?? 0, monthlyTarget, "mtd"),
+      ytd: buildRevenueWindow(revYtd.value ?? 0, annualTarget, "ytd", series.ytd),
+      mtd: buildRevenueWindow(revMtd.value ?? 0, monthlyTarget, "mtd", series.mtd),
     },
     booked: {
       ytd: { value: bookedYtd, count: bookedYtdCount },

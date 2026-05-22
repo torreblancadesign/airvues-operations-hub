@@ -29,8 +29,8 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
   const [selected, setSelected] = useState<Story | null>(null);
   const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 
-  const totalPotential = totals.openInvoice + totals.earnedInvoice;
-  const totalPotentialCommission = totalPotential * commissionPct;
+  const totalPotentialCost = totals.openCost + totals.earnedCost;
+  const totalPotentialCommission = totalPotentialCost * commissionPct;
   const pctLabel = `${(commissionPct * 100).toFixed(commissionPct * 100 % 1 === 0 ? 0 : 1)}%`;
 
   const now = new Date();
@@ -179,7 +179,7 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
           label="Lifetime shipped"
           tone="violet"
           value={shipped.lifetime.toLocaleString()}
-          sub={`${fmtMoney(totals.earnedInvoice)} of scope delivered`}
+          sub={`${fmtMoney(totals.earnedCost)} of scope delivered`}
         />
         <StatCard
           label="YTD shipped"
@@ -203,7 +203,7 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
       {/* Commission projections (reframed) */}
       <SectionTitle
         title="Commission Projections"
-        aside={`${pctLabel} of story invoice · projected, not yet paid`}
+        aside={`${pctLabel} of story cost · projected, not yet paid`}
       />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <StatCard

@@ -42,8 +42,10 @@ export type Scorecard = {
     onHoldCount: number;
     qaCount: number;
     openInvoice: number;
+    openCost: number;
     openCommission: number;
     earnedInvoice: number;
+    earnedCost: number;
     earnedCommission: number;
   };
   earnings: EarningsBuckets;

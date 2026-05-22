@@ -22,6 +22,8 @@ const daysSince = (iso: string | null): number => {
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
+export type TrendPoint = { label: string; value: number };
+
 export type RevenueWindow = {
   value: number;
   target: number;
@@ -30,6 +32,7 @@ export type RevenueWindow = {
   needPerPeriod: number; // $/month for YTD, $/day for MTD
   verdict: "ahead" | "on-pace" | "behind";
   verdictLabel: string;
+  series: TrendPoint[]; // cumulative collected revenue over the window
 };
 
 export type FirmPulse = {

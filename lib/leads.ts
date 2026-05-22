@@ -15,6 +15,14 @@ export type LeadBudget = "<$500" | "$1000 - $2000" | "$5000+";
 
 export type LeadSource = "Manually Scheduled" | "From Fillout";
 
+export type LeadAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  type: string | null;
+  size: number | null;
+};
+
 export type Lead = {
   id: string;
   name: string;
@@ -32,6 +40,7 @@ export type Lead = {
   whatToBuild: string | null;
   clientIntro: string | null;
   transcript: string | null;
+  attachments: LeadAttachment[];
   createdTime: string;               // ISO datetime
   daysToMeeting: number | null;
   assessor: string | null;
@@ -85,6 +94,7 @@ export async function listAllLeads(): Promise<Lead[]> {
     "Team Member Lead Assesser"?: string[];
     "\u26aa\ufe0f Quotes"?: string[];
     "Status (from \u26aa\ufe0f Quotes)"?: string[];
+    "Attach Supporting Documentations"?: Array<{ id: string; filename?: string; url?: string; type?: string; size?: number }>;
   }>(
     t.id,
     {
@@ -109,6 +119,7 @@ export async function listAllLeads(): Promise<Lead[]> {
         t.fields["Team Member Lead Assesser"].id,
         t.fields["\u26aa\ufe0f Quotes"].id,
         t.fields["Status (from \u26aa\ufe0f Quotes)"].id,
+        t.fields["Attach Supporting Documentations"].id,
       ],
     },
     ["leads:all"],
@@ -133,6 +144,13 @@ export async function listAllLeads(): Promise<Lead[]> {
       whatToBuild: asText(f["What are you looking to build?"]),
       clientIntro: asText(f["Client Introduction"]),
       transcript: asText(f["Paste Meeting Transcript"]),
+      attachments: (f["Attach Supporting Documentations"] ?? []).map((a) => ({
+        id: a.id,
+        filename: a.filename ?? "file",
+        url: a.url ?? "",
+        type: a.type ?? null,
+        size: typeof a.size === "number" ? a.size : null,
+      })),
       createdTime: (f["Created Time"] as string) ?? r.createdTime,
       daysToMeeting: typeof f["Days to Meeting"] === "number" ? (f["Days to Meeting"] as number) : null,
       assessor: first(f["Team Member Lead Assesser"] as string[] | undefined) ?? null,

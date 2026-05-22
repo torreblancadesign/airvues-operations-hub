@@ -6,6 +6,7 @@ import { LeadsDashboard } from "@/components/leads/LeadsDashboard";
 import type { Filter } from "@/components/leads/types";
 import type { LeadStatus, LeadBudget, LeadSource } from "@/lib/leads";
 import { assertCanAccess } from "@/lib/page-guard";
+import { canMutate } from "@/lib/authz";
 
 type SearchParams = { status?: string; source?: string; budget?: string };
 
@@ -32,6 +33,7 @@ export default async function LeadsPage({
   } catch (e) {
     error = (e as Error).message;
   }
+  const canEdit = await canMutate();
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
@@ -55,7 +57,7 @@ export default async function LeadsPage({
           ⚠ Failed to load leads: {error}
         </div>
       ) : (
-        <LeadsDashboard leads={leads} initialFilter={initialFilter} />
+        <LeadsDashboard leads={leads} initialFilter={initialFilter} canEdit={canEdit} />
       )}
     </main>
   );

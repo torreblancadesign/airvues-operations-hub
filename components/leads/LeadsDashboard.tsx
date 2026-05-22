@@ -14,6 +14,7 @@ import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, Window } from "./types";
 type Props = {
   leads: Lead[];
   initialFilter?: Partial<Filter>;
+  canEdit?: boolean;
 };
 
 function windowStart(win: Window): number {
@@ -87,7 +88,7 @@ function applySort(rows: Lead[], s: Sort): Lead[] {
   });
 }
 
-export function LeadsDashboard({ leads, initialFilter }: Props) {
+export function LeadsDashboard({ leads, initialFilter, canEdit = false }: Props) {
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...initialFilter });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<Lead | null>(null);
@@ -223,7 +224,7 @@ export function LeadsDashboard({ leads, initialFilter }: Props) {
 
       <LeadsTable rows={sorted} sort={sort} setSort={setSort} onRowClick={setSelected} selectedId={selected?.id ?? null} />
 
-      <LeadSheet lead={selected} onClose={() => setSelected(null)} />
+      <LeadSheet lead={selected} onClose={() => setSelected(null)} canEdit={canEdit} />
     </>
   );
 }

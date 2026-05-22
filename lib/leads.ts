@@ -144,6 +144,13 @@ export async function listAllLeads(): Promise<Lead[]> {
       whatToBuild: asText(f["What are you looking to build?"]),
       clientIntro: asText(f["Client Introduction"]),
       transcript: asText(f["Paste Meeting Transcript"]),
+      attachments: (f["Attach Supporting Documentations"] ?? []).map((a) => ({
+        id: a.id,
+        filename: a.filename ?? "file",
+        url: a.url ?? "",
+        type: a.type ?? null,
+        size: typeof a.size === "number" ? a.size : null,
+      })),
       createdTime: (f["Created Time"] as string) ?? r.createdTime,
       daysToMeeting: typeof f["Days to Meeting"] === "number" ? (f["Days to Meeting"] as number) : null,
       assessor: first(f["Team Member Lead Assesser"] as string[] | undefined) ?? null,

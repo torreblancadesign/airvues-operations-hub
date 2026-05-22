@@ -31,6 +31,7 @@ export type Payment = {
   function: string | null;   // Engineer / BA
   payeeEmail: string | null;
   payeeName: string | null;
+  personId: string | null;   // People recId via "Internal Team Member Account (from Link to Expenses)" lookup
   date: string | null;
   invoiceId: string | null;
   client: string | null;

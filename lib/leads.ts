@@ -119,6 +119,7 @@ export async function listAllLeads(): Promise<Lead[]> {
         t.fields["Team Member Lead Assesser"].id,
         t.fields["\u26aa\ufe0f Quotes"].id,
         t.fields["Status (from \u26aa\ufe0f Quotes)"].id,
+        t.fields["Attach Supporting Documentations"].id,
       ],
     },
     ["leads:all"],

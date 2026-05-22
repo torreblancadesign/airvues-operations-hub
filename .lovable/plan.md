@@ -1,28 +1,32 @@
-## Add Earnings Detail section to /me scorecard
+## Replace earnings ledger with monthly bar chart + drill-down side panel
 
-Add a payments ledger table to `PersonScorecard` showing the actual Team Task Payment line items that make up the person's earnings totals — so they can see exactly which jobs/dates contribute to lifetime, YTD, MTD, and outstanding numbers.
+Swap the long table for a clean monthly bar chart. Clicking a bar opens a right-side panel listing the payments for that month.
 
-### Data layer (`lib/scorecard.ts` + `lib/scorecard-types.ts`)
+### UI changes (`components/me/PersonScorecard.tsx`)
 
-1. Extend the payment fetch in `getScorecard` to also pull `Function`, `Client`, `Project`, and `Client Invoice` (already pulling Amount, Status, Date, Payee, person lookup).
-2. Build a `payments: ScorecardPayment[]` array for the resolved engineer — same filter as today (matching personId, excluding "airvues consulting" payee), sorted by date desc. Include both Paid and Needs Payment rows.
-3. Add a `ScorecardPayment` type to `scorecard-types.ts` mirroring the relevant fields from `lib/team.ts`'s `Payment` (id, amount, status, date, function, client, project, airtableUrl).
-4. Attach `payments` to the `Scorecard` type.
+Replace the existing "Earnings Detail" table section with:
 
-### UI (`components/me/PersonScorecard.tsx`)
+1. **Monthly bar chart**
+   - Shows the trailing 12 months (rolling), oldest → newest left-to-right, with the current month last.
+   - Stacked bar per month: emerald = Paid, amber = Needs Payment (so outstanding is visible without cluttering the totals).
+   - Y-axis is implicit (bars scale to the max month in the window); each bar shows the total dollar amount above it on hover, with a small month label (e.g. "Jan", "Feb"… plus "'26" tick on January).
+   - Built with plain divs/CSS (no chart lib) — matches the style already used in `ArAgingChart` / "Owed by person" lists.
+   - A small toggle above the chart switches the window: **12 months / YTD / All-time (by year)**. (All-time switches the X-axis to yearly bars so longer histories stay readable.)
+   - KPI strip above the chart: window total, paid total, outstanding total.
 
-Add a new "Earnings Detail" section after the existing "Earnings" stat cards (and before the goal block), matching the visual style of the team payments table:
+2. **Click-to-drill side panel**
+   - Clicking a bar opens a right-side sheet (reuse the existing drawer pattern from `StorySheet` for consistency — fixed right panel, backdrop, ESC/close button).
+   - Header: month label + total amount + payment count.
+   - Body: the same compact payment rows we already designed (date · function · client/project · status pill · amount), sorted newest-first, with Airtable link.
+   - Closing the panel returns focus to the chart.
 
-- `SectionTitle` "Earnings Detail" with aside showing payment count.
-- Compact table: Date · Function · Client/project · Status pill · Amount (right-aligned, tabnum).
-- Status pill: emerald for Paid, amber for Needs Payment.
-- Payee column omitted (it's always the current person).
-- Each row linkable to Airtable via the existing `airtableUrl`.
-- Empty state when no payments.
-- Cap at e.g. 200 rows with a "showing first 200 of N" footer (paginate later if needed).
+3. **Empty state**: same dashed-card placeholder when `payments.length === 0`.
+
+### Data layer
+
+No data changes. `scorecard.payments` already contains the full list with date/status/amount/etc. Monthly grouping happens client-side in the component via a `useMemo` keyed off `payments`.
 
 ### Out of scope
-
-- No filters/search (can add later if needed).
-- No changes to commission projections, goal, or stories sections.
-- No new permission gating — visibility follows the existing scorecard access.
+- No new filters, no CSV export.
+- No changes to the Earnings stat cards above (they keep showing lifetime/YTD/MTD/outstanding).
+- No backend or permissions changes.

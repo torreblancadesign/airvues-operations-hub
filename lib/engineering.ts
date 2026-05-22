@@ -56,6 +56,8 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           sTbl.fields["Sprint Number (from 📆Sprints)"].id,
           sTbl.fields["Sprint Status (from 📆Sprints)"].id,
           sTbl.fields["Sprint End (from 📆Sprints)"].id,
+          // New field — schema.ts not yet regenerated; pass by name.
+          "Completed Date",
         ],
       },
       ["engineering:stories"],
@@ -162,6 +164,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       sprintNumbers,
       sprintStatuses,
       sprintEnds,
+      completedDate: (f["Completed Date"] as string) ?? null,
       description: (f["Description"] as string) ?? "",
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
     };

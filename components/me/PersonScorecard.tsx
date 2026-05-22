@@ -19,22 +19,6 @@ type Props = {
 const fmtMoney = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
-function bonusTierLabel(tier: Scorecard["company"]["bonusTier"]): string {
-  switch (tier) {
-    case "tier2": return "15% tier · unlocked";
-    case "tier1": return "10% tier · unlocked";
-    default: return "Locked";
-  }
-}
-
-function bonusTierTone(tier: Scorecard["company"]["bonusTier"]): "emerald" | "amber" | "red" {
-  switch (tier) {
-    case "tier2": return "emerald";
-    case "tier1": return "emerald";
-    default: return "amber";
-  }
-}
-
 function levelFromRole(role: string | null): string {
   if (!role) return "—";
   const match = role.match(/L[1-7]/i);
@@ -43,13 +27,24 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, company } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate } = scorecard;
 
   const totalPotential = totals.openInvoice + totals.earnedInvoice;
   const totalPotentialCommission = totalPotential * COMMISSION_RATE;
-  const earnedPctOfTotal = totalPotential > 0
-    ? (totals.earnedInvoice / totalPotential) * 100
-    : 0;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const monthsElapsed = now.getMonth() + now.getDate() / 30;
+  const monthsRemaining = Math.max(0.1, 12 - monthsElapsed);
+
+  // Goal pacing
+  const annualGoal = goal.annualEarnings;
+  const goalRemaining = annualGoal != null ? Math.max(0, annualGoal - earnings.ytd) : null;
+  const monthlyPaceNeeded = goalRemaining != null ? goalRemaining / monthsRemaining : null;
+  const expectedYtdAtPace = annualGoal != null ? (annualGoal / 12) * monthsElapsed : null;
+  const onTrack = annualGoal != null && expectedYtdAtPace != null
+    ? earnings.ytd >= expectedYtdAtPace
+    : false;
 
   const groups: { label: string; tone: string; stories: Story[] }[] = [
     { label: "In progress", tone: "emerald", stories: byStatus.inProgress },
@@ -91,85 +86,130 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
         </div>
       </div>
 
-      {/* Bonus tier callout */}
-      <div className="mb-6">
-        <SectionTitle
-          title="Company Bonus Pool"
-          aside={
-            <span className={`font-mono text-[11px] ${
-              company.bonusTier === "locked" ? "text-amber" : "text-emerald"
-            }`}>
-              {bonusTierLabel(company.bonusTier)}
-            </span>
-          }
+      {/* Earnings — real money paid out */}
+      <SectionTitle title="Earnings" aside="From Team Task Payments · Status = Paid" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          label="Lifetime paid"
+          tone="emerald"
+          value={fmtMoney(earnings.lifetime)}
+          sub="All-time payouts"
         />
-        <GoalBar
-          label="Annual Revenue"
-          value={company.ytdRevenue}
-          target={company.revenueGoal}
-          stretch={company.bonusStretch}
-          formatValue={fmtMoney}
-          tone={bonusTierTone(company.bonusTier)}
-          rightLabel={
-            company.bonusTier === "tier2"
-              ? "Maxed"
-              : company.bonusTier === "tier1"
-                ? "10% tier"
-                : "Locked"
-          }
-          sub={
-            company.bonusTier === "tier2"
-              ? "Bonus pool is fully funded at 15% of revenue. Lock in your delivery."
-              : company.bonusTier === "tier1"
-                ? `10% pool is open. ${fmtMoney(company.bonusStretch - company.ytdRevenue)} more unlocks the 15% pool — about ${Math.ceil((company.bonusStretch - company.ytdRevenue) / 12 / 1000)}K/mo if we keep pace.`
-                : `${fmtMoney(company.revenueGoal - company.ytdRevenue)} more in revenue unlocks the 10% bonus pool. Ship to make it happen.`
-          }
+        <StatCard
+          label={`Year to date · ${currentYear}`}
+          tone="violet"
+          value={fmtMoney(earnings.ytd)}
+          sub={`Since Jan 1 · ${monthsElapsed.toFixed(1)} months elapsed`}
+        />
+        <StatCard
+          label="Month to date"
+          tone="sky"
+          value={fmtMoney(earnings.mtd)}
+          sub={`Since ${now.toLocaleString("default", { month: "long" })} 1`}
+        />
+        <StatCard
+          label="Outstanding"
+          tone={earnings.outstanding > 0 ? "amber" : "neutral"}
+          value={fmtMoney(earnings.outstanding)}
+          sub="Queued · Status = Needs Payment"
         />
       </div>
 
-      {/* Personal stats strip */}
-      <SectionTitle title="Your Numbers" aside={`${Math.round(COMMISSION_RATE * 100)}% commission per story`} />
+      {/* Personal goal */}
+      <div className="mb-8">
+        <SectionTitle
+          title={`${currentYear} Earnings Goal`}
+          aside={
+            annualGoal != null ? (
+              <span className={`font-mono text-[11px] ${onTrack ? "text-emerald" : "text-amber"}`}>
+                {onTrack ? "On pace" : "Behind pace"}
+              </span>
+            ) : null
+          }
+        />
+        {annualGoal != null && annualGoal > 0 ? (
+          <GoalBar
+            label="YTD earnings"
+            value={earnings.ytd}
+            target={annualGoal}
+            formatValue={fmtMoney}
+            tone={onTrack ? "emerald" : "amber"}
+            rightLabel={onTrack ? "On pace" : "Push needed"}
+            sub={
+              earnings.ytd >= annualGoal
+                ? `Goal hit. ${fmtMoney(earnings.ytd - annualGoal)} over target.`
+                : `${fmtMoney(goalRemaining!)} to go · need ${fmtMoney(monthlyPaceNeeded!)}/mo for the next ${monthsRemaining.toFixed(1)} months. Expected pace at this point: ${fmtMoney(expectedYtdAtPace!)}.`
+            }
+          />
+        ) : (
+          <div className="bg-surface border border-dashed border-rule rounded-card p-5">
+            <div className="text-[13px] font-semibold text-ink-strong mb-1">
+              Set an annual earnings goal
+            </div>
+            <div className="text-[12px] text-ink-muted leading-snug">
+              Open your record in Airtable and set <code className="font-mono text-ink-strong">Annual Earnings Goal</code> (currency).
+              This page will track your YTD progress and tell you the monthly pace needed to hit it.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Stories shipped */}
+      <SectionTitle
+        title="Stories Shipped"
+        aside={shippedIsApproximate ? "YTD/MTD approximated from sprint end dates" : undefined}
+      />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        <StatCard
+          label="Lifetime shipped"
+          tone="violet"
+          value={shipped.lifetime.toLocaleString()}
+          sub={`${fmtMoney(totals.earnedInvoice)} of scope delivered`}
+        />
+        <StatCard
+          label="YTD shipped"
+          tone="emerald"
+          value={shipped.ytd.toLocaleString()}
+          sub={`In ${currentYear}`}
+        />
+        <StatCard
+          label="MTD shipped"
+          tone="sky"
+          value={shipped.mtd.toLocaleString()}
+          sub={`This ${now.toLocaleString("default", { month: "long" })}`}
+        />
+        <StatCard
+          label="Active in flight"
+          value={totals.activeCount.toLocaleString()}
+          sub={`${totals.inProgressCount} in progress · ${totals.todoCount} todo · ${totals.qaCount} QA`}
+        />
+      </div>
+
+      {/* Commission projections (reframed) */}
+      <SectionTitle
+        title="Commission Projections"
+        aside={`${Math.round(COMMISSION_RATE * 100)}% of story invoice · projected, not yet paid`}
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <StatCard
           label="Open commission"
           tone="emerald"
           value={fmtMoney(totals.openCommission)}
-          sub={`${fmtMoney(totals.openInvoice)} of open scope`}
+          sub={`If you ship all ${totals.activeCount} active stories`}
         />
         <StatCard
           label="Earned commission"
           tone="violet"
           value={fmtMoney(totals.earnedCommission)}
-          sub={`${totals.doneCount} stories shipped · ${fmtMoney(totals.earnedInvoice)} delivered`}
+          sub={`From ${totals.doneCount} completed stories`}
         />
         <StatCard
-          label="Active"
-          value={totals.activeCount.toLocaleString()}
-          sub={`${totals.inProgressCount} in progress · ${totals.todoCount} todo · ${totals.qaCount} QA`}
-        />
-        <StatCard
-          label="Pipeline potential"
+          label="Total pipeline potential"
           tone="sky"
           value={fmtMoney(totalPotentialCommission)}
-          sub={`If you ship all open work · ${Math.round(earnedPctOfTotal)}% earned so far`}
+          sub={`Across everything assigned to you`}
         />
       </div>
-
-      {/* Earned-vs-total progress */}
-      {totalPotential > 0 && (
-        <div className="mb-8">
-          <SectionTitle title="Lifetime Progress" />
-          <GoalBar
-            label="Commission earned"
-            value={totals.earnedCommission}
-            target={totalPotentialCommission}
-            formatValue={fmtMoney}
-            tone="emerald"
-            rightLabel="of total scoped to you"
-            sub={`${totals.doneCount} of ${totals.doneCount + totals.activeCount + totals.onHoldCount} stories complete`}
-          />
-        </div>
-      )}
 
       {/* Next 3 to ship */}
       {nextToShip.length > 0 && (

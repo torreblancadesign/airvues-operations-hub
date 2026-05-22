@@ -9,6 +9,19 @@ export type ScorecardEngineer = {
   isOrphan: boolean;
 };
 
+export type EarningsBuckets = {
+  lifetime: number;
+  ytd: number;
+  mtd: number;
+  outstanding: number;
+};
+
+export type ShippedBuckets = {
+  lifetime: number;
+  ytd: number;
+  mtd: number;
+};
+
 export type Scorecard = {
   engineer: ScorecardEngineer;
   stories: Story[];
@@ -33,12 +46,20 @@ export type Scorecard = {
     earnedInvoice: number;
     earnedCommission: number;
   };
-  company: {
-    ytdRevenue: number;
-    revenueGoal: number;
-    bonusStretch: number;
-    bonusTier: "locked" | "tier1" | "tier2";
+  earnings: EarningsBuckets;
+  shipped: ShippedBuckets;
+  /**
+   * Annual earnings goal from People.Annual Earnings Goal (USD).
+   * Null when not set — UI shows a "set a goal" placeholder.
+   */
+  goal: {
+    annualEarnings: number | null;
   };
+  /**
+   * True when story YTD/MTD buckets are approximated from Sprint End
+   * (no real Completed Date field on Stories yet).
+   */
+  shippedIsApproximate: boolean;
 };
 
 export type ScorecardPayload = {

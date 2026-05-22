@@ -1,34 +1,61 @@
-## Problem
+## Goal
 
-The `/me` picker only lists people who currently have at least one (non-archived, non-on-hold) story assigned. It's built from `board.groups`, which is the grouping of *active stories by assignee* — not the roster of internal team members. Anyone without an active story (newer hires, BAs, people between sprints) silently disappears.
+Turn `/me` into a true personal scorecard: real earnings (not just commission-on-invoice), time-bucketed metrics, and a self-set goal the person tracks against. Remove the company bonus pool — it belongs on `/`, not here.
 
-## Fix — `lib/scorecard.ts`
+## What changes on the page
 
-Build the `engineers` list from `board.assignablePeople` (already filtered to `Status === "Active"` AND `Type ∈ {Internal, Internal team member}` in `lib/engineering.ts:213-225`), not `board.groups`.
+**Remove**
+- "Company Bonus Pool" section (annual revenue / locked / tier callouts).
 
-```ts
-const engineers: ScorecardEngineer[] = board.assignablePeople.map((p) => ({
-  id: p.id,
-  name: p.name,
-  role: p.role,
-  internalType: p.internalType,
-  isOrphan: false,
-}));
-```
+**New: Earnings strip (from Team Task Payments, `Status = "Paid"`, joined via `Internal Team Member Account (from Link to Expenses)` — the same join we just fixed for `/team`)**
+- Lifetime paid
+- Year-to-date paid
+- Month-to-date paid
+- Outstanding (Status = "Needs Payment") — so they see what's queued
 
-That swap alone gives the picker the full active internal roster, alphabetically sorted (already done upstream).
+**New: Stories shipped strip**
+- Lifetime completed
+- YTD completed
+- MTD completed
+- Active in flight (existing)
 
-The scorecard lookup itself still uses `board.groups.find(...)`, which is correct — but for an active member with zero stories the group won't exist and we'd fall through to `{ scorecard: null, ... }`, looking broken. So:
+For story dates we need a real completion date — see "Airtable fields needed" below. Until that field exists, YTD/MTD story counts will fall back to using `Sprint End (from Sprints)` of the sprint the completed story sits in (close enough for sprint-based work, wrong for stories shipped mid-sprint or moved between sprints).
 
-- When `engineerId` is provided and matches an `assignablePeople` entry but has no `board.groups` row, return an empty scorecard (zeros + empty story arrays) using their People metadata, instead of dropping back to the picker.
+**New: Personal goal section**
+- Reads the signed-in person's goal from People table.
+- Shows progress bar: YTD paid earnings vs annual goal, with MTD pace callout ("on track to hit $X / need $Y per month to close the gap").
+- If no goal set, shows a quiet prompt ("Set a goal in Airtable") instead of a broken bar.
+- Edit-in-app deferred — for now they set it in Airtable, page reflects it.
 
-## Out of scope
+**Keep**
+- Header (name, role, picker — picker stays until OAuth→People mapping ships).
+- "Next to Ship" (top 3 highest-invoice active stories).
+- "All Your Stories" grouped by status.
+- StorySheet drawer.
 
-- `PersonPicker.tsx` already filters `!e.isOrphan`; no change needed since the new list has no orphans.
-- No changes to engineering board logic, types, or UI.
+**Keep but reframe**
+- "Open commission" / "Earned commission" / "Pipeline potential" — relabel as "Commission projections" with a small note that this is *projected* from story invoice × 15%, not actual paid earnings. Keep below the real-earnings strip so the hierarchy is: real money first, projections second.
 
-## Verification
+## Airtable fields needed (you create these)
 
-- `npx tsc --noEmit`
-- Open `/me`, confirm the dropdown lists every Active internal team member (compare against `/team`).
-- Pick someone with no current stories — page renders zeros, doesn't crash or bounce.
+On **People** table:
+1. `Annual Earnings Goal` — currency (USD). The dollar amount they want to earn this calendar year.
+2. *(optional, nice-to-have)* `Annual Stories Goal` — number. Stories they want to ship this year.
+
+On **Stories** table (strongly recommended — fixes the date-bucketing problem):
+3. `Completed Date` — date. Set automatically via Airtable automation when `Story Status` changes to `Completed`, OR set manually. Without this we have to approximate from sprint end dates.
+
+Tell me when these exist and I'll wire them up. I can ship the earnings + goal work against People immediately; the story time-buckets will use the sprint-end fallback until `Completed Date` lands.
+
+## Technical notes
+
+- New data layer: extend `lib/scorecard.ts` to also pull `listTeamData()` (or a narrower query) and filter payments by `personId === engineerId`. Bucket by `Date` field into lifetime / YTD (Jan 1 → today) / MTD (1st of month → today).
+- Fetch goal from People in the same call that resolves the engineer (we already read People in `lib/engineering.ts` and `lib/team.ts` — add `Annual Earnings Goal` to one of those reads, or read directly in `scorecard.ts`).
+- Extend `Scorecard` type in `lib/scorecard-types.ts`: add `earnings: { lifetime, ytd, mtd, outstanding }`, `shipped: { lifetime, ytd, mtd }`, `goal: { annualEarnings: number | null }`.
+- `components/me/PersonScorecard.tsx`: delete `<Company Bonus Pool>` block, add `<EarningsStrip>`, `<ShippedStrip>`, `<GoalProgress>` sections. Reuse existing `StatCard` + `GoalBar`.
+- Cache tag the new payment read with `["team:payments", "scorecard"]` so existing invalidation still works.
+- Verify with `npx tsc --noEmit` + load `/me?as=<personId>` for a few people (someone with payments, someone without, someone over goal).
+
+## Open question
+
+Should the goal be **calendar year** (resets Jan 1) or **rolling 12 months**? I assumed calendar year — confirm or flip it before I build.

@@ -55,6 +55,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           sTbl.fields["📆Sprints"].id,
           sTbl.fields["Sprint Number (from 📆Sprints)"].id,
           sTbl.fields["Sprint Status (from 📆Sprints)"].id,
+          sTbl.fields["Sprint End (from 📆Sprints)"].id,
         ],
       },
       ["engineering:stories"],
@@ -132,6 +133,8 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const sprintIds = asArray<string>(f["📆Sprints"]);
     const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
     const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
+    const sprintEnds = asArray<string>(f["Sprint End (from 📆Sprints)"]);
+
 
     const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
     const clientNames = asArray<string>(f["Client Name (from Quote)"]);
@@ -158,6 +161,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       sprintIds,
       sprintNumbers,
       sprintStatuses,
+      sprintEnds,
       description: (f["Description"] as string) ?? "",
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
     };

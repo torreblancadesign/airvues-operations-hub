@@ -1,22 +1,61 @@
 // Personal scorecard data layer (server-only).
-// Wraps the engineering board groups + company goals for a single-engineer view.
+// Aggregates: engineering board (active stories) + Team Task Payments (real earnings)
+// + People (annual earnings goal). Buckets payments + shipped stories into
+// lifetime / YTD / MTD using calendar-year boundaries.
 import "server-only";
 
+import { listRecordsCached } from "./airtable";
+import { Tables } from "./schema";
 import { getEngineeringBoard } from "./engineering";
-import { companyGoalsData } from "./kpi";
-import { Scorecard, ScorecardPayload } from "./scorecard-types";
+import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets } from "./scorecard-types";
 
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
 
+function startOfYear(now: Date): Date {
+  return new Date(now.getFullYear(), 0, 1);
+}
+function startOfMonth(now: Date): Date {
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
+
 export async function getScorecard(engineerId: string | null): Promise<ScorecardPayload> {
-  const [board, company] = await Promise.all([
+  const pT = Tables.People;
+  const tT = Tables.TeamTaskPayments;
+
+  const [board, paymentRecords, peopleRecords] = await Promise.all([
     getEngineeringBoard(),
-    companyGoalsData(),
+    listRecordsCached<{
+      Amount?: number;
+      Status?: string;
+      Date?: string;
+      Payee?: { name?: string };
+      "Internal Team Member Account (from Link to Expenses)"?: string[];
+    }>(
+      tT.id,
+      {
+        fields: [
+          tT.fields["Amount"].id,
+          tT.fields["Status"].id,
+          tT.fields["Date"].id,
+          tT.fields["Payee"].id,
+          tT.fields["Internal Team Member Account (from Link to Expenses)"].id,
+        ],
+      },
+      ["team:payments", "scorecard:payments"],
+    ),
+    listRecordsCached<{
+      "Annual Earnings Goal"?: number;
+    }>(
+      pT.id,
+      {
+        // Optional field — schema may not have it yet. Airtable returns
+        // unknown field names silently, so this is safe.
+        fields: ["Annual Earnings Goal"],
+      },
+      ["scorecard:people-goals"],
+    ).catch(() => [] as { id: string; fields: { "Annual Earnings Goal"?: number } }[]),
   ]);
 
-  // Picker shows the full active internal roster — not just people with active
-  // stories. board.groups is keyed by assignee on non-archived stories, so it
-  // silently hides anyone between sprints, new hires, BAs, etc.
   const engineers = board.assignablePeople.map((p) => ({
     id: p.id,
     name: p.name,
@@ -32,13 +71,10 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   const group = board.groups.find((g) => g.id === engineerId);
   const person = board.assignablePeople.find((p) => p.id === engineerId);
 
-  // Unknown id (not active or not internal) — fall back to picker.
   if (!group && !person) {
     return { scorecard: null, engineers };
   }
 
-
-  // Synthesize an empty group for active people with no current stories.
   const effectiveGroup = group ?? {
     id: person!.id,
     name: person!.name,
@@ -74,12 +110,54 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     .sort((a, b) => b.invoice - a.invoice)
     .slice(0, 3);
 
-  const bonusTier: Scorecard["company"]["bonusTier"] =
-    company.ytdRevenue >= 750_000
-      ? "tier2"
-      : company.ytdRevenue >= 500_000
-        ? "tier1"
-        : "locked";
+  // === Earnings (real money) ===
+  const now = new Date();
+  const yearStart = startOfYear(now);
+  const monthStart = startOfMonth(now);
+
+  const earnings: EarningsBuckets = { lifetime: 0, ytd: 0, mtd: 0, outstanding: 0 };
+  for (const rec of paymentRecords) {
+    const f = rec.fields;
+    const lookup = f["Internal Team Member Account (from Link to Expenses)"];
+    if (!lookup || lookup[0] !== engineerId) continue;
+    // Exclude Airvues Consulting profit-tracking entries.
+    const payeeName = (f.Payee?.name ?? "").trim().toLowerCase();
+    if (payeeName === "airvues consulting") continue;
+
+    const amt = f.Amount ?? 0;
+    if (f.Status === "Needs Payment") {
+      earnings.outstanding += amt;
+      continue;
+    }
+    if (f.Status !== "Paid") continue;
+
+    earnings.lifetime += amt;
+    const d = f.Date ? new Date(f.Date) : null;
+    if (d && !isNaN(d.getTime())) {
+      if (d >= yearStart) earnings.ytd += amt;
+      if (d >= monthStart) earnings.mtd += amt;
+    }
+  }
+
+  // === Stories shipped buckets ===
+  // Approximate completion date as latest sprint end on the story.
+  // TODO: replace with a real Stories.Completed Date field when available.
+  const shipped: ShippedBuckets = { lifetime: 0, ytd: 0, mtd: 0 };
+  for (const s of byStatus.done) {
+    shipped.lifetime++;
+    const ends = s.sprintEnds
+      .map((d) => new Date(d))
+      .filter((d) => !isNaN(d.getTime()));
+    if (ends.length === 0) continue;
+    const latest = new Date(Math.max(...ends.map((d) => d.getTime())));
+    if (latest >= yearStart) shipped.ytd++;
+    if (latest >= monthStart) shipped.mtd++;
+  }
+
+  // === Goal ===
+  const personGoalRec = peopleRecords.find((r) => r.id === engineerId);
+  const annualEarningsGoal =
+    (personGoalRec?.fields["Annual Earnings Goal"] as number | undefined) ?? null;
 
   const scorecard: Scorecard = {
     engineer: {
@@ -93,14 +171,11 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     nextToShip,
     byStatus,
     totals: effectiveGroup.totals,
-    company: {
-      ytdRevenue: company.ytdRevenue,
-      revenueGoal: 500_000,
-      bonusStretch: 750_000,
-      bonusTier,
-    },
+    earnings,
+    shipped,
+    goal: { annualEarnings: annualEarningsGoal },
+    shippedIsApproximate: true,
   };
 
   return { scorecard, engineers };
 }
-

@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { Lead, LeadStatus } from "@/lib/leads";
+import { upload } from "@vercel/blob/client";
+import { Lead, LeadAttachment, LeadStatus } from "@/lib/leads";
 import { STATUS_PILL } from "./types";
-import { updateLeadStatus, updateLeadTranscript } from "@/lib/mutations/lead";
+import { attachLeadFiles, updateLeadStatus, updateLeadTranscript } from "@/lib/mutations/lead";
+import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BATCH, UPLOAD_MAX_BYTES, sanitizeUploadFilename } from "@/lib/uploads";
 
 type Props = {
   lead: Lead | null;

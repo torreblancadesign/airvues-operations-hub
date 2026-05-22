@@ -498,7 +498,7 @@ export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
             <TranscriptEditor leadId={lead.id} current={lead.transcript} canEdit={canEdit} />
           </Row>
           <Row label="Attach Supporting Documentations">
-            <Attachments lead={lead} />
+            <Attachments lead={lead} canEdit={canEdit} />
           </Row>
           <Row label="Status">
             <StatusEditor leadId={lead.id} current={lead.status} canEdit={canEdit} />

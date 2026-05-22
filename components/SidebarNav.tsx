@@ -3,15 +3,21 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
+import { canAccessRoute, type Permission } from "@/lib/permissions";
+import type { AppRole } from "@/lib/auth";
 
 type Props = {
   icons: Record<string, React.ReactNode>;
+  permissions: Permission[];
+  role: AppRole;
 };
 
-export function SidebarNav({ icons }: Props) {
+export function SidebarNav({ icons, permissions, role }: Props) {
   const pathname = usePathname();
 
-  const items = NAV_ITEMS.filter((n) => n.showInSidebar);
+  const items = NAV_ITEMS.filter(
+    (n) => n.showInSidebar && canAccessRoute(permissions, n.href, role),
+  );
 
   return (
     <nav className="flex-1 px-3 overflow-y-auto">

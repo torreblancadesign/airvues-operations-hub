@@ -155,31 +155,17 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
             ) : null
           }
         />
-        {annualGoal != null && annualGoal > 0 ? (
-          <GoalBar
-            label="YTD earnings"
-            value={earnings.ytd}
-            target={annualGoal}
-            formatValue={fmtMoney}
-            tone={onTrack ? "emerald" : "amber"}
-            rightLabel={onTrack ? "On pace" : "Push needed"}
-            sub={
-              earnings.ytd >= annualGoal
-                ? `Goal hit. ${fmtMoney(earnings.ytd - annualGoal)} over target.`
-                : `${fmtMoney(goalRemaining!)} to go · need ${fmtMoney(monthlyPaceNeeded!)}/mo for the next ${monthsRemaining.toFixed(1)} months. Expected pace at this point: ${fmtMoney(expectedYtdAtPace!)}.`
-            }
-          />
-        ) : (
-          <div className="bg-surface border border-dashed border-rule rounded-card p-5">
-            <div className="text-[13px] font-semibold text-ink-strong mb-1">
-              Set an annual earnings goal
-            </div>
-            <div className="text-[12px] text-ink-muted leading-snug">
-              Open your record in Airtable and set <code className="font-mono text-ink-strong">Annual Earnings Goal</code> (currency).
-              This page will track your YTD progress and tell you the monthly pace needed to hit it.
-            </div>
-          </div>
-        )}
+        <GoalEditor
+          personId={engineer.id}
+          currentGoal={annualGoal}
+          ytdEarnings={earnings.ytd}
+          goalRemaining={goalRemaining}
+          monthlyPaceNeeded={monthlyPaceNeeded}
+          expectedYtdAtPace={expectedYtdAtPace}
+          monthsRemaining={monthsRemaining}
+          onTrack={onTrack}
+          canEdit={canEditGoal}
+        />
       </div>
 
       {/* Stories shipped */}

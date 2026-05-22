@@ -1,54 +1,49 @@
 ## Goal
-Add a Leads icon and organize the sidebar into logical category groups so the 12 routes become scannable at a glance.
 
-## 1. Leads icon
-Add a "users-with-plus / inbox" style icon to both `components/Sidebar.tsx` and `components/MobileNav.tsx` icon maps, keyed to `/leads`. Proposed: a magnet/inbox-arrow glyph (people pipeline). Final pick: **inbox-down arrow** (matches "inbound demand" framing of the page) — consistent stroke weight with existing 14px lucide-style SVGs already inlined in the file.
+Fix undercounted "Lifetime Paid" on the Team page by joining payments to People via the linked-record lookup `Internal Team Member Account (from Link to Expenses)` instead of `Payee.email`.
 
-## 2. Sidebar grouping
+## Why
 
-Introduce a `group` field on `NavItem` in `lib/nav.ts` (single source of truth — Sidebar, MobileNav, and the Home Jump grid all consume it). Groups render as small uppercase labels (`text-[10px] text-ink-faint tracking-wider`) above each cluster, matching the existing "Dev Preview / Live" footer label styling — no new visual language introduced.
+The Payee field is an Airtable "user" field tied to a workspace login — its email often doesn't match `People.Primary Email` (personal Gmail vs work address, casing, contractors with no workspace seat). The lookup field returns the actual People record ID, which is the authoritative join.
 
-Proposed grouping (4 buckets, ordered by daily-use frequency):
+## Changes — `lib/team.ts` only
 
-```text
-OVERVIEW
-  Home
-  My Scorecard
+1. **Add the lookup field to the payments fetch**, and add `Link to Expenses` so we have the raw link too (useful for debugging/fallback):
+   - `Tables.TeamTaskPayments.fields["Internal Team Member Account (from Link to Expenses)"].id` → `fldkZAtaG66iN4Suj`
+   - `Tables.TeamTaskPayments.fields["Link to Expenses"].id`
 
-REVENUE
-  Leads
-  Sales Pipeline
-  Earnings
-  Clients
+2. **Aggregate by People recId** (not email):
+   ```ts
+   const paidById = new Map<string, number>();
+   const owedById = new Map<string, number>();
+   for (const p of payments) {
+     const lookup = p.fields["Internal Team Member Account (from Link to Expenses)"] as string[] | undefined;
+     const personId = lookup?.[0]; // lookup returns array of recIds
+     if (!personId) continue;
+     const amt = (p.fields.Amount as number) ?? 0;
+     if (p.fields.Status === "Paid") paidById.set(personId, (paidById.get(personId) ?? 0) + amt);
+     if (p.fields.Status === "Needs Payment") owedById.set(personId, (owedById.get(personId) ?? 0) + amt);
+   }
+   ```
 
-DELIVERY
-  Engineering
-  Backlog
-  Sprints
+3. **Member mapping** now uses `p.id` (People recId) for the join:
+   ```ts
+   totalPaid: paidById.get(p.id) ?? 0,
+   needsPayment: owedById.get(p.id) ?? 0,
+   ```
 
-OPERATIONS
-  Team
-  Stack
-  Hygiene
-```
+4. **Payment enrichment** (the `payments` list shown in the page) — also surface the resolved personId so the UI can group/link reliably. Add `personId: string | null` to the `Payment` type, populated from the same lookup. (Keep `payeeEmail`/`payeeName` for display — only the *join* changes.)
 
-Rationale:
-- **Overview** = personal + firm landing (where you start the day).
-- **Revenue** = full money funnel left→right: lead in → quote → invoice → client relationship.
-- **Delivery** = execution surface for engineers/leads.
-- **Operations** = back-office (people, tooling, data quality) — visited least often, sits at bottom.
+5. **Drop the email-based maps entirely** — no fallback. Per CLAUDE.md the lookup is the authoritative link; payments missing it are a data-hygiene issue, not something to paper over.
 
-## 3. Scope of changes
-- `lib/nav.ts` — add `group: "overview" | "revenue" | "delivery" | "operations"` to each item; export a `NAV_GROUPS` ordered array with display labels.
-- `components/SidebarNav.tsx` — render items grouped, with a small label row between groups. Active-route + emerald accent logic unchanged.
-- `components/MobileNav.tsx` — same grouping in the drawer; add Leads icon entry.
-- `components/Sidebar.tsx` — add Leads icon entry to the `ICONS` map.
-- Home Jump grid (`app/(app)/page.tsx` / `HomeJumpCard`) — out of scope unless you want grouping there too (let me know).
+## Out of scope
 
-## Technical details
-- No data layer changes. No auth changes. Pure presentation + nav metadata.
-- Active-state, mobile drawer behavior, and "showInSidebar / showOnHome" flags preserved.
-- Verification: `npx tsc --noEmit` + visual check of sidebar at desktop and mobile widths.
+- No Airvues exclusion (confirmed earlier).
+- No UI changes in `TeamDashboard.tsx` — it keeps reading `member.totalPaid` / `member.needsPayment`.
+- No changes to the top-line "Lifetime paid out" KPI (it sums all Paid rows, unaffected).
 
-## Open question
-Want the same category grouping applied to the Home page Jump-To cards, or keep that grid flat?
+## Verification
+
+- `npx tsc --noEmit`
+- Spot-check a member previously showing $0 (e.g. one with a personal Gmail) — should now show real total.
+- Confirm sum of per-member `totalPaid` is ≤ the KPI total (difference = payments with no linked People record, which is the hygiene tail).

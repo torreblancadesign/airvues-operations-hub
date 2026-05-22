@@ -56,6 +56,8 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           sTbl.fields["Sprint Number (from 📆Sprints)"].id,
           sTbl.fields["Sprint Status (from 📆Sprints)"].id,
           sTbl.fields["Sprint End (from 📆Sprints)"].id,
+          // New field — schema.ts not yet regenerated; pass by name.
+          "Completed Date",
         ],
       },
       ["engineering:stories"],

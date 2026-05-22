@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Scorecard, ScorecardEngineer } from "@/lib/scorecard-types";
-import { Story, COMMISSION_RATE } from "@/lib/engineering-types";
+import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { GoalBar } from "@/components/home/GoalBar";
@@ -27,10 +27,11 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 
   const totalPotential = totals.openInvoice + totals.earnedInvoice;
-  const totalPotentialCommission = totalPotential * COMMISSION_RATE;
+  const totalPotentialCommission = totalPotential * commissionPct;
+  const pctLabel = `${(commissionPct * 100).toFixed(commissionPct * 100 % 1 === 0 ? 0 : 1)}%`;
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -80,6 +81,20 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
                   <span>{engineer.internalType}</span>
                 </>
               )}
+              <span className="text-ink-faint">·</span>
+              <span
+                className="px-2 py-0.5 bg-bg-elevated border border-rule rounded font-mono uppercase tracking-wider text-[10px] text-emerald"
+                title={
+                  commissionPctSource === "person"
+                    ? "Your commission rate from People.Commission Percentage"
+                    : "Default rate — set Commission Percentage on your People record in Airtable"
+                }
+              >
+                Commission · {pctLabel}
+                {commissionPctSource === "default" && (
+                  <span className="ml-1 text-ink-faint normal-case">(default)</span>
+                )}
+              </span>
             </div>
           </div>
           <PersonPicker current={engineer.id} engineers={engineers} />
@@ -188,7 +203,7 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
       {/* Commission projections (reframed) */}
       <SectionTitle
         title="Commission Projections"
-        aside={`${Math.round(COMMISSION_RATE * 100)}% of story invoice · projected, not yet paid`}
+        aside={`${pctLabel} of story invoice · projected, not yet paid`}
       />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
         <StatCard

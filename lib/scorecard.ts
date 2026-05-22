@@ -7,6 +7,7 @@ import "server-only";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { getEngineeringBoard } from "./engineering";
+import { COMMISSION_RATE } from "./engineering-types";
 import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets } from "./scorecard-types";
 
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
@@ -45,11 +46,12 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     ),
     listRecordsCached<{
       "Annual Earnings Goal"?: number;
+      "Commission Percentage"?: number;
     }>(
       pT.id,
       {
-        // New People field — schema.ts not yet regenerated; pass by name.
-        fields: ["Annual Earnings Goal"],
+        // New People fields — schema.ts not yet regenerated; pass by name.
+        fields: ["Annual Earnings Goal", "Commission Percentage"],
       },
       ["scorecard:people-goals"],
     ),
@@ -96,18 +98,42 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     },
   };
 
+  // === Commission rate (per-person) ===
+  const personRec = peopleRecords.find((r) => r.id === engineerId);
+  const rawPct = personRec?.fields["Commission Percentage"] as number | undefined;
+  let commissionPct = COMMISSION_RATE;
+  let commissionPctSource: "person" | "default" = "default";
+  if (typeof rawPct === "number" && rawPct > 0) {
+    // Airtable percent fields return decimals (0.15); guard against whole-percent (15).
+    commissionPct = rawPct > 1 ? rawPct / 100 : rawPct;
+    commissionPctSource = "person";
+  }
+
+  // Rebuild stories + totals using per-person commission rate.
+  const ratedStories = effectiveGroup.stories.map((s) => ({
+    ...s,
+    commission: s.invoice * commissionPct,
+  }));
+
   const byStatus = {
-    inProgress: effectiveGroup.stories.filter((s) => s.status === "In progress"),
-    todo: effectiveGroup.stories.filter((s) => s.status === "Todo"),
-    qa: effectiveGroup.stories.filter((s) => s.status === "QA Review"),
-    onHold: effectiveGroup.stories.filter((s) => s.status === "On Hold" || s.status === "Incomplete"),
-    done: effectiveGroup.stories.filter((s) => s.status === "Completed"),
+    inProgress: ratedStories.filter((s) => s.status === "In progress"),
+    todo: ratedStories.filter((s) => s.status === "Todo"),
+    qa: ratedStories.filter((s) => s.status === "QA Review"),
+    onHold: ratedStories.filter((s) => s.status === "On Hold" || s.status === "Incomplete"),
+    done: ratedStories.filter((s) => s.status === "Completed"),
   };
 
-  const nextToShip = effectiveGroup.stories
+  const nextToShip = ratedStories
     .filter((s) => ACTIVE_STATUSES.includes(s.status ?? ""))
     .sort((a, b) => b.invoice - a.invoice)
     .slice(0, 3);
+
+  const totals = {
+    ...effectiveGroup.totals,
+    openCommission: effectiveGroup.totals.openInvoice * commissionPct,
+    earnedCommission: effectiveGroup.totals.earnedInvoice * commissionPct,
+  };
+
 
   // === Earnings (real money) ===
   const now = new Date();
@@ -165,9 +191,8 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   }
 
   // === Goal ===
-  const personGoalRec = peopleRecords.find((r) => r.id === engineerId);
   const annualEarningsGoal =
-    (personGoalRec?.fields["Annual Earnings Goal"] as number | undefined) ?? null;
+    (personRec?.fields["Annual Earnings Goal"] as number | undefined) ?? null;
 
   const scorecard: Scorecard = {
     engineer: {
@@ -177,14 +202,16 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
       internalType: effectiveGroup.internalType,
       isOrphan: effectiveGroup.isOrphan,
     },
-    stories: effectiveGroup.stories,
+    stories: ratedStories,
     nextToShip,
     byStatus,
-    totals: effectiveGroup.totals,
+    totals,
     earnings,
     shipped,
     goal: { annualEarnings: annualEarningsGoal },
     shippedIsApproximate: anyApproximate,
+    commissionPct,
+    commissionPctSource,
   };
 
   return { scorecard, engineers };

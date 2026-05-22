@@ -150,10 +150,9 @@ export async function listAllLeads(): Promise<Lead[]> {
       ["people:lead-assessors"],
     );
     for (const p of people) {
-      const name =
-        asText(p.fields["Full Name"]) ??
-        [asText(p.fields["First Name"]), asText(p.fields["Last Name"])].filter(Boolean).join(" ").trim() ||
-        null;
+      const fullName = asText(p.fields["Full Name"]);
+      const composed = [asText(p.fields["First Name"]), asText(p.fields["Last Name"])].filter(Boolean).join(" ").trim();
+      const name = fullName ?? (composed.length > 0 ? composed : null);
       if (name) nameById.set(p.id, name);
     }
   }

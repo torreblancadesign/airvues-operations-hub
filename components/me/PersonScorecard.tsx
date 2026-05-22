@@ -17,6 +17,7 @@ type Props = {
   engineers: ScorecardEngineer[];
   canEdit?: boolean;
   canSwitchPerson?: boolean;
+  canEditGoal?: boolean;
 };
 
 const fmtMoney = (n: number) =>

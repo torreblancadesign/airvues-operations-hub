@@ -1,21 +1,28 @@
-Root cause: the permission values are loading correctly, but `lib/permissions.ts` currently treats auth role `admin` as a bypass for every view permission. Since your SSO user is likely `admin`, the sidebar, Firm Pulse, and Scorecard Admin checks all return true even though People.Permissions only has `Revenue` and `Delivery`.
+## Add Earnings Detail section to /me scorecard
 
-Plan:
-1. Update `lib/permissions.ts` so People.Permissions is the source of truth for view access:
-   - `Revenue`, `Delivery`, `Operations` control nav/page groups.
-   - `Home - Firm Pulse` controls the Firm Pulse section only.
-   - `Scorecard - Admin` controls whether the person picker/all scorecards are visible.
-   - Auth role `admin` will no longer bypass these view checks.
+Add a payments ledger table to `PersonScorecard` showing the actual Team Task Payment line items that make up the person's earnings totals — so they can see exactly which jobs/dates contribute to lifetime, YTD, MTD, and outstanding numbers.
 
-2. Keep server-side mutation permissions unchanged:
-   - `requireRole(...)`, `canMutate()`, and existing admin/lead edit privileges stay as-is.
-   - This only changes what sections/pages are visible and accessible.
+### Data layer (`lib/scorecard.ts` + `lib/scorecard-types.ts`)
 
-3. Preserve dev/testing behavior:
-   - The synthetic dev session already has all permissions in `lib/session.ts`, so local/dev bypass still sees everything without needing role-based bypass logic.
+1. Extend the payment fetch in `getScorecard` to also pull `Function`, `Client`, `Project`, and `Client Invoice` (already pulling Amount, Status, Date, Payee, person lookup).
+2. Build a `payments: ScorecardPayment[]` array for the resolved engineer — same filter as today (matching personId, excluding "airvues consulting" payee), sorted by date desc. Include both Paid and Needs Payment rows.
+3. Add a `ScorecardPayment` type to `scorecard-types.ts` mirroring the relevant fields from `lib/team.ts`'s `Payment` (id, amount, status, date, function, client, project, airtableUrl).
+4. Attach `payments` to the `Scorecard` type.
 
-4. Verify the affected surfaces:
-   - Sidebar/MobileNav should show only Overview + Revenue + Delivery for your current permissions.
-   - Home should hide Firm Pulse unless `Home - Firm Pulse` is present.
-   - `/me` should resolve directly to your own scorecard and hide the picker unless `Scorecard - Admin` is present.
-   - `/team`, `/stack`, `/hygiene` should redirect home without `Operations`.
+### UI (`components/me/PersonScorecard.tsx`)
+
+Add a new "Earnings Detail" section after the existing "Earnings" stat cards (and before the goal block), matching the visual style of the team payments table:
+
+- `SectionTitle` "Earnings Detail" with aside showing payment count.
+- Compact table: Date · Function · Client/project · Status pill · Amount (right-aligned, tabnum).
+- Status pill: emerald for Paid, amber for Needs Payment.
+- Payee column omitted (it's always the current person).
+- Each row linkable to Airtable via the existing `airtableUrl`.
+- Empty state when no payments.
+- Cap at e.g. 200 rows with a "showing first 200 of N" footer (paginate later if needed).
+
+### Out of scope
+
+- No filters/search (can add later if needed).
+- No changes to commission projections, goal, or stories sections.
+- No new permission gating — visibility follows the existing scorecard access.

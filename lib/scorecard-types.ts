@@ -22,6 +22,17 @@ export type ShippedBuckets = {
   mtd: number;
 };
 
+export type ScorecardPayment = {
+  id: string;
+  amount: number;
+  status: string | null;
+  date: string | null;
+  function: string | null;
+  client: string | null;
+  project: string | null;
+  airtableUrl: string;
+};
+
 export type Scorecard = {
   engineer: ScorecardEngineer;
   stories: Story[];
@@ -49,6 +60,7 @@ export type Scorecard = {
     earnedCommission: number;
   };
   earnings: EarningsBuckets;
+  payments: ScorecardPayment[];
   shipped: ShippedBuckets;
   /**
    * Annual earnings goal from People.Annual Earnings Goal (USD).

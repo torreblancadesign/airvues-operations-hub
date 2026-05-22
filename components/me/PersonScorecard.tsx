@@ -28,7 +28,7 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 
   const totalPotentialCost = totals.openCost + totals.earnedCost;
   const totalPotentialCommission = totalPotentialCost * commissionPct;
@@ -129,6 +129,62 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
           value={fmtMoney(earnings.outstanding)}
           sub="Queued · Status = Needs Payment"
         />
+      </div>
+
+      {/* Earnings detail — payment ledger */}
+      <div className="mb-8">
+        <SectionTitle
+          title="Earnings Detail"
+          aside={`${payments.length} payment${payments.length === 1 ? "" : "s"} · Paid + Needs Payment`}
+        />
+        {payments.length === 0 ? (
+          <div className="bg-surface border border-dashed border-rule rounded-card p-5 text-[13px] text-ink-muted">
+            No payments recorded yet.
+          </div>
+        ) : (
+          <div className="bg-surface border border-rule rounded-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-bg-elevated border-b border-rule">
+                  <tr>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Date</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Function</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Client / project</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Status</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.slice(0, 200).map((p) => (
+                    <tr key={p.id} className="border-b border-rule-soft last:border-0 hover:bg-bg-elevated">
+                      <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">
+                        {p.date ? new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}
+                      </td>
+                      <td className="px-3 py-2.5 text-[12px] text-ink-muted">{p.function ?? "—"}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-ink-muted max-w-[320px] truncate">
+                        <a href={p.airtableUrl} target="_blank" rel="noopener noreferrer" className="text-ink-strong hover:text-emerald transition-colors">
+                          {p.client ?? "—"}
+                        </a>
+                        {p.project && <span className="text-ink-faint"> · {p.project}</span>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${p.status === "Paid" ? "bg-emerald-soft text-emerald" : "bg-amber-soft text-amber"}`}>
+                          {p.status ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtMoney(p.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {payments.length > 200 && (
+              <div className="px-3 py-2 bg-bg-elevated border-t border-rule text-[11px] text-ink-muted font-mono">
+                Showing first 200 of {payments.length} payments.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Personal goal */}

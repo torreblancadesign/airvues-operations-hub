@@ -46,11 +46,12 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     ),
     listRecordsCached<{
       "Annual Earnings Goal"?: number;
+      "Commission Percentage"?: number;
     }>(
       pT.id,
       {
-        // New People field — schema.ts not yet regenerated; pass by name.
-        fields: ["Annual Earnings Goal"],
+        // New People fields — schema.ts not yet regenerated; pass by name.
+        fields: ["Annual Earnings Goal", "Commission Percentage"],
       },
       ["scorecard:people-goals"],
     ),

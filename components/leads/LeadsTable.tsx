@@ -66,6 +66,7 @@ export function LeadsTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                   <td className="px-3 py-2.5 text-[13px] text-ink-strong">{l.name}</td>
                   <td className="px-3 py-2.5 text-[12px] text-ink">{l.company ?? "—"}</td>
                   <td className="px-3 py-2.5 text-[12px] text-ink-muted max-w-[200px] truncate">{l.title ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-[12px] text-ink-muted">{l.assessorName ?? <span className="text-ink-faint">—</span>}</td>
                   <td className="px-3 py-2.5 text-[12px] text-ink-muted font-mono">{l.budget ?? "—"}</td>
                   <td className="px-3 py-2.5 text-[11px] text-ink-muted">{l.source ?? "—"}</td>
                   <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtDateTime(l.meetingDate)}</td>

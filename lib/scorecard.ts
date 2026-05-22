@@ -191,9 +191,8 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   }
 
   // === Goal ===
-  const personGoalRec = peopleRecords.find((r) => r.id === engineerId);
   const annualEarningsGoal =
-    (personGoalRec?.fields["Annual Earnings Goal"] as number | undefined) ?? null;
+    (personRec?.fields["Annual Earnings Goal"] as number | undefined) ?? null;
 
   const scorecard: Scorecard = {
     engineer: {
@@ -203,14 +202,16 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
       internalType: effectiveGroup.internalType,
       isOrphan: effectiveGroup.isOrphan,
     },
-    stories: effectiveGroup.stories,
+    stories: ratedStories,
     nextToShip,
     byStatus,
-    totals: effectiveGroup.totals,
+    totals,
     earnings,
     shipped,
     goal: { annualEarnings: annualEarningsGoal },
     shippedIsApproximate: anyApproximate,
+    commissionPct,
+    commissionPctSource,
   };
 
   return { scorecard, engineers };

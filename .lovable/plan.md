@@ -1,49 +1,34 @@
-## Goal
+## Problem
 
-Fix undercounted "Lifetime Paid" on the Team page by joining payments to People via the linked-record lookup `Internal Team Member Account (from Link to Expenses)` instead of `Payee.email`.
+The `/me` picker only lists people who currently have at least one (non-archived, non-on-hold) story assigned. It's built from `board.groups`, which is the grouping of *active stories by assignee* — not the roster of internal team members. Anyone without an active story (newer hires, BAs, people between sprints) silently disappears.
 
-## Why
+## Fix — `lib/scorecard.ts`
 
-The Payee field is an Airtable "user" field tied to a workspace login — its email often doesn't match `People.Primary Email` (personal Gmail vs work address, casing, contractors with no workspace seat). The lookup field returns the actual People record ID, which is the authoritative join.
+Build the `engineers` list from `board.assignablePeople` (already filtered to `Status === "Active"` AND `Type ∈ {Internal, Internal team member}` in `lib/engineering.ts:213-225`), not `board.groups`.
 
-## Changes — `lib/team.ts` only
+```ts
+const engineers: ScorecardEngineer[] = board.assignablePeople.map((p) => ({
+  id: p.id,
+  name: p.name,
+  role: p.role,
+  internalType: p.internalType,
+  isOrphan: false,
+}));
+```
 
-1. **Add the lookup field to the payments fetch**, and add `Link to Expenses` so we have the raw link too (useful for debugging/fallback):
-   - `Tables.TeamTaskPayments.fields["Internal Team Member Account (from Link to Expenses)"].id` → `fldkZAtaG66iN4Suj`
-   - `Tables.TeamTaskPayments.fields["Link to Expenses"].id`
+That swap alone gives the picker the full active internal roster, alphabetically sorted (already done upstream).
 
-2. **Aggregate by People recId** (not email):
-   ```ts
-   const paidById = new Map<string, number>();
-   const owedById = new Map<string, number>();
-   for (const p of payments) {
-     const lookup = p.fields["Internal Team Member Account (from Link to Expenses)"] as string[] | undefined;
-     const personId = lookup?.[0]; // lookup returns array of recIds
-     if (!personId) continue;
-     const amt = (p.fields.Amount as number) ?? 0;
-     if (p.fields.Status === "Paid") paidById.set(personId, (paidById.get(personId) ?? 0) + amt);
-     if (p.fields.Status === "Needs Payment") owedById.set(personId, (owedById.get(personId) ?? 0) + amt);
-   }
-   ```
+The scorecard lookup itself still uses `board.groups.find(...)`, which is correct — but for an active member with zero stories the group won't exist and we'd fall through to `{ scorecard: null, ... }`, looking broken. So:
 
-3. **Member mapping** now uses `p.id` (People recId) for the join:
-   ```ts
-   totalPaid: paidById.get(p.id) ?? 0,
-   needsPayment: owedById.get(p.id) ?? 0,
-   ```
-
-4. **Payment enrichment** (the `payments` list shown in the page) — also surface the resolved personId so the UI can group/link reliably. Add `personId: string | null` to the `Payment` type, populated from the same lookup. (Keep `payeeEmail`/`payeeName` for display — only the *join* changes.)
-
-5. **Drop the email-based maps entirely** — no fallback. Per CLAUDE.md the lookup is the authoritative link; payments missing it are a data-hygiene issue, not something to paper over.
+- When `engineerId` is provided and matches an `assignablePeople` entry but has no `board.groups` row, return an empty scorecard (zeros + empty story arrays) using their People metadata, instead of dropping back to the picker.
 
 ## Out of scope
 
-- No Airvues exclusion (confirmed earlier).
-- No UI changes in `TeamDashboard.tsx` — it keeps reading `member.totalPaid` / `member.needsPayment`.
-- No changes to the top-line "Lifetime paid out" KPI (it sums all Paid rows, unaffected).
+- `PersonPicker.tsx` already filters `!e.isOrphan`; no change needed since the new list has no orphans.
+- No changes to engineering board logic, types, or UI.
 
 ## Verification
 
 - `npx tsc --noEmit`
-- Spot-check a member previously showing $0 (e.g. one with a personal Gmail) — should now show real total.
-- Confirm sum of per-member `totalPaid` is ≤ the KPI total (difference = payments with no linked People record, which is the hygiene tail).
+- Open `/me`, confirm the dropdown lists every Active internal team member (compare against `/team`).
+- Pick someone with no current stories — page renders zeros, doesn't crash or bounce.

@@ -224,7 +224,7 @@ export function LeadsDashboard({ leads, initialFilter, canEdit = false }: Props)
 
       <LeadsTable rows={sorted} sort={sort} setSort={setSort} onRowClick={setSelected} selectedId={selected?.id ?? null} />
 
-      <LeadSheet lead={selected} onClose={() => setSelected(null)} />
+      <LeadSheet lead={selected} onClose={() => setSelected(null)} canEdit={canEdit} />
     </>
   );
 }

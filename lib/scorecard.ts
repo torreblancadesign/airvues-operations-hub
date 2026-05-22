@@ -184,7 +184,7 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     earnings,
     shipped,
     goal: { annualEarnings: annualEarningsGoal },
-    shippedIsApproximate: true,
+    shippedIsApproximate: anyApproximate,
   };
 
   return { scorecard, engineers };

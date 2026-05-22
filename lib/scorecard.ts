@@ -48,12 +48,11 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     }>(
       pT.id,
       {
-        // Optional field — schema may not have it yet. Airtable returns
-        // unknown field names silently, so this is safe.
+        // New People field — schema.ts not yet regenerated; pass by name.
         fields: ["Annual Earnings Goal"],
       },
       ["scorecard:people-goals"],
-    ).catch(() => [] as { id: string; fields: { "Annual Earnings Goal"?: number } }[]),
+    ),
   ]);
 
   const engineers = board.assignablePeople.map((p) => ({
@@ -140,18 +139,29 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   }
 
   // === Stories shipped buckets ===
-  // Approximate completion date as latest sprint end on the story.
-  // TODO: replace with a real Stories.Completed Date field when available.
+  // Prefer the real Completed Date field; fall back to latest sprint end
+  // for legacy completions that pre-date the field.
   const shipped: ShippedBuckets = { lifetime: 0, ytd: 0, mtd: 0 };
+  let anyApproximate = false;
   for (const s of byStatus.done) {
     shipped.lifetime++;
-    const ends = s.sprintEnds
-      .map((d) => new Date(d))
-      .filter((d) => !isNaN(d.getTime()));
-    if (ends.length === 0) continue;
-    const latest = new Date(Math.max(...ends.map((d) => d.getTime())));
-    if (latest >= yearStart) shipped.ytd++;
-    if (latest >= monthStart) shipped.mtd++;
+    let completed: Date | null = null;
+    if (s.completedDate) {
+      const d = new Date(s.completedDate);
+      if (!isNaN(d.getTime())) completed = d;
+    }
+    if (!completed) {
+      const ends = s.sprintEnds
+        .map((d) => new Date(d))
+        .filter((d) => !isNaN(d.getTime()));
+      if (ends.length > 0) {
+        completed = new Date(Math.max(...ends.map((d) => d.getTime())));
+        anyApproximate = true;
+      }
+    }
+    if (!completed) continue;
+    if (completed >= yearStart) shipped.ytd++;
+    if (completed >= monthStart) shipped.mtd++;
   }
 
   // === Goal ===

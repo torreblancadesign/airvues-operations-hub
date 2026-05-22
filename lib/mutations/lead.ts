@@ -6,9 +6,6 @@ import { getRecord, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { requireRole, AuthzError } from "../authz";
 import type { LeadStatus, LeadAttachment } from "../leads";
-import { Tables } from "../schema";
-import { requireRole, AuthzError } from "../authz";
-import type { LeadStatus } from "../leads";
 
 export type MutationResult = { ok: true } | { error: string };
 

@@ -29,7 +29,10 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
       Amount?: number;
       Status?: string;
       Date?: string;
+      Function?: string;
       Payee?: { name?: string };
+      Client?: string;
+      Project?: string[];
       "Internal Team Member Account (from Link to Expenses)"?: string[];
     }>(
       tT.id,
@@ -38,7 +41,10 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
           tT.fields["Amount"].id,
           tT.fields["Status"].id,
           tT.fields["Date"].id,
+          tT.fields["Function"].id,
           tT.fields["Payee"].id,
+          tT.fields["Client"].id,
+          tT.fields["Project"].id,
           tT.fields["Internal Team Member Account (from Link to Expenses)"].id,
         ],
       },

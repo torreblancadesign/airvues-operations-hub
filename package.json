@@ -11,6 +11,7 @@
     "verify-schema": "tsx scripts/verify-schema.ts"
   },
   "dependencies": {
+    "@vercel/blob": "^2.4.0",
     "@xmldom/xmldom": "^0.9.10",
     "client-only": "^0.0.1",
     "next": "14.2.33",

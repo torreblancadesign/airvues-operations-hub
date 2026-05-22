@@ -8,7 +8,7 @@ import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { getEngineeringBoard } from "./engineering";
 import { COMMISSION_RATE } from "./engineering-types";
-import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets } from "./scorecard-types";
+import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, ScorecardPayment } from "./scorecard-types";
 
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
 

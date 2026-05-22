@@ -106,9 +106,32 @@ export function listRecordsCached<F = Record<string, unknown>>(
 
 type Patch = { id: string; fields: Record<string, unknown> };
 
-export async function patchRecords(tableIdOrName: string, patches: Patch[]) {
+export async function getRecord<F = Record<string, unknown>>(
+  tableIdOrName: string,
+  recordId: string,
+): Promise<AirtableRecord<F>> {
   assertEnv();
-  if (patches.length === 0) return;
+  const resp = await fetch(
+    `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(tableIdOrName)}/${recordId}`,
+    {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      cache: "no-store",
+    },
+  );
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Airtable GET ${tableIdOrName}/${recordId} failed (${resp.status}): ${body.slice(0, 300)}`);
+  }
+  return (await resp.json()) as AirtableRecord<F>;
+}
+
+export async function patchRecords<F = Record<string, unknown>>(
+  tableIdOrName: string,
+  patches: Patch[],
+): Promise<AirtableRecord<F>[]> {
+  assertEnv();
+  if (patches.length === 0) return [];
+  const out: AirtableRecord<F>[] = [];
   for (let i = 0; i < patches.length; i += 10) {
     const chunk = patches.slice(i, i + 10);
     const resp = await fetch(
@@ -123,8 +146,11 @@ export async function patchRecords(tableIdOrName: string, patches: Patch[]) {
       const body = await resp.text();
       throw new Error(`Airtable PATCH ${tableIdOrName} failed (${resp.status}): ${body.slice(0, 300)}`);
     }
+    const data = (await resp.json()) as { records: AirtableRecord<F>[] };
+    out.push(...data.records);
     if (i + 10 < patches.length) await new Promise((r) => setTimeout(r, 220));
   }
+  return out;
 }
 
 export async function createRecords<F = Record<string, unknown>>(

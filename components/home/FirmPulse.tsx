@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import type { FirmPulse } from "@/lib/firm-pulse";
 import { NumberTicker } from "@/components/ui/NumberTicker";
+import { RevenueTrend } from "./RevenueTrend";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -199,6 +200,11 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
             <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
               {elapsedLabel} {elapsedPct}% elapsed
             </div>
+          </div>
+
+          {/* Cumulative revenue trend — desktop only */}
+          <div className="hidden lg:block mt-6">
+            <RevenueTrend series={r.series} target={r.target} windowName={win} />
           </div>
         </div>
       </Link>

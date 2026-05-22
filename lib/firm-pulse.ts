@@ -6,6 +6,8 @@ import "server-only";
 
 import { revenueYtd, revenueMtd, mrr, openReceivables } from "./kpi";
 import { listAllQuotes } from "./pipeline";
+import { listRecordsCached } from "./airtable";
+import { Tables } from "./schema";
 
 const OPEN_STATUSES = ["Draft", "Sent. Awaiting Approval.", "Auditing 🚩"];
 const ACTIVE_STATUSES = ["Approved and Signed", "Awaiting Payment", "Project In Progress"];
@@ -20,6 +22,8 @@ const daysSince = (iso: string | null): number => {
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
+export type TrendPoint = { label: string; value: number };
+
 export type RevenueWindow = {
   value: number;
   target: number;
@@ -28,6 +32,7 @@ export type RevenueWindow = {
   needPerPeriod: number; // $/month for YTD, $/day for MTD
   verdict: "ahead" | "on-pace" | "behind";
   verdictLabel: string;
+  series: TrendPoint[]; // cumulative collected revenue over the window
 };
 
 export type FirmPulse = {
@@ -48,6 +53,7 @@ function buildRevenueWindow(
   value: number,
   target: number,
   windowName: "ytd" | "mtd",
+  series: TrendPoint[],
 ): RevenueWindow {
   const now = new Date();
   let elapsed: number;
@@ -86,16 +92,71 @@ function buildRevenueWindow(
     needPerPeriod,
     verdict,
     verdictLabel,
+    series,
   };
 }
 
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Fetch paid invoices for the current year and build cumulative YTD (monthly)
+ *  + MTD (daily) series. One Airtable read, shared with /money via cache tag. */
+async function buildRevenueSeries(): Promise<{ ytd: TrendPoint[]; mtd: TrendPoint[] }> {
+  const now = new Date();
+  const yearStartISO = new Date(now.getFullYear(), 0, 1).toISOString().slice(0, 10);
+  const t = Tables.Invoices;
+  const records = await listRecordsCached<{ "Invoice Amount"?: number; Date?: string }>(
+    t.id,
+    {
+      filterByFormula: `AND({Invoice Status} = 'paid', IS_AFTER({Date}, '${yearStartISO}'))`,
+      fields: [t.fields["Invoice Amount"].id, t.fields["Date"].id],
+    },
+    ["kpi:revenue", "firm-pulse:revenue-series"],
+  );
+
+  const monthTotals = new Array(12).fill(0) as number[];
+  const currentMonth = now.getMonth();
+  const daysInMonth = new Date(now.getFullYear(), currentMonth + 1, 0).getDate();
+  const dayTotals = new Array(daysInMonth).fill(0) as number[];
+
+  for (const r of records) {
+    const amt = r.fields["Invoice Amount"] ?? 0;
+    const iso = r.fields.Date;
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (isNaN(d.getTime()) || d.getFullYear() !== now.getFullYear()) continue;
+    monthTotals[d.getMonth()] += amt;
+    if (d.getMonth() === currentMonth) {
+      const dayIdx = d.getDate() - 1;
+      if (dayIdx >= 0 && dayIdx < dayTotals.length) dayTotals[dayIdx] += amt;
+    }
+  }
+
+  const ytd: TrendPoint[] = [];
+  let runY = 0;
+  for (let m = 0; m <= currentMonth; m++) {
+    runY += monthTotals[m];
+    ytd.push({ label: MONTH_LABELS[m], value: runY });
+  }
+
+  const mtd: TrendPoint[] = [];
+  let runM = 0;
+  const today = now.getDate();
+  for (let d = 0; d < today; d++) {
+    runM += dayTotals[d];
+    mtd.push({ label: String(d + 1), value: runM });
+  }
+
+  return { ytd, mtd };
+}
+
 export async function getFirmPulse(): Promise<FirmPulse> {
-  const [revYtd, revMtd, mrrRes, ar, quotes] = await Promise.all([
+  const [revYtd, revMtd, mrrRes, ar, quotes, series] = await Promise.all([
     revenueYtd(),
     revenueMtd(),
     mrr(),
     openReceivables(),
     listAllQuotes(),
+    buildRevenueSeries(),
   ]);
 
   const now = new Date();
@@ -166,8 +227,8 @@ export async function getFirmPulse(): Promise<FirmPulse> {
 
   return {
     revenue: {
-      ytd: buildRevenueWindow(revYtd.value ?? 0, annualTarget, "ytd"),
-      mtd: buildRevenueWindow(revMtd.value ?? 0, monthlyTarget, "mtd"),
+      ytd: buildRevenueWindow(revYtd.value ?? 0, annualTarget, "ytd", series.ytd),
+      mtd: buildRevenueWindow(revMtd.value ?? 0, monthlyTarget, "mtd", series.mtd),
     },
     booked: {
       ytd: { value: bookedYtd, count: bookedYtdCount },

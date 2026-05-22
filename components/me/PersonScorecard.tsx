@@ -5,7 +5,7 @@ import { Scorecard, ScorecardEngineer } from "@/lib/scorecard-types";
 import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
-import { GoalBar } from "@/components/home/GoalBar";
+
 import { StoryCard } from "@/components/engineering/StoryCard";
 import { StorySheet } from "@/components/engineering/StorySheet";
 import { PersonPicker } from "./PersonPicker";

@@ -1,59 +1,86 @@
+
 ## Goal
 
-Make the lead detail drawer (`components/leads/LeadSheet.tsx`) match the Airtable interface in the screenshot: show all the same fields in the same two-section structure, and let permitted users edit the "Lead Assessment" fields directly from the dashboard (writes back to Airtable).
+Let users upload supporting documents from the Lead drawer, in addition to whatever was added in Airtable. Files round-trip into the existing `Attach Supporting Documentations` field on the Lead record.
 
-## Field map (from screenshot)
+## Approach
 
-**Top section — Lead intake (READ-ONLY)** — these come from Fillout / manual scheduling and shouldn't be touched from the dashboard:
-- Email
-- Title
-- Company Name
-- Meeting Date
-- Meeting Link
-- Budget (pill)
-- What are you looking to build? (long text)
+Airtable's REST API only accepts attachments by URL — it then fetches and mirrors the file into its own storage. So we need to host the file somewhere public-readable just long enough for Airtable to grab it. We'll use **Vercel Blob** (native to the existing Vercel deploy).
 
-**Lead Assessment section — EDITABLE** (by admin/lead/editor via `canMutate()`):
-- Paste Meeting Transcript — multiline textarea, saves to `Paste Meeting Transcript`
-- Attach Supporting Documentations — file upload, saves to `Attach Supporting Documentations` (multipleAttachments)
-- Status — single-select dropdown (`New Lead`, `Needs Review`, `In Proposal Stage`, `Sold`, `Not Sold`), saves to `Status`
+Upload flow:
+```text
+Browser ── (1) direct PUT ──▶ Vercel Blob
+   │                              │
+   │                              └── returns public URL
+   │
+   └── (2) server action ─▶ Airtable PATCH (append URL to attachment field)
+```
 
-Everything already on the existing drawer that isn't in the screenshot (Source, Created, Assessor, Client Introduction (AI), Linked quotes, Airtable Record ID, Join Meet / Email / Airtable buttons) stays — it's useful context that just isn't visible in the Airtable crop. They remain read-only.
+Why direct client→Blob (not server-streamed): Vercel serverless has a 4.5 MB request body cap. The official `@vercel/blob/client` flow sidesteps that and supports up to 5 GB.
 
-## Implementation
+## One-time setup you'll do
 
-1. **`lib/mutations/lead.ts` (new)** — server actions, mirrors the pattern in `lib/mutations/story.ts` and `lib/mutations/person.ts`:
-   - `updateLeadStatus({ leadId, status })`
-   - `updateLeadTranscript({ leadId, transcript })`
-   - `addLeadAttachments({ leadId, attachments: { url, filename }[] })` and `removeLeadAttachment({ leadId, attachmentId })`
-   - Each calls `requireRole("admin", "lead", "editor")`, validates input with zod (status enum, transcript length cap ~50k chars), uses `patchRecords(Tables.Leads.id, …)` with field IDs from `lib/schema.ts`, then `revalidateTag("airtable")` + `revalidateTag("leads:all")`.
-   - For attachments: Airtable's PATCH expects an array of `{ url, filename }` for new files, or the existing array minus the removed one. Since we already store existing attachments, we send the merged array.
+In Vercel → Storage → Create Blob Store → it auto-populates `BLOB_READ_WRITE_TOKEN` in the project env. I'll flag this clearly when shipping; the mutation throws a friendly "Blob store not configured" error until it's there.
 
-2. **`lib/leads.ts`** — extend `Lead` type and the field list to include `attachments: { id, filename, url, type, size }[]`. Add the field ID `Attach Supporting Documentations` to the `fields[]` list and map it through.
+## Scope
 
-3. **`components/leads/LeadSheet.tsx`** — restructure into two visual sections matching the screenshot:
-   - "Lead Details" (read-only fields as today, but reordered to mirror Airtable: Email, Title, Company Name, Meeting Date, Meeting Link, Budget pill, What to build).
-   - "Lead Assessment" with editable controls when `canEdit` is true (else render values read-only).
-     - Transcript: textarea with Save / Cancel, optimistic `useTransition`, "edited" indicator.
-     - Attachments: list existing files with download link + delete (×) button; drop-zone / file-input that uploads via a tiny client-side upload flow. Simplest version for v1: a "Paste file URL" + filename input (since we don't have a blob store wired). If a blob store isn't desired right now, we'll stub the attachments editor as read-only and just display existing attachments — confirm preference (see open question).
-     - Status: native `<select>` styled to match the existing status pills; on change calls `updateLeadStatus` with optimistic update.
-   - Existing extra read-only fields (Source, Created, Assessor, Client Introduction, Linked quotes, Record ID, action buttons) remain at the bottom in a collapsible "More" group so the drawer mirrors Airtable but still keeps the operational context.
+- Drag-and-drop + click-to-pick uploader inside the existing Attachments block on `LeadSheet`.
+- Multi-file uploads with per-file progress + error states + cancel.
+- Limits: **25 MB per file**, **10 files per batch**, common doc/image types (pdf, png, jpg, jpeg, webp, gif, doc, docx, txt, csv, xls, xlsx, ppt, pptx, mp4, mov).
+- Appends to existing attachments — never replaces.
+- Optimistic UI: newly-uploaded items appear immediately, reconciled with Airtable's response (which includes the real `id`, `size`, `type`, thumbnails).
+- Gated on the existing `canEdit` (admin / lead / editor). Engineers + clients see view-only list.
 
-4. **`components/leads/LeadsDashboard.tsx`** — pass a `canEdit` prop into `LeadSheet`, derived from `canMutate()` resolved server-side and threaded through (matches the pattern used on `/me` for `canEditGoal`).
+Out of scope: deleting attachments, inline previews, applying the same uploader to stories. Easy follow-ups.
 
-5. **`app/(app)/leads/page.tsx`** — compute `canEdit = await canMutate()` and pass to `LeadsDashboard`.
+## Changes
 
-## Out of scope
+### 1. `package.json`
+Add `@vercel/blob`.
 
-- Editing intake fields (Email, Title, Company Name, Budget, etc.) — those originate from the Fillout form and shouldn't be touched in the dashboard.
-- A real file-storage pipeline for attachments (we'd need S3 / Vercel Blob). See open question below.
-- Bulk status changes from the table — single-record only for now.
+### 2. `app/api/leads/upload/route.ts` (new)
+Server route that wraps `@vercel/blob/client`'s `handleUpload`. It:
+- Calls `requireRole("admin", "lead", "editor")` — uploads are auth-gated.
+- Validates `leadId` exists, filename, contentType against allowlist, size ≤ 25 MB.
+- Returns a short-lived client token scoped to pathname `leads/{leadId}/{timestamp}-{sanitized-filename}`.
+- `onUploadCompleted` callback is a no-op (we handle the Airtable PATCH from the client after upload, so we get the response back).
 
-## Open question
+### 3. `lib/mutations/lead.ts` — add `attachLeadFiles`
+```ts
+attachLeadFiles({ leadId, files: [{ url, filename }] })
+```
+- `requireRole("admin", "lead", "editor")`, zod validation.
+- Reads current `Attach Supporting Documentations` array from the Lead, appends new `{url, filename}` entries.
+- `patchRecords(Tables.Leads.id, …)` using the field ID from `Tables.Leads.fields["Attach Supporting Documentations"].id`.
+- Returns the rehydrated attachment objects from Airtable's response so the UI can swap in real ids/sizes/types.
+- `revalidateTag("airtable")` + `revalidateTag("leads:all")`.
 
-For **Attach Supporting Documentations**, do you want:
-- (a) **View-only for now**: list/download existing files, but no upload from the dashboard (fastest, no blob store needed), or
-- (b) **Upload via URL paste**: simple input where user pastes a public URL + filename (works today, ugly UX), or
-- (c) **Full upload**: I wire up Vercel Blob / S3 first, then a real drag-and-drop.
+### 4. `components/leads/LeadSheet.tsx`
+Extend the existing `Attachments` component:
+- Keep the read-only list at top.
+- Below, when `canEdit`, render a drop zone (`<div>` with `onDragOver` / `onDrop` + hidden `<input type="file" multiple>`).
+- On file select: call `upload()` from `@vercel/blob/client` with `handleUploadUrl: "/api/leads/upload"` and lead context in `clientPayload`. Each upload returns a `PutBlobResult` with the public URL.
+- After all in-batch uploads succeed, call `attachLeadFiles` once with the full set, then swap optimistic rows for the real attachments.
+- Per-file row shows: icon, filename, progress bar (driven by `onUploadProgress`), cancel button, error + retry on failure.
+- Match the existing `useTransition` pattern from `StatusEditor` / `TranscriptEditor`.
 
-If you don't reply I'll go with **(a)** — view-only attachments — and ship transcript + status editing now.
+### 5. Docs
+Add a one-liner to `HANDOVER.md` under env vars: `BLOB_READ_WRITE_TOKEN` (auto-set when Blob store is created in Vercel).
+
+## Technical Notes
+
+- **Pathname**: `leads/{leadId}/{Date.now()}-{sanitizedFilename}` keeps things grouped + collision-free. `addRandomSuffix: false` because the timestamp prefix already disambiguates.
+- **Filename sanitization**: keep alphanumerics, `.`, `_`, `-`; strip everything else; cap at 200 chars before the timestamp prefix. Display name preserved in Airtable's `filename` field.
+- **MIME allowlist** enforced both client-side (immediate UX) and server-side in `handleUpload` (security).
+- **Orphan blobs**: if blob upload succeeds but the Airtable PATCH fails, the blob is left in the bucket. Acceptable for now; documented in code. A cleanup cron is a later concern.
+- **No schema changes** to `lib/leads.ts` — the `attachments` array type already exists.
+
+## Verification
+
+1. `npx tsc --noEmit`
+2. `npm run build`
+3. Local: with `BLOB_READ_WRITE_TOKEN` set, sign in as admin → open lead → drop a 15 MB PDF + a PNG → progress bars complete → list updates → refresh → both still there → check Airtable web UI → files present.
+4. Drag a 30 MB file → rejected client-side with clear message.
+5. Drag a `.exe` → rejected client-side.
+6. Sign in as engineer → drop zone hidden, existing files still listed + downloadable.
+7. Curl `/api/leads/upload` unauthenticated → 401/403.

@@ -3,8 +3,10 @@
 import { listAllQuotes } from "@/lib/pipeline";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PipelineDashboard } from "@/components/pipeline/PipelineDashboard";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export default async function PipelinePage() {
+  await assertCanAccess("/pipeline");
   let quotes: Awaited<ReturnType<typeof listAllQuotes>> = [];
   let error: string | null = null;
   try {

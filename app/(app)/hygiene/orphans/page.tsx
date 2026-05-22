@@ -5,10 +5,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { OrphanTriage } from "@/components/hygiene/OrphanTriage";
 import { getOrphanTriage } from "@/lib/orphan-triage";
 import { canMutate } from "@/lib/authz";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 60;
 
 export default async function OrphanTriagePage() {
+  await assertCanAccess("/hygiene");
   const editable = await canMutate();
 
   let data;

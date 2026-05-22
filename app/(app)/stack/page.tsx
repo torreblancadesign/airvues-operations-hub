@@ -1,8 +1,10 @@
 import { listAllSubscriptions } from "@/lib/stack";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StackDashboard } from "@/components/stack/StackDashboard";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export default async function StackPage() {
+  await assertCanAccess("/stack");
   let subs: Awaited<ReturnType<typeof listAllSubscriptions>> = [];
   let error: string | null = null;
   try {

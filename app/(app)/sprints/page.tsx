@@ -8,10 +8,12 @@ import { SprintsClient } from "@/components/sprints/SprintsClient";
 import { listSprints } from "@/lib/sprints";
 import { computeVelocity } from "@/lib/velocity";
 import { canMutate } from "@/lib/authz";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 60;
 
 export default async function SprintsPage() {
+  await assertCanAccess("/sprints");
   let sprints;
   const editable = await canMutate();
   try {

@@ -6,6 +6,8 @@ import "server-only";
 
 import { revenueYtd, revenueMtd, mrr, openReceivables } from "./kpi";
 import { listAllQuotes } from "./pipeline";
+import { listRecordsCached } from "./airtable";
+import { Tables } from "./schema";
 
 const OPEN_STATUSES = ["Draft", "Sent. Awaiting Approval.", "Auditing 🚩"];
 const ACTIVE_STATUSES = ["Approved and Signed", "Awaiting Payment", "Project In Progress"];

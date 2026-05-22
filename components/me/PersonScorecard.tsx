@@ -179,7 +179,7 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
           label="Lifetime shipped"
           tone="violet"
           value={shipped.lifetime.toLocaleString()}
-          sub={`${fmtMoney(totals.earnedInvoice)} of scope delivered`}
+          sub={`${fmtMoney(totals.earnedCost)} of scope delivered`}
         />
         <StatCard
           label="YTD shipped"

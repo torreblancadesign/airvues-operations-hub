@@ -14,6 +14,7 @@ type Props = {
   scorecard: Scorecard;
   engineers: ScorecardEngineer[];
   canEdit?: boolean;
+  canSwitchPerson?: boolean;
 };
 
 const fmtMoney = (n: number) =>
@@ -25,7 +26,7 @@ function levelFromRole(role: string | null): string {
   return match ? match[0].toUpperCase() : role;
 }
 
-export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props) {
+export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
   const { engineer, totals, nextToShip, byStatus, earnings, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 
@@ -97,7 +98,7 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false }: Props
               </span>
             </div>
           </div>
-          <PersonPicker current={engineer.id} engineers={engineers} />
+          {canSwitchPerson && <PersonPicker current={engineer.id} engineers={engineers} />}
         </div>
       </div>
 

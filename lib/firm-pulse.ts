@@ -150,12 +150,13 @@ async function buildRevenueSeries(): Promise<{ ytd: TrendPoint[]; mtd: TrendPoin
 }
 
 export async function getFirmPulse(): Promise<FirmPulse> {
-  const [revYtd, revMtd, mrrRes, ar, quotes] = await Promise.all([
+  const [revYtd, revMtd, mrrRes, ar, quotes, series] = await Promise.all([
     revenueYtd(),
     revenueMtd(),
     mrr(),
     openReceivables(),
     listAllQuotes(),
+    buildRevenueSeries(),
   ]);
 
   const now = new Date();

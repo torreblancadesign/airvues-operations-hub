@@ -196,31 +196,207 @@ function TranscriptEditor({
   );
 }
 
-function Attachments({ lead }: { lead: Lead }) {
-  if (lead.attachments.length === 0) {
-    return (
-      <div className="px-3 py-3 bg-bg-elevated border border-dashed border-rule rounded text-[12px] text-ink-faint text-center">
-        No supporting documents attached. Add files directly in Airtable.
-      </div>
+type UploadRow = {
+  key: string;
+  filename: string;
+  status: "uploading" | "saving" | "error";
+  error?: string;
+};
+
+function Attachments({ lead, canEdit }: { lead: Lead; canEdit: boolean }) {
+  // Local optimistic state: starts as the server-rendered list, mutated when uploads land.
+  const [items, setItems] = useState<LeadAttachment[]>(lead.attachments);
+  const [pending, setPending] = useState<UploadRow[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Re-sync when a different lead opens.
+  useEffect(() => {
+    setItems(lead.attachments);
+    setPending([]);
+    setGlobalError(null);
+  }, [lead.id, lead.attachments]);
+
+  const allowedSet = new Set<string>(UPLOAD_ALLOWED_MIME);
+
+  const handleFiles = async (filesList: FileList | File[]) => {
+    setGlobalError(null);
+    const files = Array.from(filesList);
+    if (files.length === 0) return;
+    if (files.length > UPLOAD_MAX_BATCH) {
+      setGlobalError(`Up to ${UPLOAD_MAX_BATCH} files per batch.`);
+      return;
+    }
+
+    // Client-side validation
+    const rejected: string[] = [];
+    const accepted: File[] = [];
+    for (const f of files) {
+      if (f.size > UPLOAD_MAX_BYTES) {
+        rejected.push(`${f.name} (too large, max ${(UPLOAD_MAX_BYTES / 1024 / 1024).toFixed(0)} MB)`);
+        continue;
+      }
+      if (f.type && !allowedSet.has(f.type)) {
+        rejected.push(`${f.name} (type ${f.type} not allowed)`);
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (rejected.length > 0) {
+      setGlobalError(`Rejected: ${rejected.join("; ")}`);
+    }
+    if (accepted.length === 0) return;
+
+    const rows: UploadRow[] = accepted.map((f, i) => ({
+      key: `${Date.now()}-${i}-${f.name}`,
+      filename: f.name,
+      status: "uploading",
+    }));
+    setPending((p) => [...p, ...rows]);
+
+    // Upload each to Vercel Blob in parallel.
+    const uploaded: { url: string; filename: string; rowKey: string }[] = [];
+    await Promise.all(
+      accepted.map(async (file, i) => {
+        const row = rows[i];
+        try {
+          const pathname = `leads/${lead.id}/${Date.now()}-${sanitizeUploadFilename(file.name)}`;
+          const blob = await upload(pathname, file, {
+            access: "public",
+            handleUploadUrl: "/api/leads/upload",
+            clientPayload: JSON.stringify({ leadId: lead.id }),
+            contentType: file.type || undefined,
+          });
+          uploaded.push({ url: blob.url, filename: file.name, rowKey: row.key });
+          setPending((p) =>
+            p.map((r) => (r.key === row.key ? { ...r, status: "saving" } : r)),
+          );
+        } catch (e) {
+          setPending((p) =>
+            p.map((r) =>
+              r.key === row.key
+                ? { ...r, status: "error", error: (e as Error).message }
+                : r,
+            ),
+          );
+        }
+      }),
     );
-  }
+
+    if (uploaded.length === 0) return;
+
+    // Persist all successful uploads to Airtable in a single call.
+    const res = await attachLeadFiles({
+      leadId: lead.id,
+      files: uploaded.map(({ url, filename }) => ({ url, filename })),
+    });
+
+    if ("error" in res) {
+      setGlobalError(res.error);
+      setPending((p) =>
+        p.map((r) =>
+          uploaded.some((u) => u.rowKey === r.key)
+            ? { ...r, status: "error", error: res.error }
+            : r,
+        ),
+      );
+      return;
+    }
+
+    setItems(res.attachments);
+    setPending((p) => p.filter((r) => !uploaded.some((u) => u.rowKey === r.key)));
+  };
+
+  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) void handleFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files) void handleFiles(e.dataTransfer.files);
+  };
+
   return (
-    <ul className="space-y-1.5">
-      {lead.attachments.map((a) => (
-        <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-2 bg-bg-elevated border border-rule rounded">
-          <a
-            href={a.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[12px] text-emerald hover:underline truncate"
-            title={a.filename}
+    <div className="space-y-2">
+      {items.length === 0 && pending.length === 0 && !canEdit && (
+        <div className="px-3 py-3 bg-bg-elevated border border-dashed border-rule rounded text-[12px] text-ink-faint text-center">
+          No supporting documents attached.
+        </div>
+      )}
+
+      {(items.length > 0 || pending.length > 0) && (
+        <ul className="space-y-1.5">
+          {items.map((a) => (
+            <li
+              key={a.id}
+              className="flex items-center justify-between gap-2 px-3 py-2 bg-bg-elevated border border-rule rounded"
+            >
+              <a
+                href={a.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] text-emerald hover:underline truncate"
+                title={a.filename}
+              >
+                📎 {a.filename}
+              </a>
+              <span className="text-[10px] font-mono text-ink-faint shrink-0">{fmtBytes(a.size)}</span>
+            </li>
+          ))}
+          {pending.map((r) => (
+            <li
+              key={r.key}
+              className={`flex items-center justify-between gap-2 px-3 py-2 border rounded ${
+                r.status === "error"
+                  ? "bg-red/5 border-red/40"
+                  : "bg-bg-elevated border-rule"
+              }`}
+            >
+              <span className="text-[12px] text-ink truncate" title={r.filename}>
+                {r.status === "uploading" ? "⬆️" : r.status === "saving" ? "💾" : "⚠️"} {r.filename}
+              </span>
+              <span className="text-[10px] font-mono text-ink-faint shrink-0">
+                {r.status === "uploading" && "uploading…"}
+                {r.status === "saving" && "saving…"}
+                {r.status === "error" && (r.error ?? "failed")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canEdit && (
+        <>
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            className={`block cursor-pointer px-3 py-4 border border-dashed rounded text-[12px] text-center transition-colors ${
+              dragOver
+                ? "border-emerald bg-emerald/5 text-emerald"
+                : "border-rule bg-bg-elevated text-ink-muted hover:border-ink-muted hover:text-ink"
+            }`}
           >
-            📎 {a.filename}
-          </a>
-          <span className="text-[10px] font-mono text-ink-faint shrink-0">{fmtBytes(a.size)}</span>
-        </li>
-      ))}
-    </ul>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              accept={UPLOAD_ALLOWED_MIME.join(",")}
+              onChange={onInputChange}
+            />
+            Drop files here or <span className="text-emerald underline">browse</span>
+            <div className="mt-0.5 text-[10px] text-ink-faint">
+              Up to {UPLOAD_MAX_BATCH} files · {(UPLOAD_MAX_BYTES / 1024 / 1024).toFixed(0)} MB each · PDF, images, Office docs, MP4
+            </div>
+          </label>
+          {globalError && <div className="text-[11px] text-red">{globalError}</div>}
+        </>
+      )}
+    </div>
   );
 }
 

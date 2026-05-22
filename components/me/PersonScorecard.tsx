@@ -10,6 +10,7 @@ import { StoryCard } from "@/components/engineering/StoryCard";
 import { StorySheet } from "@/components/engineering/StorySheet";
 import { PersonPicker } from "./PersonPicker";
 import { EarningsChart } from "./EarningsChart";
+import { GoalEditor } from "./GoalEditor";
 
 type Props = {
   scorecard: Scorecard;

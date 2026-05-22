@@ -294,6 +294,7 @@ export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
           </Row>
           <Row label="Title">{lead.title ?? "—"}</Row>
           <Row label="Company Name">{lead.company ?? "—"}</Row>
+          <Row label="Assessor">{lead.assessorName ?? <span className="text-ink-faint">—</span>}</Row>
           <Row label="Meeting Date">{fmtDateTime(lead.meetingDate)}</Row>
           <Row label="Meeting Link">
             {lead.meetingLink ? (

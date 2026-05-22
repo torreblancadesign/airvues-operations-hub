@@ -103,8 +103,9 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   const rawPct = personRec?.fields["Commission Percentage"] as number | undefined;
   let commissionPct = COMMISSION_RATE;
   let commissionPctSource: "person" | "default" = "default";
-  if (typeof rawPct === "number" && rawPct > 0) {
+  if (typeof rawPct === "number" && rawPct >= 0) {
     // Airtable percent fields return decimals (0.15); guard against whole-percent (15).
+    // Allow 0 explicitly — salaried employees with no commission.
     commissionPct = rawPct > 1 ? rawPct / 100 : rawPct;
     commissionPctSource = "person";
   }

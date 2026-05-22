@@ -155,29 +155,36 @@ export async function listTeamData(): Promise<TeamData> {
     };
   });
 
-  const enrichedPayments: Payment[] = payments.map((p) => {
-    const f = p.fields;
-    const payee = f.Payee as { email?: string; name?: string } | undefined;
-    const clientArr = f.Client as string | undefined;
-    const projectArr = (f.Project as string[] | undefined) ?? [];
-    const lookup = f["Internal Team Member Account (from Link to Expenses)"] as
-      | string[]
-      | undefined;
-    return {
-      id: p.id,
-      amount: (f.Amount as number) ?? 0,
-      status: (f.Status as string) ?? null,
-      function: (f.Function as string) ?? null,
-      payeeEmail: payee?.email ?? null,
-      payeeName: payee?.name ?? null,
-      personId: lookup?.[0] ?? null,
-      date: (f.Date as string) ?? null,
-      invoiceId: ((f["Client Invoice"] as string[] | undefined) ?? [])[0] ?? null,
-      client: clientArr ?? null,
-      project: projectArr[0] ?? null,
-      airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${tT.id}/${p.id}`,
-    };
-  });
+  const enrichedPayments: Payment[] = payments
+    .filter((p) => {
+      const payee = p.fields.Payee as { name?: string } | undefined;
+      // Exclude internal "Airvues Consulting" records — they're profit-tracking entries, not real payouts.
+      return (payee?.name ?? "").trim().toLowerCase() !== "airvues consulting";
+    })
+    .map((p) => {
+      const f = p.fields;
+      const payee = f.Payee as { email?: string; name?: string } | undefined;
+      const clientArr = f.Client as string | undefined;
+      const projectArr = (f.Project as string[] | undefined) ?? [];
+      const lookup = f["Internal Team Member Account (from Link to Expenses)"] as
+        | string[]
+        | undefined;
+      return {
+        id: p.id,
+        amount: (f.Amount as number) ?? 0,
+        status: (f.Status as string) ?? null,
+        function: (f.Function as string) ?? null,
+        payeeEmail: payee?.email ?? null,
+        payeeName: payee?.name ?? null,
+        personId: lookup?.[0] ?? null,
+        date: (f.Date as string) ?? null,
+        invoiceId: ((f["Client Invoice"] as string[] | undefined) ?? [])[0] ?? null,
+        client: clientArr ?? null,
+        project: projectArr[0] ?? null,
+        airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${tT.id}/${p.id}`,
+      };
+    });
+
 
 
   return { members, payments: enrichedPayments };

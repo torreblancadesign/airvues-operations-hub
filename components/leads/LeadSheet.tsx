@@ -334,8 +334,7 @@ export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
         <div className="border-t border-rule pb-6">
           <Row label="Source">{lead.source ?? "—"}</Row>
           <Row label="Created">{fmtDateTime(lead.createdTime)}</Row>
-          <Row label="Assessor">{lead.assessor ?? "—"}</Row>
-          {lead.clientIntro && <Row label="Client Introduction (AI)">{lead.clientIntro}</Row>}
+
           {lead.quotesCount > 0 && (
             <Row label={`Linked Quotes (${lead.quotesCount})`}>
               {lead.quoteStatuses.length > 0 ? lead.quoteStatuses.join(" · ") : "—"}

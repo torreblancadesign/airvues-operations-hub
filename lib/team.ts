@@ -31,6 +31,7 @@ export type Payment = {
   function: string | null;   // Engineer / BA
   payeeEmail: string | null;
   payeeName: string | null;
+  personId: string | null;   // People recId via "Internal Team Member Account (from Link to Expenses)" lookup
   date: string | null;
   invoiceId: string | null;
   client: string | null;
@@ -87,6 +88,8 @@ export async function listTeamData(): Promise<TeamData> {
       Status?: string;
       Function?: string;
       Payee?: { id: string; email?: string; name?: string };
+      "Internal Team Member Account (from Link to Expenses)"?: string[];
+      "Link to Expenses"?: string[];
       Date?: string;
       "Client Invoice"?: string[];
       Client?: string;
@@ -99,6 +102,8 @@ export async function listTeamData(): Promise<TeamData> {
           tT.fields["Status"].id,
           tT.fields["Function"].id,
           tT.fields["Payee"].id,
+          tT.fields["Internal Team Member Account (from Link to Expenses)"].id,
+          tT.fields["Link to Expenses"].id,
           tT.fields["Date"].id,
           tT.fields["Client Invoice"].id,
           tT.fields["Client"].id,
@@ -109,17 +114,21 @@ export async function listTeamData(): Promise<TeamData> {
     ),
   ]);
 
-  // Aggregate payments by email
-  const paidByEmail = new Map<string, number>();
-  const owedByEmail = new Map<string, number>();
+  // Aggregate payments by People recId via the linked-record lookup.
+  // This is the authoritative join — Payee.email is unreliable (personal Gmail vs
+  // work address, casing, contractors with no workspace seat).
+  const paidById = new Map<string, number>();
+  const owedById = new Map<string, number>();
   for (const p of payments) {
     const f = p.fields;
-    const payee = f.Payee as { email?: string } | undefined;
-    const email = payee?.email ?? null;
-    if (!email) continue;
+    const lookup = f["Internal Team Member Account (from Link to Expenses)"] as
+      | string[]
+      | undefined;
+    const personId = lookup?.[0];
+    if (!personId) continue;
     const amt = (f.Amount as number) ?? 0;
-    if (f.Status === "Paid") paidByEmail.set(email, (paidByEmail.get(email) ?? 0) + amt);
-    if (f.Status === "Needs Payment") owedByEmail.set(email, (owedByEmail.get(email) ?? 0) + amt);
+    if (f.Status === "Paid") paidById.set(personId, (paidById.get(personId) ?? 0) + amt);
+    if (f.Status === "Needs Payment") owedById.set(personId, (owedById.get(personId) ?? 0) + amt);
   }
 
   const members: TeamMember[] = people.map((p) => {
@@ -140,8 +149,8 @@ export async function listTeamData(): Promise<TeamData> {
       onboardingStatus: (f["Onboarding Status"] as string) ?? null,
       reportingManagerId: ((f["Reporting Manager"] as string[] | undefined) ?? [])[0] ?? null,
       startDate: (f["Start Date"] as string) ?? null,
-      totalPaid: email ? paidByEmail.get(email) ?? 0 : 0,
-      needsPayment: email ? owedByEmail.get(email) ?? 0 : 0,
+      totalPaid: paidById.get(p.id) ?? 0,
+      needsPayment: owedById.get(p.id) ?? 0,
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${pT.id}/${p.id}`,
     };
   });
@@ -151,6 +160,9 @@ export async function listTeamData(): Promise<TeamData> {
     const payee = f.Payee as { email?: string; name?: string } | undefined;
     const clientArr = f.Client as string | undefined;
     const projectArr = (f.Project as string[] | undefined) ?? [];
+    const lookup = f["Internal Team Member Account (from Link to Expenses)"] as
+      | string[]
+      | undefined;
     return {
       id: p.id,
       amount: (f.Amount as number) ?? 0,
@@ -158,6 +170,7 @@ export async function listTeamData(): Promise<TeamData> {
       function: (f.Function as string) ?? null,
       payeeEmail: payee?.email ?? null,
       payeeName: payee?.name ?? null,
+      personId: lookup?.[0] ?? null,
       date: (f.Date as string) ?? null,
       invoiceId: ((f["Client Invoice"] as string[] | undefined) ?? [])[0] ?? null,
       client: clientArr ?? null,
@@ -165,6 +178,7 @@ export async function listTeamData(): Promise<TeamData> {
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${tT.id}/${p.id}`,
     };
   });
+
 
   return { members, payments: enrichedPayments };
 }

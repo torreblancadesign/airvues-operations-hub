@@ -44,6 +44,24 @@ function first<T>(x: T[] | undefined): T | null {
   return Array.isArray(x) && x.length > 0 ? x[0] : null;
 }
 
+// Airtable AI fields return { state, value, isStale } objects, not plain strings.
+// Normalize to a string for safe rendering.
+function asText(v: unknown): string | null {
+  if (v == null) return null;
+  if (typeof v === "string") return v.length > 0 ? v : null;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) {
+    const parts = v.map(asText).filter((s): s is string => !!s);
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+  if (typeof v === "object") {
+    const obj = v as { value?: unknown };
+    if ("value" in obj) return asText(obj.value);
+    return null;
+  }
+  return null;
+}
+
 export async function listAllLeads(): Promise<Lead[]> {
   const t = Tables.Leads;
   const records = await listRecordsCached<{
@@ -100,21 +118,21 @@ export async function listAllLeads(): Promise<Lead[]> {
     const f = r.fields;
     return {
       id: r.id,
-      name: (f["Name"] as string) ?? "(no name)",
-      firstName: (f["First Name"] as string) ?? null,
-      lastName: (f["Last Name"] as string) ?? null,
-      email: (f["Email"] as string) ?? null,
-      company: (f["Company Name"] as string) ?? null,
-      title: (f["Title"] as string) ?? null,
+      name: asText(f["Name"]) ?? "(no name)",
+      firstName: asText(f["First Name"]),
+      lastName: asText(f["Last Name"]),
+      email: asText(f["Email"]),
+      company: asText(f["Company Name"]),
+      title: asText(f["Title"]),
       budget: (f["Budget"] as LeadBudget) ?? null,
       source: (f["Source"] as LeadSource) ?? null,
       status: (f["Status"] as LeadStatus) ?? null,
       meetingDate: (f["Meeting Date"] as string) ?? null,
       endMeetingDate: (f["End Meeting Date"] as string) ?? null,
-      meetingLink: (f["Meeting Link"] as string) ?? null,
-      whatToBuild: (f["What are you looking to build?"] as string) ?? null,
-      clientIntro: (f["Client Introduction"] as string) ?? null,
-      transcript: (f["Paste Meeting Transcript"] as string) ?? null,
+      meetingLink: asText(f["Meeting Link"]),
+      whatToBuild: asText(f["What are you looking to build?"]),
+      clientIntro: asText(f["Client Introduction"]),
+      transcript: asText(f["Paste Meeting Transcript"]),
       createdTime: (f["Created Time"] as string) ?? r.createdTime,
       daysToMeeting: typeof f["Days to Meeting"] === "number" ? (f["Days to Meeting"] as number) : null,
       assessor: first(f["Team Member Lead Assesser"] as string[] | undefined) ?? null,

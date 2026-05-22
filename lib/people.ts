@@ -112,15 +112,12 @@ export async function resolvePersonByEmail(
     }
   }
 
-  const DEBUG = process.env.DEBUG_PERMISSIONS === "true";
-  if (DEBUG) {
-    console.log("[permissions] resolve", {
-      email: lower,
-      overrideId: overrideId ?? null,
-      matched: records.length,
-      firstFieldKeys: records[0] ? Object.keys(records[0].fields) : null,
-    });
-  }
+  console.log("[permissions] resolve", {
+    email: lower,
+    overrideId: overrideId ?? null,
+    matched: records.length,
+    firstFieldKeys: records[0] ? Object.keys(records[0].fields) : null,
+  });
 
   if (records.length === 0) return null;
 
@@ -156,15 +153,13 @@ export async function resolvePersonByEmail(
     typeof p === "string" && (ALL_PERMISSIONS as string[]).includes(p),
   );
 
-  if (DEBUG) {
-    console.log("[permissions] resolved", {
-      email: lower,
-      winnerId: winner.id,
-      winnerEmail: f["Primary Email"],
-      rawPerms,
-      permissions,
-    });
-  }
+  console.log("[permissions] resolved", {
+    email: lower,
+    winnerId: winner.id,
+    winnerEmail: f["Primary Email"],
+    rawPerms,
+    permissions,
+  });
 
   return {
     id: winner.id,

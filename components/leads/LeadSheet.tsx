@@ -121,6 +121,7 @@ export function LeadSheet({ lead, onClose }: Props) {
           <Field label="Airtable Record ID"><span className="font-mono text-[12px]">{lead.id}</span></Field>
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

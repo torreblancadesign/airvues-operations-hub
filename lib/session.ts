@@ -47,8 +47,18 @@ const SYNTHETIC_DEV_SESSION: AppSession = {
 async function loadPermissions(email: string): Promise<Permission[]> {
   try {
     const person = await resolvePersonByEmail(email);
+    if (process.env.DEBUG_PERMISSIONS === "true") {
+      console.log("[session] loadPermissions", {
+        email,
+        matched: !!person,
+        permissions: person?.permissions ?? [],
+      });
+    }
     return person?.permissions ?? [];
-  } catch {
+  } catch (err) {
+    if (process.env.DEBUG_PERMISSIONS === "true") {
+      console.warn("[session] loadPermissions error", email, (err as Error).message);
+    }
     return [];
   }
 }

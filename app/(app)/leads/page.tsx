@@ -33,6 +33,7 @@ export default async function LeadsPage({
   } catch (e) {
     error = (e as Error).message;
   }
+  const canEdit = await canMutate();
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">

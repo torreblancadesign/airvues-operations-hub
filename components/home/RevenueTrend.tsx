@@ -287,5 +287,3 @@ export function RevenueTrend({
   );
 }
 
-void yMaxNoop;
-const yMaxNoop = 0;

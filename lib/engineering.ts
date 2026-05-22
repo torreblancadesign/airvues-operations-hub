@@ -161,6 +161,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       sprintIds,
       sprintNumbers,
       sprintStatuses,
+      sprintEnds,
       description: (f["Description"] as string) ?? "",
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
     };

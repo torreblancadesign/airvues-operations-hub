@@ -112,15 +112,12 @@ export async function resolvePersonByEmail(
     }
   }
 
-  const DEBUG = process.env.DEBUG_PERMISSIONS === "true";
-  if (DEBUG) {
-    console.log("[permissions] resolve", {
-      email: lower,
-      overrideId: overrideId ?? null,
-      matched: records.length,
-      firstFieldKeys: records[0] ? Object.keys(records[0].fields) : null,
-    });
-  }
+  console.log("[permissions] resolve", {
+    email: lower,
+    overrideId: overrideId ?? null,
+    matched: records.length,
+    firstFieldKeys: records[0] ? Object.keys(records[0].fields) : null,
+  });
 
   if (records.length === 0) return null;
 

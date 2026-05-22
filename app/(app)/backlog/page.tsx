@@ -8,6 +8,7 @@ import { getEngineeringBoard } from "@/lib/engineering";
 import { listQuoteOptions, type QuoteOption } from "@/lib/quotes-light";
 import { canMutate } from "@/lib/authz";
 import type { BacklogFilter } from "@/components/backlog/types";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 60;
 
@@ -28,6 +29,7 @@ export default async function BacklogPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await assertCanAccess("/backlog");
   const sp = await searchParams;
   const initialFilter: Partial<BacklogFilter> = {};
   if (sp.scope && VALID_SCOPES.has(sp.scope as BacklogFilter["scope"])) {

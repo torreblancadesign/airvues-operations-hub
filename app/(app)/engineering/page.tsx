@@ -5,10 +5,12 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { EngineeringBoard } from "@/components/engineering/EngineeringBoard";
 import { getEngineeringBoard } from "@/lib/engineering";
 import { canMutate } from "@/lib/authz";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 300;
 
 export default async function EngineeringPage() {
+  await assertCanAccess("/engineering");
   let data;
   const editable = await canMutate();
   try {

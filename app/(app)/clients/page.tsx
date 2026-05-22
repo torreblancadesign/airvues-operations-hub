@@ -1,8 +1,10 @@
 import { listAllClients } from "@/lib/clients";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ClientsDashboard } from "@/components/clients/ClientsDashboard";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export default async function ClientsPage() {
+  await assertCanAccess("/clients");
   let clients: Awaited<ReturnType<typeof listAllClients>> = [];
   let error: string | null = null;
   try {

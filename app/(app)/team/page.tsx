@@ -1,8 +1,10 @@
 import { listTeamData } from "@/lib/team";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { TeamDashboard } from "@/components/team/TeamDashboard";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export default async function TeamPage() {
+  await assertCanAccess("/team");
   let data: Awaited<ReturnType<typeof listTeamData>> = { members: [], payments: [] };
   let error: string | null = null;
   try {

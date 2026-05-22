@@ -134,6 +134,7 @@ const ICONS: Record<string, React.ReactNode> = {
 export async function Sidebar() {
   const session = await getAppSession();
   const role = session?.user?.role || "viewer";
+  const permissions = session?.user?.permissions ?? [];
 
   // If the user has a SAML session cookie, sign-out clears that and redirects to login.
   // Otherwise (NextAuth OAuth path) fall back to NextAuth's signOut.
@@ -163,7 +164,7 @@ export async function Sidebar() {
         </div>
       </Link>
 
-      <SidebarNav icons={ICONS} />
+      <SidebarNav icons={ICONS} permissions={permissions} role={role} />
 
       {/* Footer / user */}
       <div className="px-3 pb-3 pt-2 border-t border-rule mt-2 space-y-2">

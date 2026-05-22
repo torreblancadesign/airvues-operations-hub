@@ -8,6 +8,8 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
+import { canAccessRoute, type Permission } from "@/lib/permissions";
+import type { AppRole } from "@/lib/auth";
 import { CalendarWidget } from "@/components/header/CalendarWidget";
 import { GmailWidget } from "@/components/header/GmailWidget";
 import type { CalendarResult } from "@/lib/calendar";
@@ -37,14 +39,15 @@ const ICONS: Record<string, React.ReactNode> = {
 
 type Props = {
   userEmail: string | null;
-  userRole: string;
+  userRole: AppRole;
   samlActive: boolean;
   signOutAction: SignOutHandler;
   calendarResult?: CalendarResult;
   inboxResult?: InboxResult;
+  permissions: Permission[];
 };
 
-export function MobileNav({ userEmail, userRole, samlActive, signOutAction, calendarResult, inboxResult }: Props) {
+export function MobileNav({ userEmail, userRole, samlActive, signOutAction, calendarResult, inboxResult, permissions }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -143,7 +146,12 @@ export function MobileNav({ userEmail, userRole, samlActive, signOutAction, cale
             <nav className="flex-1 px-3 overflow-y-auto">
               <ul className="space-y-4">
                 {NAV_GROUPS.map((group) => {
-                  const groupItems = NAV_ITEMS.filter((n) => n.showInSidebar && n.group === group.id);
+                  const groupItems = NAV_ITEMS.filter(
+                    (n) =>
+                      n.showInSidebar &&
+                      n.group === group.id &&
+                      canAccessRoute(permissions, n.href, userRole),
+                  );
                   if (groupItems.length === 0) return null;
                   return (
                     <li key={group.id}>

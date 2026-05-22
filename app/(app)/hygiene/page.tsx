@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StatCard } from "@/components/ui/StatCard";
 import { getHygieneIndex } from "@/lib/hygiene";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 60;
 
@@ -70,6 +71,7 @@ function BlockerCard({ title, status, primary, primaryLabel, context, cta, descr
 }
 
 export default async function HygienePage() {
+  await assertCanAccess("/hygiene");
   let data;
   try {
     data = await getHygieneIndex();

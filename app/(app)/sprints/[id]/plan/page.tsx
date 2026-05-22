@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { SprintPlanBoard } from "@/components/sprints/SprintPlanBoard";
 import { getSprintPlan } from "@/lib/sprint-plan";
 import { canMutate } from "@/lib/authz";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 60;
 
@@ -25,6 +26,7 @@ function statusPill(status: string | null): { text: string; cls: string } {
 }
 
 export default async function SprintPlanPage({ params }: { params: Params }) {
+  await assertCanAccess("/sprints");
   const editable = await canMutate();
   const plan = await getSprintPlan(params.id);
   if (!plan) notFound();

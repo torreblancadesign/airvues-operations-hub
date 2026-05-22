@@ -6,6 +6,7 @@ import { listAllInvoices } from "@/lib/money";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MoneyDashboard } from "@/components/money/MoneyDashboard";
 import type { Filter, StatusBucket } from "@/components/money/types";
+import { assertCanAccess } from "@/lib/page-guard";
 
 type SearchParams = { status?: string; type?: string; source?: string; payer?: string };
 
@@ -18,6 +19,7 @@ export default async function MoneyPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await assertCanAccess("/money");
   const sp = await searchParams;
   const initialFilter: Partial<Filter> = {};
   if (sp.status && VALID_STATUS.has(sp.status as StatusBucket)) {

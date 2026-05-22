@@ -10,6 +10,7 @@ import { StationBoard } from "@/components/home/DeparturesBoard";
 import { TheStack } from "@/components/home/TheStack";
 import { YourDay } from "@/components/home/YourDay";
 import { FirmPulse } from "@/components/home/FirmPulse";
+import { canSeeFirmPulse } from "@/lib/permissions";
 
 async function safe<T>(fn: () => Promise<T>): Promise<T | { error: string }> {
   try {
@@ -93,26 +94,28 @@ export default async function HomePage() {
       </header>
 
       {/* ── Firm pulse (HERO) ────────────────────────────────── */}
-      <div className="mb-10">
-        <SectionTitle
-          title="Firm pulse"
-          aside={
-            <a
-              href="/money"
-              className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline whitespace-nowrap"
-            >
-              Open Earnings →
-            </a>
-          }
-        />
-        {"revenue" in pulse ? (
-          <FirmPulse pulse={pulse} />
-        ) : (
-          <div className="bg-surface border border-red/30 rounded-card p-4 text-[12px] text-red">
-            Failed to load firm pulse: {pulse.error}
-          </div>
-        )}
-      </div>
+      {canSeeFirmPulse(session?.user?.permissions, session?.user?.role) && (
+        <div className="mb-10">
+          <SectionTitle
+            title="Firm pulse"
+            aside={
+              <a
+                href="/money"
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline whitespace-nowrap"
+              >
+                Open Earnings →
+              </a>
+            }
+          />
+          {"revenue" in pulse ? (
+            <FirmPulse pulse={pulse} />
+          ) : (
+            <div className="bg-surface border border-red/30 rounded-card p-4 text-[12px] text-red">
+              Failed to load firm pulse: {pulse.error}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Your day ─────────────────────────────────────────── */}
       <div className="mb-10">

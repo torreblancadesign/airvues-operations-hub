@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { LeadsDashboard } from "@/components/leads/LeadsDashboard";
 import type { Filter } from "@/components/leads/types";
 import type { LeadStatus, LeadBudget, LeadSource } from "@/lib/leads";
+import { assertCanAccess } from "@/lib/page-guard";
 
 type SearchParams = { status?: string; source?: string; budget?: string };
 
@@ -17,6 +18,7 @@ export default async function LeadsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await assertCanAccess("/leads");
   const sp = await searchParams;
   const initialFilter: Partial<Filter> = {};
   if (sp.status && VALID_STATUS.has(sp.status as LeadStatus)) initialFilter.status = sp.status as LeadStatus;

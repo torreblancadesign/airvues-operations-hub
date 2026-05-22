@@ -8,6 +8,7 @@ import { SprintBoard } from "@/components/sprints/SprintBoard";
 import { getSprintDetail } from "@/lib/sprints";
 import { getEngineeringBoard } from "@/lib/engineering";
 import { canMutate } from "@/lib/authz";
+import { assertCanAccess } from "@/lib/page-guard";
 
 export const revalidate = 60;
 
@@ -26,6 +27,7 @@ function statusPill(status: string | null): { text: string; cls: string } {
 }
 
 export default async function SprintDetailPage({ params }: { params: Params }) {
+  await assertCanAccess("/sprints");
   const editable = await canMutate();
   const [sprint, board] = await Promise.all([
     getSprintDetail(params.id),

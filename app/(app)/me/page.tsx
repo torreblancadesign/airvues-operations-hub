@@ -84,6 +84,8 @@ export default async function MePage({ searchParams }: { searchParams: Promise<S
     );
   }
 
+  const canEditGoal = editable || (!!ownPersonId && engineerId === ownPersonId);
+
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <PersonScorecard
@@ -91,6 +93,7 @@ export default async function MePage({ searchParams }: { searchParams: Promise<S
         engineers={payload.engineers}
         canEdit={editable}
         canSwitchPerson={canSwitch}
+        canEditGoal={canEditGoal}
       />
     </main>
   );

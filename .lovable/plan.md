@@ -1,32 +1,33 @@
-## Replace earnings ledger with monthly bar chart + drill-down side panel
+## Edit Annual Earnings Goal from /me scorecard
 
-Swap the long table for a clean monthly bar chart. Clicking a bar opens a right-side panel listing the payments for that month.
+Let people set/update their `Annual Earnings Goal` directly from the scorecard page — no more "open it in Airtable" placeholder.
 
-### UI changes (`components/me/PersonScorecard.tsx`)
+### Server Action (`lib/mutations/person.ts` — new file)
 
-Replace the existing "Earnings Detail" table section with:
+`updateAnnualEarningsGoal({ personId, goal })` where `goal` is a non-negative number or `null` (to clear).
 
-1. **Monthly bar chart**
-   - Shows the trailing 12 months (rolling), oldest → newest left-to-right, with the current month last.
-   - Stacked bar per month: emerald = Paid, amber = Needs Payment (so outstanding is visible without cluttering the totals).
-   - Y-axis is implicit (bars scale to the max month in the window); each bar shows the total dollar amount above it on hover, with a small month label (e.g. "Jan", "Feb"… plus "'26" tick on January).
-   - Built with plain divs/CSS (no chart lib) — matches the style already used in `ArAgingChart` / "Owed by person" lists.
-   - A small toggle above the chart switches the window: **12 months / YTD / All-time (by year)**. (All-time switches the X-axis to yearly bars so longer histories stay readable.)
-   - KPI strip above the chart: window total, paid total, outstanding total.
+Permission model — broader than `requireRole` because every engineer should manage their own goal:
+- Allow when the caller's resolved People id (`resolvePersonByEmail(session.email)`) === `personId`. (User editing self.)
+- OR caller is `admin` / `lead` via `canMutate()`. (Admins editing on behalf.)
+- Reject otherwise with the same `AuthzError`-style `{ error }` envelope.
 
-2. **Click-to-drill side panel**
-   - Clicking a bar opens a right-side sheet (reuse the existing drawer pattern from `StorySheet` for consistency — fixed right panel, backdrop, ESC/close button).
-   - Header: month label + total amount + payment count.
-   - Body: the same compact payment rows we already designed (date · function · client/project · status pill · amount), sorted newest-first, with Airtable link.
-   - Closing the panel returns focus to the chart.
+On success: `patchRecords(Tables.People.id, [{ id, fields: { "Annual Earnings Goal": goal } }])`, then `revalidateTag("airtable")` + `revalidateTag("scorecard:people-goals")`.
 
-3. **Empty state**: same dashed-card placeholder when `payments.length === 0`.
+### UI (`components/me/PersonScorecard.tsx`)
 
-### Data layer
+Replace the current goal display block (both the GoalBar with goal set, and the dashed "Set an annual earnings goal" placeholder) with a unified component that includes inline edit:
 
-No data changes. `scorecard.payments` already contains the full list with date/status/amount/etc. Monthly grouping happens client-side in the component via a `useMemo` keyed off `payments`.
+- New `GoalEditor` subcomponent (client). Default view = the existing `GoalBar` (or empty-state card) with a small pencil/edit affordance in the top-right when `canEditGoal` is true.
+- Click edit → swap label area for a compact form: number input (USD), Save / Cancel buttons, plus a "Clear goal" link when a goal exists.
+- On save: call the server action, optimistically update local state, show small inline error if the action returns `{ error }`. After success the cached read revalidates and the page re-renders with the new value.
+
+A new prop `canEditGoal: boolean` is passed in from the page:
+- `true` when viewing your own scorecard (`engineerId === ownPersonId`) OR `canEdit` (admin/lead) is true.
+- `false` otherwise (e.g. a scorecard-admin who isn't a lead viewing someone else — they can look but not edit).
+
+`app/(app)/me/page.tsx` computes `canEditGoal = editable || engineerId === ownPersonId` and passes it through.
 
 ### Out of scope
-- No new filters, no CSV export.
-- No changes to the Earnings stat cards above (they keep showing lifetime/YTD/MTD/outstanding).
-- No backend or permissions changes.
+- No changes to commission rate editing (separate field, still Airtable-only).
+- No changes to other goal types — only Annual Earnings Goal.
+- No UI for tracking goal history.

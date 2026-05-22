@@ -29,7 +29,7 @@ function levelFromRole(role: string | null): string {
   return match ? match[0].toUpperCase() : role;
 }
 
-export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false }: Props) {
+export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false, canEditGoal = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
   const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
 

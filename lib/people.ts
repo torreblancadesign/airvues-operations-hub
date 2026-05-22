@@ -6,6 +6,8 @@ import "server-only";
 
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
+import type { Permission } from "./permissions";
+import { ALL_PERMISSIONS } from "./permissions";
 
 export type ResolvedPerson = {
   id: string;
@@ -15,6 +17,7 @@ export type ResolvedPerson = {
   role: string | null;
   internalType: string | null;
   status: string | null;
+  permissions: Permission[];
 };
 
 type PersonRow = {
@@ -26,6 +29,7 @@ type PersonRow = {
   "Internal Type"?: string;
   Status?: string;
   Type?: string;
+  Permissions?: string[];
 };
 
 function parseOverrides(): Record<string, string> {
@@ -69,6 +73,8 @@ export async function resolvePersonByEmail(
         Tables.People.fields["Internal Type"].id,
         Tables.People.fields["Status"].id,
         Tables.People.fields["Type"].id,
+        // Permissions field is new — not yet in schema.ts. Reference by name.
+        "Permissions",
       ],
       filterByFormula: overrideId
         ? `RECORD_ID() = "${overrideId}"`
@@ -101,6 +107,11 @@ export async function resolvePersonByEmail(
     lower;
   const firstName = (f["First Name"] as string) || fullName.split(/\s+/)[0] || lower;
 
+  const rawPerms = Array.isArray(f.Permissions) ? f.Permissions : [];
+  const permissions = rawPerms.filter((p): p is Permission =>
+    (ALL_PERMISSIONS as string[]).includes(p),
+  );
+
   return {
     id: winner.id,
     email: lower,
@@ -109,5 +120,6 @@ export async function resolvePersonByEmail(
     role: (f["Role"] as string) ?? null,
     internalType: (f["Internal Type"] as string) ?? null,
     status: (f["Status"] as string) ?? null,
+    permissions,
   };
 }

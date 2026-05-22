@@ -6,10 +6,14 @@
 // Both surviving auth flows produce the same AppSession shape so all pages work unchanged.
 
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { auth } from "./auth";
 import type { AppRole } from "./auth";
 import { SAML_COOKIE_NAME, verifySamlSession } from "./samlSession";
+import { resolvePersonByEmail } from "./people";
+import type { Permission } from "./permissions";
+import { ALL_PERMISSIONS } from "./permissions";
 
 const DEV_PREVIEW =
   process.env.NODE_ENV !== "production" && process.env.DEV_PREVIEW === "true";
@@ -25,6 +29,7 @@ export type AppSession = {
     name?: string | null;
     image?: string | null;
     role: AppRole;
+    permissions: Permission[];
   };
 } | null;
 
@@ -35,10 +40,20 @@ const SYNTHETIC_DEV_SESSION: AppSession = {
     email: "dev@airvues.com",
     name: "Dev Admin",
     role: "admin",
+    permissions: [...ALL_PERMISSIONS],
   },
 };
 
-export async function getAppSession(): Promise<AppSession> {
+async function loadPermissions(email: string): Promise<Permission[]> {
+  try {
+    const person = await resolvePersonByEmail(email);
+    return person?.permissions ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export const getAppSession = cache(async (): Promise<AppSession> => {
   if (DEV_PREVIEW || AUTH_BYPASS) {
     return SYNTHETIC_DEV_SESSION;
   }
@@ -47,12 +62,15 @@ export async function getAppSession(): Promise<AppSession> {
   try {
     const s = await auth();
     if (s?.user?.email && (s.user as { role?: AppRole }).role) {
+      const role = (s.user as { role: AppRole }).role;
+      const permissions = await loadPermissions(s.user.email);
       return {
         user: {
           email: s.user.email,
           name: s.user.name,
           image: s.user.image,
-          role: (s.user as { role: AppRole }).role,
+          role,
+          permissions,
         },
       };
     }
@@ -68,11 +86,13 @@ export async function getAppSession(): Promise<AppSession> {
     if (samlToken) {
       const samlSession = await verifySamlSession(samlToken);
       if (samlSession) {
+        const permissions = await loadPermissions(samlSession.email);
         return {
           user: {
             email: samlSession.email,
             name: samlSession.name,
             role: samlSession.role,
+            permissions,
           },
         };
       }
@@ -82,6 +102,6 @@ export async function getAppSession(): Promise<AppSession> {
   }
 
   return null;
-}
+});
 
 export const isDevPreview = DEV_PREVIEW || AUTH_BYPASS;

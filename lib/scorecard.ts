@@ -255,6 +255,7 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     byStatus,
     totals,
     earnings,
+    payments: paymentsDetail,
     shipped,
     goal: { annualEarnings: annualEarningsGoal },
     shippedIsApproximate: anyApproximate,

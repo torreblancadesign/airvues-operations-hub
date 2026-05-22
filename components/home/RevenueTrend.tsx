@@ -42,22 +42,19 @@ export function RevenueTrend({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
-  const { points, areaPath, linePath, paceY, yMax, innerW, innerH } = useMemo(() => {
+  const { points, areaPath, linePath, paceY, innerW, innerH } = useMemo(() => {
     const innerW = W - PAD_L - PAD_R;
     const innerH = H - PAD_T - PAD_B;
-    // For axis scale: include the target line so the pace guide stays in-frame.
-    const maxVal = Math.max(
-      target,
-      ...series.map((p) => p.value),
-      1,
-    );
+    const maxVal = Math.max(target, ...series.map((p) => p.value), 1);
     const yMax = maxVal * 1.05;
 
-    // X positions: distribute current points across the *full* window (12 mo or daysInMonth)
-    // so the line visibly trails off mid-frame when the period is in progress.
-    const totalSlots =
-      windowName === "ytd" ? 12 : new Date().getMonth() === new Date(series[series.length - 1] ? new Date().getMonth() : 0).valueOf() && new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-    const slots = windowName === "ytd" ? 12 : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    // Distribute across the full window so an in-progress period trails off
+    // mid-frame rather than stretching to the right edge.
+    const now = new Date();
+    const slots =
+      windowName === "ytd"
+        ? 12
+        : new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     const xFor = (i: number) =>
       PAD_L + (slots <= 1 ? innerW / 2 : (i / (slots - 1)) * innerW);
     const yFor = (v: number) => PAD_T + innerH - (v / yMax) * innerH;
@@ -70,7 +67,6 @@ export function RevenueTrend({
         areaPath: "",
         linePath: "",
         paceY: yFor(target),
-        yMax,
         innerW,
         innerH,
       };
@@ -84,10 +80,7 @@ export function RevenueTrend({
     const areaD = `${lineD} L${last.x.toFixed(2)} ${(PAD_T + innerH).toFixed(2)} L${first.x.toFixed(2)} ${(PAD_T + innerH).toFixed(2)} Z`;
     const paceY = yFor(target);
 
-    // suppress unused warning
-    void totalSlots;
-
-    return { points, areaPath: areaD, linePath: lineD, paceY, yMax, innerW, innerH };
+    return { points, areaPath: areaD, linePath: lineD, paceY, innerW, innerH };
   }, [series, target, windowName]);
 
   if (series.length === 0) {

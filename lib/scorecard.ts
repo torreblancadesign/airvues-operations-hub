@@ -14,12 +14,15 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     companyGoalsData(),
   ]);
 
-  const engineers = board.groups.map((g) => ({
-    id: g.id,
-    name: g.name,
-    role: g.role,
-    internalType: g.internalType,
-    isOrphan: g.isOrphan,
+  // Picker shows the full active internal roster — not just people with active
+  // stories. board.groups is keyed by assignee on non-archived stories, so it
+  // silently hides anyone between sprints, new hires, BAs, etc.
+  const engineers = board.assignablePeople.map((p) => ({
+    id: p.id,
+    name: p.name,
+    role: p.role,
+    internalType: p.internalType,
+    isOrphan: false,
   }));
 
   if (!engineerId) {
@@ -27,9 +30,13 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   }
 
   const group = board.groups.find((g) => g.id === engineerId);
-  if (!group) {
+  const person = board.assignablePeople.find((p) => p.id === engineerId);
+
+  // Unknown id (not active or not internal) — fall back to picker.
+  if (!group && !person) {
     return { scorecard: null, engineers };
   }
+
 
   const byStatus = {
     inProgress: group.stories.filter((s) => s.status === "In progress"),

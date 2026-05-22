@@ -42,25 +42,23 @@ const ROUTE_PERMISSION: Record<string, Permission> = {
 };
 
 // Admin role bypasses all permission checks.
-function isAdmin(role: AppRole | null | undefined): boolean {
-  return role === "admin";
-}
+// View permissions are driven entirely by People.Permissions. Auth role
+// (admin/lead/etc.) only governs mutations via requireRole(). An admin who
+// is not granted a view permission should not see that section.
 
 export function hasPermission(
   perms: Permission[] | null | undefined,
   p: Permission,
-  role?: AppRole | null,
+  _role?: AppRole | null,
 ): boolean {
-  if (isAdmin(role)) return true;
   return Array.isArray(perms) && perms.includes(p);
 }
 
 export function canAccessGroup(
   perms: Permission[] | null | undefined,
   group: NavGroup,
-  role?: AppRole | null,
+  _role?: AppRole | null,
 ): boolean {
-  if (isAdmin(role)) return true;
   const required = GROUP_PERMISSION[group];
   if (!required) return true; // overview etc.
   return Array.isArray(perms) && perms.includes(required);
@@ -75,9 +73,8 @@ function firstSegment(href: string): string {
 export function canAccessRoute(
   perms: Permission[] | null | undefined,
   href: string,
-  role?: AppRole | null,
+  _role?: AppRole | null,
 ): boolean {
-  if (isAdmin(role)) return true;
   const seg = firstSegment(href);
   if (!seg) return true; // home
   const required = ROUTE_PERMISSION[seg];
@@ -98,3 +95,4 @@ export function canSeeFirmPulse(
 ): boolean {
   return hasPermission(perms, "Home - Firm Pulse", role);
 }
+

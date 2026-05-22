@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import type { FirmPulse } from "@/lib/firm-pulse";
 import { NumberTicker } from "@/components/ui/NumberTicker";
+import { RevenueTrend } from "./RevenueTrend";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);

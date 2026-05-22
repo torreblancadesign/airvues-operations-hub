@@ -60,6 +60,12 @@ export type Scorecard = {
    * (no real Completed Date field on Stories yet).
    */
   shippedIsApproximate: boolean;
+  /**
+   * Commission rate used for this person's projections (decimal, e.g. 0.15).
+   * Pulled from People.Commission Percentage; falls back to global 15%.
+   */
+  commissionPct: number;
+  commissionPctSource: "person" | "default";
 };
 
 export type ScorecardPayload = {

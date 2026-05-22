@@ -9,6 +9,7 @@ import { GoalBar } from "@/components/home/GoalBar";
 import { StoryCard } from "@/components/engineering/StoryCard";
 import { StorySheet } from "@/components/engineering/StorySheet";
 import { PersonPicker } from "./PersonPicker";
+import { EarningsChart } from "./EarningsChart";
 
 type Props = {
   scorecard: Scorecard;

@@ -96,12 +96,6 @@ export const fmtUsd = (n: number) =>
     maximumFractionDigits: 0,
   }).format(Math.round(n));
 
-export const fmtUsd = (n: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(Math.round(n));
 
 export const fmtPct1 = (n: number) => `${(n * 100).toFixed(1)}%`;
 

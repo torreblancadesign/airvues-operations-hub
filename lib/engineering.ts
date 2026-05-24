@@ -65,6 +65,32 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
   const clientNames = asArray<string>(f["Client Name (from Quote)"]);
   const invoice = (f["Invoice"] as number) ?? 0;
 
+  let quoteLabels: string[] = [];
+  if (quoteIds.length > 0) {
+    const qTbl = Tables.Quotes;
+    const quotes = await listRecordsCached<Record<string, unknown>>(
+      qTbl.id,
+      {
+        fields: [
+          qTbl.fields["Quote ID"].id,
+          qTbl.fields["Project Name"].id,
+          qTbl.fields["Company Name"].id,
+        ],
+      },
+      ["engineering:quotes"],
+    );
+    const qmap = new Map<string, string>();
+    for (const q of quotes) {
+      const qf = q.fields;
+      const project = (qf["Project Name"] as string) ?? "";
+      const company = ((qf["Company Name"] as string[] | undefined)?.[0]) ?? "";
+      const qid = (qf["Quote ID"] as string) ?? "";
+      const label = [company, project].filter(Boolean).join(" · ") || qid || "(quote)";
+      qmap.set(q.id, label);
+    }
+    quoteLabels = quoteIds.map((id) => qmap.get(id) ?? "(quote)");
+  }
+
   return {
     id: rec.id,
     storyNumber: (f["ID"] as number) ?? null,

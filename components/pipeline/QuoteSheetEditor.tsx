@@ -777,6 +777,28 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
             canEdit={canEdit}
           />
         </FieldRow>
+
+        <CreateAiProposalRow
+          canEdit={canEdit}
+          hasClientInput={
+            quote.customProblemStatement.trim().length > 0 || quote.documents.length > 0
+          }
+          aiContentReady={
+            quote.recommendedApproach.trim().length > 0 &&
+            quote.recommendedApproachSummary.trim().length > 0 &&
+            quote.projectOverview.trim().length > 0 &&
+            quote.problemStatementSolution.trim().length > 0 &&
+            quote.estimateHoursRange.trim().length > 0 &&
+            quote.estimateCostRange.trim().length > 0 &&
+            quote.stories.length > 0
+          }
+          isAgentRunning={isAgentRunning}
+          isTriggering={aiTriggering}
+          pollStartedAt={pollStartedAt}
+          pollTick={pollTick}
+          error={aiError}
+          onClick={handleTriggerAi}
+        />
       </Section>
 
       {/* SECTION 3: AI proposal output — client-visible */}

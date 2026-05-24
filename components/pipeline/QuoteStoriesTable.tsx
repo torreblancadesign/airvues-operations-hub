@@ -8,6 +8,7 @@ type Props = {
   totalHours: number | null;
   canEdit: boolean;
   onAddClick: () => void;
+  onRowClick?: (storyId: string) => void;
 };
 
 const fmtMoney = (n: number) =>

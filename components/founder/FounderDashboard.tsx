@@ -165,6 +165,12 @@ export function FounderDashboard({
                   ? `Targeting ${fmtUsd(effectiveRetirement)}/yr net take-home`
                   : `Default target · ${fmtUsd(effectiveRetirement)}/yr net take-home`}
               </p>
+              {ownershipPercentage != null && (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-emerald/30 bg-emerald/10 px-2.5 py-0.5 text-[11px] font-mono uppercase tracking-wider">
+                  <span className="text-ink-faint">Your ownership</span>
+                  <span className="tabnum text-emerald">{fmtPct1(ownershipPercentage)}</span>
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="text-[11px] font-mono text-ink-faint uppercase tracking-wider">

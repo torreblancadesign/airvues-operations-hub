@@ -109,7 +109,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     clientIds,
     clientNames,
     quoteIds,
-    quoteLabels: [],
+    quoteLabels,
     sprintIds,
     sprintNumbers,
     sprintStatuses,

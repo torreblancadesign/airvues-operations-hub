@@ -145,6 +145,28 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
         </div>
       )}
 
+      {/* Bottleneck signal — QA queue + analysis stalls */}
+      {(data.totals.qaReviewCount > 0 || data.totals.analysisRequiredCount > 0) && (
+        <div className="w-full mb-4 bg-amber/10 border border-amber/30 rounded-md px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="text-[12px] text-ink-muted">
+            <span className="font-mono uppercase tracking-wider text-[10px] text-amber mr-2">Bottlenecks</span>
+            <span className="text-ink-strong tabnum">{data.totals.qaReviewCount}</span> in QA Review ·{" "}
+            <span className="text-ink-strong tabnum">{data.totals.analysisRequiredCount}</span> awaiting analysis
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {data.totals.qaReviewCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilter({ ...EMPTY_FILTER, status: "qa" })}
+                className="px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink-strong border border-rule hover:border-ink-muted rounded-md transition-colors whitespace-nowrap"
+              >
+                QA queue →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <EngineeringFilterBar
         filter={filter}
         setFilter={setFilter}

@@ -291,7 +291,11 @@ function ProjectionCard({
   monthlyProfit,
   founderMonthly,
   founderAnnual,
+  payrollTaxMonthly,
+  founderNetMonthly,
+  founderNetAnnual,
   ownership,
+  payrollPct,
   footnote,
   accent,
 }: {
@@ -301,7 +305,11 @@ function ProjectionCard({
   monthlyProfit: number;
   founderMonthly: number;
   founderAnnual: number;
+  payrollTaxMonthly: number;
+  founderNetMonthly: number;
+  founderNetAnnual: number;
   ownership: number;
+  payrollPct: string;
   footnote: string;
   accent?: boolean;
 }) {
@@ -317,10 +325,17 @@ function ProjectionCard({
         <Row label="Monthly revenue" value={fmtUsd(revenue)} />
         <Row label="Estimated monthly profit" value={fmtUsd(monthlyProfit)} />
         <Row label="Founder ownership" value={fmtPct1(ownership)} />
-        <Row label="Founder monthly earnings" value={fmtUsd(founderMonthly)} strong />
+        <Row label="Founder monthly (gross)" value={fmtUsd(founderMonthly)} />
+        <Row label="Founder annualized (gross)" value={fmtUsd(founderAnnual)} />
         <Row
-          label="Founder annualized earnings"
-          value={fmtUsd(founderAnnual)}
+          label={`Employer payroll tax (${payrollPct}%)`}
+          value={`−${fmtUsd(payrollTaxMonthly)} / mo`}
+          muted
+        />
+        <Row label="Founder net monthly" value={fmtUsd(founderNetMonthly)} strong />
+        <Row
+          label="Founder net annualized"
+          value={fmtUsd(founderNetAnnual)}
           strong
           accent={accent}
         />

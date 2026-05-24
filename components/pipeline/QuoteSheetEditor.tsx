@@ -42,16 +42,9 @@ const inputCls =
   "w-full px-2.5 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none transition-colors disabled:opacity-50";
 const selectCls = `${inputCls} cursor-pointer`;
 
-function ClientVisibleChip() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-emerald bg-emerald/10 border border-emerald/30 px-1.5 py-0.5 rounded"
-      title="This field appears in the client-facing proposal."
-    >
-      <span>👁</span>Client visible
-    </span>
-  );
-}
+// (ClientVisibleChip removed — all client-facing fields now use PortalChip
+// so the labeling is consistent with the AI proposal section.)
+
 
 function InternalChip() {
   return (

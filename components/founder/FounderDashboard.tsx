@@ -186,12 +186,16 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
                     <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.founderMonthly)}
                     </td>
-                    <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-strong">
+                    <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.founderAnnual)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-strong">
+                      {fmtUsd(p.founderNetAnnual)}
                     </td>
                     <td className="py-2.5 px-5 sm:px-6 text-right tabnum font-mono text-ink-muted">
                       {fmtPct1(p.progressToGoal)}
                     </td>
+
                   </tr>
                 );
               })}

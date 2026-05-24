@@ -503,9 +503,6 @@ export function FounderDashboard({
   );
 }
 
-function Tile({
-
-}
 function HeroStat({
   label,
   value,
@@ -529,7 +526,7 @@ function HeroStat({
   );
 }
 
-function _Tile({
+function Tile({
   label,
   value,
   tone = "ink",

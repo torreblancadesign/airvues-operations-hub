@@ -281,6 +281,8 @@ export function PipelineDashboard({ quotes, people, canEdit }: Props) {
 
       <QuoteSheet
         quote={selected}
+        people={people}
+        canEdit={canEdit}
         onClose={() => setSelected(null)}
         onFilterByClient={(client) => {
           setFilter({ ...EMPTY_FILTER, client });

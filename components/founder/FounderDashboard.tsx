@@ -11,12 +11,19 @@ import {
   FounderAssumptions,
   fmtPct1,
   fmtUsd,
+  predictMonthsToGoal,
   project,
   requiredRevenueForNetAnnual,
 } from "@/lib/founder-math";
 import { updateRetirementNumber } from "@/lib/mutations/founder";
 
 const SCENARIO_ROWS = [40_000, 50_000, 75_000, 100_000, 115_000, 130_000, 150_000];
+
+type RevenueTrend = {
+  monthlyHistory: number[];
+  avgMonthlyGrowth: number;
+  latestClosedMonth: number;
+};
 
 type Props = {
   initialMonthlyRevenue: number;
@@ -25,6 +32,7 @@ type Props = {
   retirementAnnual: number | null;
   ownershipPercentage: number | null;
   canEdit: boolean;
+  revenueTrend: RevenueTrend;
 };
 
 export function FounderDashboard({
@@ -34,6 +42,7 @@ export function FounderDashboard({
   retirementAnnual,
   ownershipPercentage,
   canEdit,
+  revenueTrend,
 }: Props) {
   const router = useRouter();
   const [revenue, setRevenue] = useState<number>(initialMonthlyRevenue);

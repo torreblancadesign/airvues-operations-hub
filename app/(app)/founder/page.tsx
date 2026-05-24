@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole, AuthzError } from "@/lib/authz";
 import { assertCanAccess } from "@/lib/page-guard";
 import { revenueMtd } from "@/lib/kpi";
+import { getFounderProfile } from "@/lib/founder";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FounderDashboard } from "@/components/founder/FounderDashboard";
 
@@ -34,15 +35,21 @@ export default async function FounderPage() {
     // fall back to default
   }
 
+  const profile = await getFounderProfile();
+
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <PageHeader
         title="Founder Dashboard"
-        subtitle="Replacement-income command center — track Airvues' path to the $115K/mo goal."
+        subtitle="Replacement-income command center — track Airvues' path to your retirement number."
       />
       <FounderDashboard
         initialMonthlyRevenue={initialRevenue}
         revenueSource={revenueSource}
+        personId={profile.personId}
+        retirementAnnual={profile.retirementNumber}
+        ownershipPercentage={profile.ownershipPercentage}
+        canEdit={!!profile.personId}
       />
     </main>
   );

@@ -1,48 +1,58 @@
-## Problem
+## Goal
 
-Clicking certain quotes on `/pipeline` intermittently throws a client-side exception that takes down the whole app shell (whitescreen with Next.js "Application error"). It is random across rows, which means the trigger is a specific quote's field shape, not the click handler itself.
+Make the two "status" fields on a Quote unambiguous everywhere they appear in the dashboard, without touching Airtable field names or data.
 
-The crash surfaces from inside `QuoteSheetEditor` (mounted by `QuoteSheet`), and right now there is **no error boundary** around the drawer, so any throw inside the editor unmounts the entire `/pipeline` route.
+## The two fields, restated
 
-## Likely causes (to confirm with the captured error)
+| Airtable field | What it actually tracks | Audience | Examples |
+|---|---|---|---|
+| `Status` | Internal sales/quote lifecycle — where the **proposal document** is in our workflow | Us (internal) | Draft · Sent. Awaiting Approval · Approved and Signed · Awaiting Payment · Paid · Cancelled · Rejected · Auditing 🚩 |
+| `Project Status` | Client-facing delivery milestones — where the **engagement** is in the 7-stage journey shown on the web quote | Client (visible) | Proposal Created → Proposal Accepted → Proposal Signed → Commencement Invoice Paid → First Draft Delivered → Project Accepted → Completion Invoice Paid |
 
-Reading `components/pipeline/QuoteSheetEditor.tsx`:
+So: one is *"what is the paperwork doing?"*, the other is *"how far along is the actual project the client sees?"*.
 
-1. **Unsafe `.trim()` calls in `aiContentReady`** (lines 879–887). They assume `quote.recommendedApproach`, `recommendedApproachSummary`, `projectOverview`, `problemStatementSolution`, `estimateHoursRange`, `estimateCostRange`, `customProblemStatement` are always strings. `lib/quotes.ts` does coerce with `?? ""`, but Airtable rich-text / formula fields occasionally return objects or arrays (e.g. `{ specialValue: "NaN" }` from a broken formula, or a rollup that returns an array). One non-string slips through and `.trim is not a function` throws on render.
-2. **`quote.documents` mapped without guard** (`lib/quotes.ts` line 117). If the field is anything other than `null` or `Array`, `.map` throws. Less likely but possible for misconfigured records.
-3. **`quote.client.split(" ")[0]`** in `QuoteSheet.tsx` is safe because `client` defaults to `"—"`, but worth hardening.
+## Proposed display labels (UI only — Airtable fields untouched)
 
-The exact field is impossible to confirm without the captured error. The fix below makes the drawer crash-proof AND surfaces the real error so we can patch the underlying data path.
+- `Status` → **"Deal Stage"** (internal sales pipeline)
+- `Project Status` → **"Client Journey"** (client-facing delivery milestones)
 
-## Plan
+Alternative pairs if you prefer different wording — pick one set, I'll apply it everywhere:
 
-### 1. Add a contained error boundary around the drawer (`components/pipeline/QuoteSheet.tsx`)
+1. **Deal Stage** / **Client Journey** ← recommended, clearest split
+2. **Sales Status** / **Delivery Stage**
+3. **Quote Status** / **Project Phase**
+4. **Internal Status** / **Client-Visible Stage**
 
-- New small `QuoteSheetErrorBoundary` (client component, classic React class boundary — no extra deps).
-- Renders a friendly fallback inside the drawer: title, the error message, "Open in Airtable" link (using the already-known `quote.airtableUrl`), and a "Close" button. Drawer chrome and overlay stay intact; rest of the app stays mounted.
-- `console.error(error, info)` so we get a stack trace in the browser console next time it reproduces, instead of just the generic Next.js page.
-- Wrap `<QuoteSheetEditor ... />` only — keep the header strip / action buttons outside the boundary so the user can always close or jump to Airtable.
+## Where the relabel lands
 
-### 2. Harden `aiContentReady` and other string reads in `QuoteSheetEditor.tsx`
+Pipeline table (`components/pipeline/QuoteTable.tsx`):
+- Header "Status" → new internal label (e.g. "Deal Stage")
+- Header "Project" (the progress bar column) → new client label (e.g. "Client Journey")
+- Add a tiny `?` info icon on each header → hover tooltip with the one-line definition
 
-- Add a tiny local helper `asStr(v: unknown): string` that returns `typeof v === "string" ? v : ""`.
-- Use `asStr(quote.X).trim()` in the `aiContentReady` boolean.
-- Use the same helper for `TextField initialValue` props and `AiField value` props on every AI text field. This stops a single bad Airtable value from ever crashing the editor.
+Quote drawer (`components/pipeline/QuoteSheet.tsx` + `QuoteSheetEditor.tsx`):
+- Header strip's mono "Status" chip relabeled
+- Editor section currently labeled "Project Status" relabeled to match
+- Add a one-line helper under each field: *"Internal sales pipeline — not shown to client"* / *"Client-visible delivery milestone — appears on the web quote"*
 
-### 3. Harden `lib/quotes.ts` normalization
+Filter bar (`components/pipeline/FilterBar.tsx`):
+- Stage filter dropdown labeled with the new internal name
 
-- Wrap the `Documents needed for Proposal` read with `Array.isArray(f["Documents needed for Proposal"]) ? ... : []`.
-- For all rich-text-ish fields (`Recommended Approach`, `Recommended Approach Summary`, `Project Overview`, `Problem Statement & Our Solution`, `Estimate Hours Range`, `Estimate Cost Range`, `Custom Problem Statement and Solution Summary`, `Client Notes` on stories), replace the `(f["X"] as string) ?? ""` cast with `typeof f["X"] === "string" ? f["X"] : ""`. This kills the bad-shape class of crash at the source for every consumer of `QuoteDetail`, not just the drawer.
+Legend / discoverability:
+- Add a small inline legend above the 7-segment bar in the drawer showing the 7 stages with the current one highlighted (replaces the hover-only tooltip you have to discover)
+- Keep the same compact bar in the table row (tooltip stays), since space is tight
 
-### 4. Verification
+Out of scope (per your earlier "no Airtable changes" rule):
+- Renaming the actual Airtable fields
+- Changing the 7-stage values, the internal Status enum, or any mutation logic
+- Adding/removing columns
 
-- `npx tsc --noEmit` and `npm run build` must pass.
-- Manually click through 10+ quotes on `/pipeline` in preview, including older ones that previously crashed, and confirm:
-  - Drawer opens without crashing.
-  - If a row still hits an unexpected shape, the contained fallback renders and the actual error is now visible in DevTools console — bring that back to investigate the underlying field.
+## Implementation notes (technical)
 
-## Out of scope
+- Centralize the two labels + their tooltip copy in a tiny `components/pipeline/labels.ts` (e.g. `DEAL_STAGE_LABEL`, `DEAL_STAGE_HELP`, `CLIENT_JOURNEY_LABEL`, `CLIENT_JOURNEY_HELP`) so future renames are one-file changes.
+- All underlying types (`PipelineQuote.status`, `PipelineQuote.projectStatus`, `QuoteDetail.status`, `QuoteDetail.projectStatus`) keep their current names — this is pure display.
+- No data-layer, mutation, or schema files change.
 
-- No Airtable schema or field changes.
-- No mutation-path changes (`lib/mutations/quote.ts` is untouched).
-- No redesign of the drawer — purely defensive hardening + an error boundary.
+## Question before I build
+
+Which label pair do you want? (1 Deal Stage / Client Journey is my pick, but say the word and I'll use any of the others — or your own wording.)

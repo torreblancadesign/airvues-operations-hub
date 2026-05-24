@@ -12,6 +12,7 @@ import {
   fmtPct1,
   fmtUsd,
   project,
+  requiredRevenueForNetAnnual,
 } from "@/lib/founder-math";
 import { updateRetirementNumber } from "@/lib/mutations/founder";
 
@@ -44,24 +45,33 @@ export function FounderDashboard({
   const retirementSource: "airtable" | "default" =
     retirement != null ? "airtable" : "default";
 
-  const seedAnnualGoal = retirement ?? DEFAULT_ASSUMPTIONS.monthlyGoal * 12;
-  const seedMonthlyGoal = seedAnnualGoal / 12;
+  // Retirement Number from Airtable = the founder's target annual NET take-home.
+  // We back-solve the monthly revenue required to produce that take-home, given
+  // current ownership / commissions / fixed costs / payroll tax assumptions.
+  const DEFAULT_RETIREMENT_ANNUAL = 250_000;
+  const effectiveRetirement = retirement ?? DEFAULT_RETIREMENT_ANNUAL;
 
-  const [a, setA] = useState<FounderAssumptions>({
+  // Assumptions: ownership is seeded from Airtable, monthly goal is DERIVED below.
+  // The monthlyGoal stored on `a` is recomputed each render so the user can tweak
+  // commissions/overhead/payroll-tax and watch the required revenue shift.
+  const [aBase, setABase] = useState<FounderAssumptions>({
     ...DEFAULT_ASSUMPTIONS,
-    monthlyGoal: seedMonthlyGoal,
     founderOwnership: ownership,
   });
 
-  // Keep assumptions in sync if Airtable-backed values change.
-  useMemo(() => {
-    setA((prev) => ({
-      ...prev,
-      monthlyGoal: (retirement ?? DEFAULT_ASSUMPTIONS.monthlyGoal * 12) / 12,
-      founderOwnership: ownership,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retirement, ownership]);
+  // Keep ownership in sync if the Airtable value changes mid-session.
+  if (aBase.founderOwnership !== ownership) {
+    // setState during render is fine here — guarded by an equality check.
+    setABase({ ...aBase, founderOwnership: ownership });
+  }
+
+  const derivedMonthlyGoal = useMemo(
+    () => requiredRevenueForNetAnnual(effectiveRetirement, aBase),
+    [effectiveRetirement, aBase],
+  );
+  const a: FounderAssumptions = { ...aBase, monthlyGoal: derivedMonthlyGoal };
+  const goalReachable = Number.isFinite(derivedMonthlyGoal) && derivedMonthlyGoal > 0;
+
 
   const [showAssumptions, setShowAssumptions] = useState(false);
   const [editingRetirement, setEditingRetirement] = useState(false);
@@ -143,12 +153,17 @@ export function FounderDashboard({
               {revenueSource === "mtd" ? "Prefilled from paid invoices MTD" : "Default — no invoice data"}
             </div>
           </Tile>
-          <Tile label="Monthly goal" value={fmtUsd(a.monthlyGoal)} >
+          <Tile label="Monthly revenue needed" value={goalReachable ? fmtUsd(a.monthlyGoal) : "—"} >
             <div className="mt-1 text-[10px] text-ink-faint font-mono uppercase tracking-wider">
               {retirementSource === "airtable"
-                ? `From Retirement # · ${fmtUsd(retirement!)}/yr`
-                : "Default — set your retirement number"}
+                ? `To net ${fmtUsd(effectiveRetirement)}/yr take-home`
+                : `Default · target ${fmtUsd(effectiveRetirement)}/yr take-home`}
             </div>
+            {!goalReachable && (
+              <div className="mt-1 text-[10px] text-amber">
+                Unreachable with current ownership / commissions.
+              </div>
+            )}
             {canEdit && (
               <button
                 type="button"
@@ -221,7 +236,7 @@ export function FounderDashboard({
             </div>
             {retirementError && <div className="text-[11px] text-red mt-2">{retirementError}</div>}
             <div className="text-[11px] text-ink-faint mt-2">
-              Annual target. Saves to your People record as Retirement Number. Monthly goal = retirement / 12.
+              Target annual NET take-home (after employer payroll tax). We back-solve the monthly revenue needed to reach it. Saves to your People record as Retirement Number.
             </div>
           </div>
         )}
@@ -256,7 +271,7 @@ export function FounderDashboard({
         />
         <ProjectionCard
           title="Founder earnings — at goal"
-          eyebrow={`At ${fmtUsd(a.monthlyGoal)}/mo`}
+          eyebrow={goalReachable ? `At ${fmtUsd(a.monthlyGoal)}/mo · your retirement #` : "Unreachable at current assumptions"}
           revenue={goal.revenue}
           monthlyProfit={goal.monthlyProfit}
           founderMonthly={goal.founderMonthly}
@@ -376,9 +391,9 @@ export function FounderDashboard({
         {showAssumptions && (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <ReadOnlyField
-              label="Monthly revenue goal ($)"
-              value={fmtUsd(a.monthlyGoal)}
-              source={retirementSource === "airtable" ? "From Airtable Retirement #" : "Default — set your retirement number"}
+              label="Monthly revenue needed ($)"
+              value={goalReachable ? fmtUsd(a.monthlyGoal) : "—"}
+              source={`Derived to net ${fmtUsd(effectiveRetirement)}/yr`}
             />
             <ReadOnlyField
               label="Founder ownership (%)"
@@ -386,25 +401,24 @@ export function FounderDashboard({
               source={ownershipSource === "airtable" ? "From Airtable Ownership %" : "Default — set Ownership % in Airtable"}
             />
             <NumInput label="Engineer commission (%)" value={a.engineerCommission * 100} step={0.5}
-              onChange={(v) => setA({ ...a, engineerCommission: v / 100 })} />
+              onChange={(v) => setABase({ ...aBase, engineerCommission: v / 100 })} />
             <NumInput label="Shania commission (%)" value={a.shaniaCommission * 100} step={0.5}
-              onChange={(v) => setA({ ...a, shaniaCommission: v / 100 })} />
+              onChange={(v) => setABase({ ...aBase, shaniaCommission: v / 100 })} />
             <NumInput label="Fixed team cost ($/mo)" value={a.fixedTeamCost} step={500}
-              onChange={(v) => setA({ ...a, fixedTeamCost: v })} />
+              onChange={(v) => setABase({ ...aBase, fixedTeamCost: v })} />
             <NumInput label="Software / overhead ($/mo)" value={a.overhead} step={100}
-              onChange={(v) => setA({ ...a, overhead: v })} />
+              onChange={(v) => setABase({ ...aBase, overhead: v })} />
             <NumInput label="Employer payroll tax (%)" value={a.employerPayrollTaxRate * 100} step={0.05}
-              onChange={(v) => setA({ ...a, employerPayrollTaxRate: v / 100 })} />
+              onChange={(v) => setABase({ ...aBase, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">
               <p className="text-[11px] text-ink-faint">
-                Goal + ownership come from Airtable. Other inputs are local to this session.
+                Retirement # + ownership come from Airtable. Monthly revenue needed is back-solved.
               </p>
               <button
                 type="button"
-                onClick={() => setA({
+                onClick={() => setABase({
                   ...DEFAULT_ASSUMPTIONS,
-                  monthlyGoal: a.monthlyGoal,
-                  founderOwnership: a.founderOwnership,
+                  founderOwnership: aBase.founderOwnership,
                 })}
                 className="text-[11px] font-mono uppercase tracking-wider text-ink-muted hover:text-ink-strong transition-colors"
               >

@@ -64,6 +64,31 @@ export function project(
   };
 }
 
+// Back-solve: what monthly revenue is required to net `retirementAnnual`
+// take-home/year, given the current assumptions?
+//
+// Inverts project():
+//   founderNetMonthly = retirementAnnual / 12
+//   founderMonthly    = founderNetMonthly / (1 - payrollTaxRate)
+//   monthlyProfit     = founderMonthly / ownership
+//   revenue           = (monthlyProfit + fixedMonthly) / (1 - variableRate)
+export function requiredRevenueForNetAnnual(
+  retirementAnnual: number,
+  a: FounderAssumptions,
+): number {
+  if (!Number.isFinite(retirementAnnual) || retirementAnnual <= 0) return 0;
+  const variableRate = a.engineerCommission + a.shaniaCommission;
+  const fixedMonthly = a.fixedTeamCost + a.overhead;
+  if (a.founderOwnership <= 0) return Infinity;
+  if (1 - a.employerPayrollTaxRate <= 0) return Infinity;
+  if (1 - variableRate <= 0) return Infinity;
+  const founderNetMonthly = retirementAnnual / 12;
+  const founderMonthly = founderNetMonthly / (1 - a.employerPayrollTaxRate);
+  const monthlyProfit = founderMonthly / a.founderOwnership;
+  const revenue = (monthlyProfit + fixedMonthly) / (1 - variableRate);
+  return revenue > 0 ? revenue : 0;
+}
+
 export const fmtUsd = (n: number) =>
   new Intl.NumberFormat("en-US", {
     style: "currency",

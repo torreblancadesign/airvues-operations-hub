@@ -1,8 +1,11 @@
 "use client";
 
 // Client-side founder dashboard. All math lives in lib/founder-math.ts.
-// Assumptions + current month revenue override are local React state only (v1).
-import { useMemo, useState } from "react";
+// Seed values come from the signed-in founder's People record:
+//   - Retirement Number → monthlyGoal = retirementAnnual / 12 (editable, saves to Airtable)
+//   - Ownership Percentage → founderOwnership (read-only)
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   DEFAULT_ASSUMPTIONS,
   FounderAssumptions,
@@ -10,18 +13,63 @@ import {
   fmtUsd,
   project,
 } from "@/lib/founder-math";
+import { updateRetirementNumber } from "@/lib/mutations/founder";
 
 const SCENARIO_ROWS = [40_000, 50_000, 75_000, 100_000, 115_000, 130_000, 150_000];
 
 type Props = {
   initialMonthlyRevenue: number;
   revenueSource: "mtd" | "default";
+  personId: string | null;
+  retirementAnnual: number | null;
+  ownershipPercentage: number | null;
+  canEdit: boolean;
 };
 
-export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props) {
+export function FounderDashboard({
+  initialMonthlyRevenue,
+  revenueSource,
+  personId,
+  retirementAnnual,
+  ownershipPercentage,
+  canEdit,
+}: Props) {
+  const router = useRouter();
   const [revenue, setRevenue] = useState<number>(initialMonthlyRevenue);
-  const [a, setA] = useState<FounderAssumptions>(DEFAULT_ASSUMPTIONS);
+
+  const [retirement, setRetirement] = useState<number | null>(retirementAnnual);
+  const ownership = ownershipPercentage ?? DEFAULT_ASSUMPTIONS.founderOwnership;
+  const ownershipSource: "airtable" | "default" =
+    ownershipPercentage != null ? "airtable" : "default";
+  const retirementSource: "airtable" | "default" =
+    retirement != null ? "airtable" : "default";
+
+  const seedAnnualGoal = retirement ?? DEFAULT_ASSUMPTIONS.monthlyGoal * 12;
+  const seedMonthlyGoal = seedAnnualGoal / 12;
+
+  const [a, setA] = useState<FounderAssumptions>({
+    ...DEFAULT_ASSUMPTIONS,
+    monthlyGoal: seedMonthlyGoal,
+    founderOwnership: ownership,
+  });
+
+  // Keep assumptions in sync if Airtable-backed values change.
+  useMemo(() => {
+    setA((prev) => ({
+      ...prev,
+      monthlyGoal: (retirement ?? DEFAULT_ASSUMPTIONS.monthlyGoal * 12) / 12,
+      founderOwnership: ownership,
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [retirement, ownership]);
+
   const [showAssumptions, setShowAssumptions] = useState(false);
+  const [editingRetirement, setEditingRetirement] = useState(false);
+  const [draftRetirement, setDraftRetirement] = useState<string>(
+    retirement != null ? String(retirement) : "",
+  );
+  const [retirementError, setRetirementError] = useState<string | null>(null);
+  const [isSaving, startSaving] = useTransition();
 
   const current = useMemo(() => project(revenue, a), [revenue, a]);
   const goal = useMemo(() => project(a.monthlyGoal, a), [a]);
@@ -32,6 +80,35 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
   const closestScenario = SCENARIO_ROWS.reduce((best, r) =>
     Math.abs(r - revenue) < Math.abs(best - revenue) ? r : best,
   SCENARIO_ROWS[0]);
+
+  const saveRetirement = (value: number | null) => {
+    if (!personId) return;
+    setRetirementError(null);
+    startSaving(async () => {
+      const res = await updateRetirementNumber({ personId, value });
+      if ("error" in res) {
+        setRetirementError(res.error);
+        return;
+      }
+      setRetirement(value);
+      setEditingRetirement(false);
+      router.refresh();
+    });
+  };
+
+  const handleSaveRetirement = () => {
+    const trimmed = draftRetirement.trim();
+    if (trimmed === "") {
+      saveRetirement(null);
+      return;
+    }
+    const parsed = Number(trimmed.replace(/[,$\s]/g, ""));
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      setRetirementError("Enter a non-negative dollar amount.");
+      return;
+    }
+    saveRetirement(parsed);
+  };
 
   return (
     <div className="space-y-5">
@@ -66,13 +143,88 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
               {revenueSource === "mtd" ? "Prefilled from paid invoices MTD" : "Default — no invoice data"}
             </div>
           </Tile>
-          <Tile label="Monthly goal" value={fmtUsd(a.monthlyGoal)} />
+          <Tile label="Monthly goal" value={fmtUsd(a.monthlyGoal)} >
+            <div className="mt-1 text-[10px] text-ink-faint font-mono uppercase tracking-wider">
+              {retirementSource === "airtable"
+                ? `From Retirement # · ${fmtUsd(retirement!)}/yr`
+                : "Default — set your retirement number"}
+            </div>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftRetirement(retirement != null ? String(retirement) : "");
+                  setRetirementError(null);
+                  setEditingRetirement(true);
+                }}
+                className="mt-2 text-[10px] font-mono uppercase tracking-wider text-emerald hover:underline"
+              >
+                Edit retirement #
+              </button>
+            )}
+          </Tile>
           <Tile
             label="Remaining this month"
             value={fmtUsd(additionalMonthlyRevenue)}
             tone={additionalMonthlyRevenue === 0 ? "emerald" : "ink"}
           />
         </div>
+
+        {editingRetirement && (
+          <div className="bg-bg-elevated/50 border border-emerald/40 rounded-md p-4 mb-4">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-emerald mb-2">
+              Edit annual retirement number
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-[14px] font-mono">$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  autoFocus
+                  value={draftRetirement}
+                  onChange={(e) => setDraftRetirement(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveRetirement();
+                    if (e.key === "Escape") setEditingRetirement(false);
+                  }}
+                  placeholder="1380000"
+                  className="pl-7 pr-3 py-1.5 text-[14px] font-mono tabnum bg-bg border border-rule text-ink-strong rounded-md focus:border-emerald focus:outline-none w-[200px]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveRetirement}
+                disabled={isSaving}
+                className="px-3 py-1.5 text-[12px] font-medium bg-emerald text-bg rounded-md hover:opacity-90 disabled:opacity-50"
+              >
+                {isSaving ? "Saving…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEditingRetirement(false); setRetirementError(null); }}
+                disabled={isSaving}
+                className="px-3 py-1.5 text-[12px] text-ink-muted hover:text-ink-strong"
+              >
+                Cancel
+              </button>
+              {retirement != null && (
+                <button
+                  type="button"
+                  onClick={() => saveRetirement(null)}
+                  disabled={isSaving}
+                  className="ml-auto text-[11px] text-red hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {retirementError && <div className="text-[11px] text-red mt-2">{retirementError}</div>}
+            <div className="text-[11px] text-ink-faint mt-2">
+              Annual target. Saves to your People record as Retirement Number. Monthly goal = retirement / 12.
+            </div>
+          </div>
+        )}
 
         <div className="relative h-4 bg-bg-elevated rounded-full overflow-hidden">
           <div
@@ -223,10 +375,16 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
         </button>
         {showAssumptions && (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <NumInput label="Monthly revenue goal ($)" value={a.monthlyGoal} step={1000}
-              onChange={(v) => setA({ ...a, monthlyGoal: v })} />
-            <NumInput label="Founder ownership (%)" value={a.founderOwnership * 100} step={1}
-              onChange={(v) => setA({ ...a, founderOwnership: v / 100 })} />
+            <ReadOnlyField
+              label="Monthly revenue goal ($)"
+              value={fmtUsd(a.monthlyGoal)}
+              source={retirementSource === "airtable" ? "From Airtable Retirement #" : "Default — set your retirement number"}
+            />
+            <ReadOnlyField
+              label="Founder ownership (%)"
+              value={fmtPct1(a.founderOwnership)}
+              source={ownershipSource === "airtable" ? "From Airtable Ownership %" : "Default — set Ownership % in Airtable"}
+            />
             <NumInput label="Engineer commission (%)" value={a.engineerCommission * 100} step={0.5}
               onChange={(v) => setA({ ...a, engineerCommission: v / 100 })} />
             <NumInput label="Shania commission (%)" value={a.shaniaCommission * 100} step={0.5}
@@ -239,11 +397,15 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
               onChange={(v) => setA({ ...a, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">
               <p className="text-[11px] text-ink-faint">
-                Changes are local to this session — not saved to Airtable.
+                Goal + ownership come from Airtable. Other inputs are local to this session.
               </p>
               <button
                 type="button"
-                onClick={() => setA(DEFAULT_ASSUMPTIONS)}
+                onClick={() => setA({
+                  ...DEFAULT_ASSUMPTIONS,
+                  monthlyGoal: a.monthlyGoal,
+                  founderOwnership: a.founderOwnership,
+                })}
                 className="text-[11px] font-mono uppercase tracking-wider text-ink-muted hover:text-ink-strong transition-colors"
               >
                 Reset to defaults
@@ -280,6 +442,16 @@ function Tile({
         </div>
       )}
       {children}
+    </div>
+  );
+}
+
+function ReadOnlyField({ label, value, source }: { label: string; value: string; source: string }) {
+  return (
+    <div className="bg-bg-elevated/30 border border-rule rounded px-2 py-1.5">
+      <span className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">{label}</span>
+      <div className="mt-1 text-[13px] text-ink-strong tabnum font-mono">{value}</div>
+      <div className="mt-0.5 text-[10px] text-ink-faint">{source}</div>
     </div>
   );
 }

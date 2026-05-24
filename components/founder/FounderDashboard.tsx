@@ -12,6 +12,7 @@ import {
   fmtPct1,
   fmtUsd,
   project,
+  requiredRevenueForNetAnnual,
 } from "@/lib/founder-math";
 import { updateRetirementNumber } from "@/lib/mutations/founder";
 
@@ -44,24 +45,33 @@ export function FounderDashboard({
   const retirementSource: "airtable" | "default" =
     retirement != null ? "airtable" : "default";
 
-  const seedAnnualGoal = retirement ?? DEFAULT_ASSUMPTIONS.monthlyGoal * 12;
-  const seedMonthlyGoal = seedAnnualGoal / 12;
+  // Retirement Number from Airtable = the founder's target annual NET take-home.
+  // We back-solve the monthly revenue required to produce that take-home, given
+  // current ownership / commissions / fixed costs / payroll tax assumptions.
+  const DEFAULT_RETIREMENT_ANNUAL = 250_000;
+  const effectiveRetirement = retirement ?? DEFAULT_RETIREMENT_ANNUAL;
 
-  const [a, setA] = useState<FounderAssumptions>({
+  // Assumptions: ownership is seeded from Airtable, monthly goal is DERIVED below.
+  // The monthlyGoal stored on `a` is recomputed each render so the user can tweak
+  // commissions/overhead/payroll-tax and watch the required revenue shift.
+  const [aBase, setABase] = useState<FounderAssumptions>({
     ...DEFAULT_ASSUMPTIONS,
-    monthlyGoal: seedMonthlyGoal,
     founderOwnership: ownership,
   });
 
-  // Keep assumptions in sync if Airtable-backed values change.
-  useMemo(() => {
-    setA((prev) => ({
-      ...prev,
-      monthlyGoal: (retirement ?? DEFAULT_ASSUMPTIONS.monthlyGoal * 12) / 12,
-      founderOwnership: ownership,
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [retirement, ownership]);
+  // Keep ownership in sync if the Airtable value changes mid-session.
+  if (aBase.founderOwnership !== ownership) {
+    // setState during render is fine here — guarded by an equality check.
+    setABase({ ...aBase, founderOwnership: ownership });
+  }
+
+  const derivedMonthlyGoal = useMemo(
+    () => requiredRevenueForNetAnnual(effectiveRetirement, aBase),
+    [effectiveRetirement, aBase],
+  );
+  const a: FounderAssumptions = { ...aBase, monthlyGoal: derivedMonthlyGoal };
+  const goalReachable = Number.isFinite(derivedMonthlyGoal) && derivedMonthlyGoal > 0;
+
 
   const [showAssumptions, setShowAssumptions] = useState(false);
   const [editingRetirement, setEditingRetirement] = useState(false);

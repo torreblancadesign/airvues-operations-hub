@@ -130,7 +130,20 @@ export function QuoteSheet({ quote, people, canEdit, onClose, onFilterByClient }
             {fmtCurrency(quote.totalCost)}
           </div>
           <div className="mt-1.5 flex items-center gap-2 text-[12px] text-ink-muted flex-wrap">
-            <span className="font-mono">{quote.status ?? "—"}</span>
+            <span
+              className="font-mono"
+              title="Deal Stage — internal sales pipeline. Not shown to client."
+            >
+              <span className="text-ink-faint mr-1">Deal:</span>
+              {quote.status ?? "—"}
+            </span>
+            <span className="text-ink-faint">·</span>
+            <span
+              title="Client Journey — client-visible delivery milestone."
+            >
+              <span className="text-ink-faint mr-1">Journey:</span>
+              {quote.projectStatus ?? "—"}
+            </span>
             <span className="text-ink-faint">·</span>
             <span>{quote.proposalType ?? "—"}</span>
             {quote.totalHours != null && (

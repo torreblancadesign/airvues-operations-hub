@@ -52,8 +52,13 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
         <span className="text-[11px] text-ink-faint">To</span>
         <input type="date" value={filter.to || ""} onChange={(e) => update("to", e.target.value || null)} className={`${inputCls} font-mono`} />
 
-        <select value={filter.stage} onChange={(e) => update("stage", e.target.value as Filter["stage"])} className={selectCls}>
-          <option value="all">All stages</option>
+        <select
+          value={filter.stage}
+          onChange={(e) => update("stage", e.target.value as Filter["stage"])}
+          className={selectCls}
+          title="Filter by Deal Stage (internal sales pipeline)"
+        >
+          <option value="all">All deal stages</option>
           <option value="draft">Draft</option>
           <option value="sent">Sent · awaiting</option>
           <option value="signed">Signed</option>

@@ -350,18 +350,20 @@ function Row({
   value,
   strong,
   accent,
+  muted,
 }: {
   label: string;
   value: string;
   strong?: boolean;
   accent?: boolean;
+  muted?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1">
-      <dt className="text-ink-muted">{label}</dt>
+      <dt className={muted ? "text-ink-faint" : "text-ink-muted"}>{label}</dt>
       <dd
         className={`tabnum font-mono ${
-          accent ? "text-emerald text-[18px] font-semibold" : strong ? "text-ink-strong font-semibold" : "text-ink-strong"
+          accent ? "text-emerald text-[18px] font-semibold" : strong ? "text-ink-strong font-semibold" : muted ? "text-ink-muted" : "text-ink-strong"
         }`}
       >
         {value}

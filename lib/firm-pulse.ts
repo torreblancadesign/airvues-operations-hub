@@ -346,9 +346,23 @@ export async function getFirmPulse(): Promise<FirmPulse> {
         sent: sentMtd,
       },
     },
-    leadsYtd: { count: leadsYtdCount, sold: leadsYtdSold, conversionPct: leadConvPct },
-    newClientsYtd: { count: newClientsYtd },
-    projects: { active: projectsActive, completedYtd: projectsCompletedYtd },
+    leads: {
+      ytd: {
+        count: leadsYtdCount,
+        sold: leadsYtdSold,
+        conversionPct: leadsYtdCount > 0 ? leadsYtdSold / leadsYtdCount : 0,
+      },
+      mtd: {
+        count: leadsMtdCount,
+        sold: leadsMtdSold,
+        conversionPct: leadsMtdCount > 0 ? leadsMtdSold / leadsMtdCount : 0,
+      },
+    },
+    newClients: { ytd: { count: newClientsYtd }, mtd: { count: newClientsMtd } },
+    projects: {
+      ytd: { active: projectsActive, completed: projectsCompletedYtd },
+      mtd: { active: projectsActive, completed: projectsCompletedMtd },
+    },
     revenueBySource,
   };
 }

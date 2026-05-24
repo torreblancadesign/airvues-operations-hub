@@ -62,10 +62,13 @@ export function StorySheet({
   story,
   engineers = [],
   canEdit = false,
+  canDelete,
   onClose,
+  onDeleted,
   onFilterByEngineer,
   onFilterByClient,
 }: Props) {
+  const allowDelete = canDelete ?? canEdit;
   const [local, setLocal] = useState<Partial<Story>>({});
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

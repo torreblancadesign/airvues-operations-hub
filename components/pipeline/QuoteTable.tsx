@@ -19,6 +19,38 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
+const PROJECT_STAGES = [
+  "Proposal Created",
+  "Proposal Accepted",
+  "Proposal Signed",
+  "Commencement Invoice Paid",
+  "First Draft Delivered",
+  "Project Accepted",
+  "Completion Invoice Paid",
+];
+
+function ProjectProgress({ status }: { status: string | null }) {
+  const idx = status ? PROJECT_STAGES.indexOf(status) : -1;
+  const filled = idx >= 0 ? idx + 1 : 0;
+  const done = idx === PROJECT_STAGES.length - 1;
+  return (
+    <div
+      className="inline-flex items-center gap-[2px]"
+      title={status ?? "No project status"}
+      aria-label={`Project stage ${filled} of ${PROJECT_STAGES.length}`}
+    >
+      {PROJECT_STAGES.map((_, i) => (
+        <span
+          key={i}
+          className={`block h-1.5 w-2 rounded-sm ${
+            i < filled ? (done ? "bg-emerald" : "bg-sky") : "bg-rule"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function statusPill(status: string | null): string {
   switch (status) {
     case "Paid":

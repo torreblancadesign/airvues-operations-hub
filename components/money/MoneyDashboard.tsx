@@ -120,13 +120,20 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
     let paidCount = 0;
     let open = 0;
     let openCount = 0;
+    let unpaidCurrent = 0;
+    let unpaidCurrentCount = 0;
+    let lateAmount = 0;
+    let lateCount = 0;
     let mrr = 0;
     let mtdRevenue = 0;
     let mtdPaidCount = 0;
+    const typeCounts = { "One-time": 0, Recurring: 0, "Payment Plan": 0 } as Record<string, number>;
     const now = new Date();
+    const todayISO = now.toISOString().slice(0, 10);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     for (const r of invoices) {
+      if (r.type && typeCounts[r.type] != null) typeCounts[r.type] += 1;
       if (r.status === "paid") {
         totalRevenue += r.amount;
         totalMarginProfit += r.marginProfit ?? 0;
@@ -140,9 +147,18 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
           }
         }
       }
-      if (r.status && ["open", "sent", "unsent", "past due"].includes(r.status)) {
+      const isOpenish = r.status && ["open", "sent", "unsent", "past due"].includes(r.status);
+      if (isOpenish) {
         open += r.amount;
         openCount += 1;
+        const overdue = r.status === "past due" || (r.date != null && r.date < todayISO);
+        if (overdue) {
+          lateAmount += r.amount;
+          lateCount += 1;
+        } else {
+          unpaidCurrent += r.amount;
+          unpaidCurrentCount += 1;
+        }
       }
       if (r.type === "Recurring" && (r.status === "subscribed" || r.status === "send subscription link" || r.status === "paid")) {
         mrr += r.amount;
@@ -150,7 +166,22 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
     }
     const avgInvoice = paidCount > 0 ? totalRevenue / paidCount : 0;
     const marginPct = totalRevenue > 0 ? (totalMarginProfit / totalRevenue) * 100 : 0;
-    return { totalRevenue, totalMarginProfit, totalOverhead, paidCount, open, openCount, mrr, avgInvoice, marginPct, mtdRevenue, mtdPaidCount };
+    return { totalRevenue, totalMarginProfit, totalOverhead, paidCount, open, openCount, unpaidCurrent, unpaidCurrentCount, lateAmount, lateCount, typeCounts, mrr, avgInvoice, marginPct, mtdRevenue, mtdPaidCount };
+  }, [invoices]);
+
+  // Next 30 days of unpaid invoices, sorted by due date.
+  const upcoming = useMemo(() => {
+    const now = Date.now();
+    const horizon = now + 30 * 86_400_000;
+    return invoices
+      .filter((r) => {
+        if (!r.status || !["open", "sent", "unsent"].includes(r.status)) return false;
+        if (!r.date) return false;
+        const t = new Date(r.date).getTime();
+        return t >= now - 86_400_000 && t <= horizon;
+      })
+      .sort((a, b) => (a.date! < b.date! ? -1 : 1))
+      .slice(0, 8);
   }, [invoices]);
 
   const aging = useMemo(() => arAgingBuckets(invoices), [invoices]);

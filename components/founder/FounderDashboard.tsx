@@ -391,9 +391,9 @@ export function FounderDashboard({
         {showAssumptions && (
           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <ReadOnlyField
-              label="Monthly revenue goal ($)"
-              value={fmtUsd(a.monthlyGoal)}
-              source={retirementSource === "airtable" ? "From Airtable Retirement #" : "Default — set your retirement number"}
+              label="Monthly revenue needed ($)"
+              value={goalReachable ? fmtUsd(a.monthlyGoal) : "—"}
+              source={`Derived to net ${fmtUsd(effectiveRetirement)}/yr`}
             />
             <ReadOnlyField
               label="Founder ownership (%)"
@@ -401,25 +401,24 @@ export function FounderDashboard({
               source={ownershipSource === "airtable" ? "From Airtable Ownership %" : "Default — set Ownership % in Airtable"}
             />
             <NumInput label="Engineer commission (%)" value={a.engineerCommission * 100} step={0.5}
-              onChange={(v) => setA({ ...a, engineerCommission: v / 100 })} />
+              onChange={(v) => setABase({ ...aBase, engineerCommission: v / 100 })} />
             <NumInput label="Shania commission (%)" value={a.shaniaCommission * 100} step={0.5}
-              onChange={(v) => setA({ ...a, shaniaCommission: v / 100 })} />
+              onChange={(v) => setABase({ ...aBase, shaniaCommission: v / 100 })} />
             <NumInput label="Fixed team cost ($/mo)" value={a.fixedTeamCost} step={500}
-              onChange={(v) => setA({ ...a, fixedTeamCost: v })} />
+              onChange={(v) => setABase({ ...aBase, fixedTeamCost: v })} />
             <NumInput label="Software / overhead ($/mo)" value={a.overhead} step={100}
-              onChange={(v) => setA({ ...a, overhead: v })} />
+              onChange={(v) => setABase({ ...aBase, overhead: v })} />
             <NumInput label="Employer payroll tax (%)" value={a.employerPayrollTaxRate * 100} step={0.05}
-              onChange={(v) => setA({ ...a, employerPayrollTaxRate: v / 100 })} />
+              onChange={(v) => setABase({ ...aBase, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">
               <p className="text-[11px] text-ink-faint">
-                Goal + ownership come from Airtable. Other inputs are local to this session.
+                Retirement # + ownership come from Airtable. Monthly revenue needed is back-solved.
               </p>
               <button
                 type="button"
-                onClick={() => setA({
+                onClick={() => setABase({
                   ...DEFAULT_ASSUMPTIONS,
-                  monthlyGoal: a.monthlyGoal,
-                  founderOwnership: a.founderOwnership,
+                  founderOwnership: aBase.founderOwnership,
                 })}
                 className="text-[11px] font-mono uppercase tracking-wider text-ink-muted hover:text-ink-strong transition-colors"
               >

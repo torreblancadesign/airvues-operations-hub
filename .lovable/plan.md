@@ -1,76 +1,40 @@
-## Founder Dashboard — /founder
+## Add employer payroll tax to Founder Dashboard
 
-A private, admin-only page that translates monthly revenue into projected founder replacement income and tracks progress to a $115K/mo goal.
+Model the employer-side FICA (~7.65%) that Airvues owes on founder compensation, so the dashboard shows true take-home–equivalent earnings.
 
-### Routing & access
+### Math change (`lib/founder-math.ts`)
 
-- New route: `app/(app)/founder/page.tsx` (Server Component).
-- Add to `lib/nav.ts` as a brand-new nav group `"founder"` (label "Founder") so it sits in its own section in the Sidebar / MobileNav / Home jump-cards. Single entry: `{ href: "/founder", label: "Founder Dashboard", group: "founder", showInSidebar: true, showOnHome: false }`.
-- Access gating (defense in depth, matching existing patterns):
-  1. Page top: `await requireRole("admin")` — hard server-side gate. Non-admins get redirected/error (use the same try/catch + `redirect("/")` shape used elsewhere when convenient, or let AuthzError bubble).
-  2. Add a new `Permission` value `"Founder"` to `lib/permissions.ts` and map `founder: "Founder"` in `ROUTE_PERMISSION` + a new `GROUP_PERMISSION.founder = "Founder"` so the nav item is hidden from anyone without the Founder permission, even if somehow admin. This mirrors how Revenue/Delivery/Operations are gated.
-  3. Founders get the `"Founder"` permission added to their People.Permissions multi-select in Airtable (one-time, manual — call out in delivery notes).
+Add `employerPayrollTaxRate` to `FounderAssumptions` (default `0.0765` = 6.2% SS + 1.45% Medicare).
 
-### Data
-
-- Current month revenue comes from `revenueMtd()` in `lib/kpi.ts` (already exists, cached, paid invoices MTD). Pass `kpi.value ?? 0` to the client.
-- No new Airtable reads. No mutations. No schema changes.
-- All projection math runs in the client so assumptions sliders feel instant.
-
-### File layout
+New derivation inside `project()`:
 
 ```
-app/(app)/founder/page.tsx          Server component: requireRole("admin"),
-                                    fetches revenueMtd(), renders <FounderDashboard
-                                    currentMonthRevenue=... />
-components/founder/FounderDashboard.tsx   Client component, owns assumptions state +
-                                          editable Current Month Revenue override
-components/founder/types.ts         Assumptions type + default constants
-lib/founder-math.ts                 Pure helpers: monthlyProfit, founderMonthly,
-                                    founderAnnual, given assumptions
-lib/nav.ts                          + new "founder" group + nav item
-lib/permissions.ts                  + "Founder" permission, route + group mapping
+// founderGross is what founderMonthly represents today
+payrollTaxMonthly = founderGross * employerPayrollTaxRate
+founderNetMonthly = founderGross - payrollTaxMonthly
+founderNetAnnual  = founderNetMonthly * 12
 ```
 
-### Component breakdown (single client component, internally sectioned)
+Tax is computed on founder comp (not all revenue), matching the "employer-side only" model the user picked. Extend `FounderProjection` with `payrollTaxMonthly`, `payrollTaxAnnual`, `founderNetMonthly`, `founderNetAnnual`. Keep the existing gross fields so the gross→net story is visible.
 
-1. **Path to Founder Replacement Income** — big hero card. Uses existing `GoalBar` (`components/home/GoalBar.tsx`) with `value=currentMonthRevenue`, `target=monthlyGoal`, currency formatter. Shows current / goal / progress % / remaining.
-2. **Founder Earnings Projection** (current pace) — KPI card grid using `StatCard`: monthly revenue, monthly profit, ownership %, founder monthly, founder annualized. Tag-line: "Based on the current monthly revenue pace…".
-3. **Goal Earnings** card — same shape, computed at `monthlyGoal`. Includes the tax/structure caveat note.
-4. **Gap to Replacement Income** card — current annualized vs goal annualized, delta, additional monthly revenue needed (= goal - current revenue, floored at 0).
-5. **Revenue Scenario Table** — rows $40K / 50K / 75K / 100K / 115K / 130K / 150K with profit, founder monthly, founder annualized, progress to goal. Tabular numbers, monospace, highlight the row closest to current revenue.
-6. **Assumptions panel** — collapsible card at the bottom with number inputs for: monthly goal, founder ownership %, engineer commission %, Shania commission %, fixed team cost, software/overhead. Editing any value live-updates all the cards + table (React state, no persistence — call out as v1 limitation).
-7. **Current Month Revenue override** — small inline edit affordance on the hero card: defaults to `revenueMtd` value; if zero or admin wants to model, they can override locally. State only.
+### UI change (`components/founder/FounderDashboard.tsx`)
 
-### Design
+1. **ProjectionCard** — add two rows under the existing founder monthly/annual:
+   - "Employer payroll tax (7.65%)" — shown as a negative
+   - "Founder net monthly" / "Founder net annualized" — bold, accent on the goal card. Make the *net annualized* the headline number (replace the current gross-annual accent treatment).
+2. **Hero progress** — keep progress vs revenue goal as-is (revenue goal is unchanged). No change.
+3. **Gap analysis** — switch "Current annualized" and "Goal annualized" to **net** values. Recompute `gapAnnual` from net.
+4. **Scenario table** — add a "Founder Net Annual" column after "Founder Annualized" (gross). Highlight stays on closest-to-current row.
+5. **Assumptions panel** — add `NumInput` for "Employer payroll tax (%)" with step 0.05, default 7.65.
+6. **Footnotes** — update the goal card footnote to: "Net of employer payroll tax (Social Security 6.2% + Medicare 1.45%). Still before personal income taxes and assumes the comp structure is unchanged."
 
-- Reuse `PageHeader`, `SectionTitle`, `StatCard`, `GoalBar`, surface/rule tokens — matches the rest of the app's dark, JetBrains-Mono-numerics look.
-- Layout: hero card full-width; projection + goal earnings side-by-side on `md:`; gap card full-width; scenario table full-width; assumptions panel full-width collapsible.
-- Currency: `Intl.NumberFormat USD, maximumFractionDigits: 0`. Percent: one decimal place per spec.
+### Out of scope
 
-### Formulas (centralized in `lib/founder-math.ts`)
+- Social Security wage-base cap ($168,600). At founder annualized > ~$280K the 6.2% portion would taper; we treat the rate as flat for v1 since the user picked a flat editable %.
+- Personal income tax modeling (already called out).
+- Persistence of the new assumption.
 
-```
-variableRate     = engineerCommission + shaniaCommission   // default 0.325
-fixedMonthly     = teamCost + overhead                     // default 12000
-monthlyProfit    = revenue * (1 - variableRate) - fixedMonthly
-founderMonthly   = monthlyProfit * founderOwnership
-founderAnnual    = founderMonthly * 12
-progressToGoal   = revenue / monthlyGoal
-```
+### Files touched
 
-Defaults match the spec exactly ($115K, 0.60, 0.225, 0.10, $11K, $1K).
-
-### Out of scope (v1)
-
-- Persisting assumption tweaks to Airtable or env (state lives in React only).
-- Historical revenue trend chart.
-- Tax modeling.
-- Showing on /home or any non-founder surface.
-
-### Verification
-
-- `npx tsc --noEmit` + `npm run build` both clean.
-- As an admin user: `/founder` renders, current MTD revenue prefilled, sliders update everything live.
-- As a non-admin (engineer/client): `/founder` redirects, and the nav item is not visible in Sidebar/MobileNav.
-- Hand-check the worked examples in the spec ($40K → $108K annualized; $115K → $472,500 annualized).
+- `lib/founder-math.ts` — extend type, defaults, `project()` output
+- `components/founder/FounderDashboard.tsx` — projection cards, gap, scenario table, assumptions input

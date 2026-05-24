@@ -33,11 +33,14 @@ function ProjectProgress({ status }: { status: string | null }) {
   const idx = status ? PROJECT_STAGES.indexOf(status) : -1;
   const filled = idx >= 0 ? idx + 1 : 0;
   const done = idx === PROJECT_STAGES.length - 1;
+  const label = status
+    ? `Client Journey — stage ${filled} of ${PROJECT_STAGES.length}: ${status}`
+    : "Client Journey — no stage set";
   return (
     <div
       className="inline-flex items-center gap-[2px]"
-      title={status ?? "No project status"}
-      aria-label={`Project stage ${filled} of ${PROJECT_STAGES.length}`}
+      title={label}
+      aria-label={label}
     >
       {PROJECT_STAGES.map((_, i) => (
         <span
@@ -101,8 +104,26 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Project</th>
               <SortHeader label="Client" active={sort.key === "client"} dir={sort.dir} onClick={() => toggle("client")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Prep By</th>
-              <SortHeader label="Status" active={sort.key === "status"} dir={sort.dir} onClick={() => toggle("status")} />
-              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Project</th>
+              <th
+                onClick={() => toggle("status")}
+                className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer select-none text-left"
+                title="Deal Stage — internal sales pipeline. Not shown to client. (Airtable field: Status)"
+              >
+                <span className="inline-flex items-center gap-1">
+                  Deal Stage
+                  <span className="text-ink-faint text-[10px]">ⓘ</span>
+                  {sort.key === "status" && <span className="text-[8px] text-emerald">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                </span>
+              </th>
+              <th
+                className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left"
+                title="Client Journey — 7-stage delivery progress shown on the web quote. (Airtable field: Project Status)"
+              >
+                <span className="inline-flex items-center gap-1">
+                  Client Journey
+                  <span className="text-ink-faint text-[10px]">ⓘ</span>
+                </span>
+              </th>
               <SortHeader label="Days" align="right" active={sort.key === "daysSinceSent"} dir={sort.dir} onClick={() => toggle("daysSinceSent")} />
               <SortHeader label="Amount" align="right" active={sort.key === "totalCost"} dir={sort.dir} onClick={() => toggle("totalCost")} />
             </tr>

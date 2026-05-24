@@ -803,7 +803,12 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Project status" chip={<PortalChip />} state={stateFor("projectStatus")}>
+        <FieldRow
+          label="Client Journey"
+          hint="Client-visible delivery milestone — drives the 7-stage progress bar on the web quote. (Airtable field: Project Status)"
+          chip={<PortalChip />}
+          state={stateFor("projectStatus")}
+        >
           <select
             value={quote.projectStatus ?? ""}
             disabled={!canEdit}
@@ -813,9 +818,9 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
             className={selectCls}
           >
             <option value="">— select —</option>
-            {PROJECT_STATUS_CHOICES.map((s) => (
+            {PROJECT_STATUS_CHOICES.map((s, i) => (
               <option key={s} value={s}>
-                {s}
+                {i + 1}. {s}
               </option>
             ))}
           </select>

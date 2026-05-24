@@ -14,6 +14,86 @@ import {
 export { COMMISSION_RATE };
 export type { Story, EngineerGroup, EngineeringBoardData };
 
+// Fetch a single Story by record id, shaped exactly like the engineering board's
+// Story rows. Used by the Pipeline quote drawer to open the existing StorySheet.
+export async function getStoryById(storyId: string): Promise<Story | null> {
+  if (!storyId || !storyId.startsWith("rec")) return null;
+  const sTbl = Tables.Stories;
+  const { getRecord } = await import("./airtable");
+  let rec;
+  try {
+    rec = await getRecord<Record<string, unknown>>(sTbl.id, storyId);
+  } catch {
+    return null;
+  }
+  const f = rec.fields;
+
+  const assigneeIds = asArray<string>(f["Assignee"]);
+  const clientIds = asArray<string>(f["Client"]);
+  const quoteIds = asArray<string>(f["Quote"]);
+  const sprintIds = asArray<string>(f["📆Sprints"]);
+  const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
+  const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
+  const sprintEnds = asArray<string>(f["Sprint End (from 📆Sprints)"]);
+
+  let assigneeNames: string[] = [];
+  if (assigneeIds.length > 0) {
+    const pTbl = Tables.People;
+    const people = await listRecordsCached<Record<string, unknown>>(
+      pTbl.id,
+      {
+        fields: [
+          pTbl.fields["Full Name"].id,
+          pTbl.fields["First Name"].id,
+          pTbl.fields["Last Name"].id,
+        ],
+      },
+      ["engineering:people"],
+    );
+    const map = new Map<string, string>();
+    for (const p of people) {
+      const pf = p.fields;
+      const nm =
+        (pf["Full Name"] as string) ||
+        [pf["First Name"], pf["Last Name"]].filter(Boolean).join(" ").trim() ||
+        "(unnamed)";
+      map.set(p.id, nm);
+    }
+    assigneeNames = assigneeIds.map((id) => map.get(id) ?? "(unknown)");
+  }
+
+  const clientNames = asArray<string>(f["Client Name (from Quote)"]);
+  const invoice = (f["Invoice"] as number) ?? 0;
+
+  return {
+    id: rec.id,
+    storyNumber: (f["ID"] as number) ?? null,
+    name: (f["Story Name"] as string) ?? "(untitled)",
+    status: (f["Story Status"] as string) ?? null,
+    priority: (f["Priority"] as string) ?? null,
+    phase: (f["Phase"] as string) ?? null,
+    hours: (f["Hours"] as number) ?? null,
+    hoursWorked: (f["Hours Worked"] as number) ?? null,
+    invoice,
+    cost: (f["Cost"] as number) ?? 0,
+    commission: invoice * COMMISSION_RATE,
+    budgetPctUsed: (f[" Budget % Used"] as number) ?? null,
+    assigneeIds,
+    assigneeNames,
+    clientIds,
+    clientNames,
+    quoteIds,
+    quoteLabels: [],
+    sprintIds,
+    sprintNumbers,
+    sprintStatuses,
+    sprintEnds,
+    completedDate: (f["Completed Date"] as string) ?? null,
+    description: (f["Description"] as string) ?? "",
+    airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${rec.id}`,
+  };
+}
+
 const DONE_STATUS = "Completed";
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
 

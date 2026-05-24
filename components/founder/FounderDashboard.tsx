@@ -25,7 +25,8 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
 
   const current = useMemo(() => project(revenue, a), [revenue, a]);
   const goal = useMemo(() => project(a.monthlyGoal, a), [a]);
-  const gapAnnual = Math.max(0, goal.founderAnnual - current.founderAnnual);
+  const gapAnnual = Math.max(0, goal.founderNetAnnual - current.founderNetAnnual);
+  const payrollPct = (a.employerPayrollTaxRate * 100).toFixed(2).replace(/\.?0+$/, "");
   const additionalMonthlyRevenue = Math.max(0, a.monthlyGoal - revenue);
   const progressPct = Math.min(100, Math.max(0, current.progressToGoal * 100));
   const closestScenario = SCENARIO_ROWS.reduce((best, r) =>
@@ -94,8 +95,12 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
           monthlyProfit={current.monthlyProfit}
           founderMonthly={current.founderMonthly}
           founderAnnual={current.founderAnnual}
+          payrollTaxMonthly={current.payrollTaxMonthly}
+          founderNetMonthly={current.founderNetMonthly}
+          founderNetAnnual={current.founderNetAnnual}
           ownership={a.founderOwnership}
-          footnote={`Based on the current monthly revenue pace, your estimated annualized founder earnings are approximately ${fmtUsd(current.founderAnnual)}.`}
+          payrollPct={payrollPct}
+          footnote={`Net of employer payroll tax (~${payrollPct}%). Based on the current monthly revenue pace, your take-home–equivalent annualized earnings are approximately ${fmtUsd(current.founderNetAnnual)}.`}
         />
         <ProjectionCard
           title="Founder earnings — at goal"
@@ -104,10 +109,15 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
           monthlyProfit={goal.monthlyProfit}
           founderMonthly={goal.founderMonthly}
           founderAnnual={goal.founderAnnual}
+          payrollTaxMonthly={goal.payrollTaxMonthly}
+          founderNetMonthly={goal.founderNetMonthly}
+          founderNetAnnual={goal.founderNetAnnual}
           ownership={a.founderOwnership}
-          footnote="This is an estimate before personal income taxes and assumes the compensation and overhead structure remains unchanged."
+          payrollPct={payrollPct}
+          footnote={`Net of employer payroll tax (Social Security 6.2% + Medicare 1.45%, modeled at ${payrollPct}%). Still before personal income taxes and assumes the comp structure is unchanged.`}
           accent
         />
+
       </div>
 
       {/* 4. Gap analysis */}
@@ -117,15 +127,19 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
           Gap to Replacement Income
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Tile label="Current annualized" value={fmtUsd(current.founderAnnual)} />
-          <Tile label="Goal annualized" value={fmtUsd(goal.founderAnnual)} tone="emerald" />
-          <Tile label="Annual gap" value={fmtUsd(gapAnnual)} tone={gapAnnual === 0 ? "emerald" : "amber"} />
+          <Tile label="Current annualized (net)" value={fmtUsd(current.founderNetAnnual)} />
+          <Tile label="Goal annualized (net)" value={fmtUsd(goal.founderNetAnnual)} tone="emerald" />
+          <Tile label="Annual gap (net)" value={fmtUsd(gapAnnual)} tone={gapAnnual === 0 ? "emerald" : "amber"} />
           <Tile
             label="Additional revenue / mo needed"
             value={fmtUsd(additionalMonthlyRevenue)}
             tone={additionalMonthlyRevenue === 0 ? "emerald" : "ink"}
           />
         </div>
+        <p className="mt-3 text-[11px] text-ink-muted leading-snug">
+          Net values deduct the ~{payrollPct}% employer payroll tax Airvues owes on founder compensation.
+        </p>
+
       </section>
 
       {/* 5. Scenario table */}
@@ -140,10 +154,12 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
               <tr className="text-left text-[11px] font-mono text-ink-faint uppercase tracking-wider border-b border-rule">
                 <th className="py-2 px-5 sm:px-6">Monthly Revenue</th>
                 <th className="py-2 px-3 text-right">Monthly Profit</th>
-                <th className="py-2 px-3 text-right">Founder Monthly</th>
-                <th className="py-2 px-3 text-right">Founder Annualized</th>
+                <th className="py-2 px-3 text-right">Founder Monthly (gross)</th>
+                <th className="py-2 px-3 text-right">Founder Annual (gross)</th>
+                <th className="py-2 px-3 text-right">Founder Net Annual</th>
                 <th className="py-2 px-5 sm:px-6 text-right">Progress to {fmtUsd(a.monthlyGoal)}</th>
               </tr>
+
             </thead>
             <tbody>
               {SCENARIO_ROWS.map((r) => {
@@ -170,12 +186,16 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
                     <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.founderMonthly)}
                     </td>
-                    <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-strong">
+                    <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.founderAnnual)}
+                    </td>
+                    <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-strong">
+                      {fmtUsd(p.founderNetAnnual)}
                     </td>
                     <td className="py-2.5 px-5 sm:px-6 text-right tabnum font-mono text-ink-muted">
                       {fmtPct1(p.progressToGoal)}
                     </td>
+
                   </tr>
                 );
               })}
@@ -215,6 +235,8 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
               onChange={(v) => setA({ ...a, fixedTeamCost: v })} />
             <NumInput label="Software / overhead ($/mo)" value={a.overhead} step={100}
               onChange={(v) => setA({ ...a, overhead: v })} />
+            <NumInput label="Employer payroll tax (%)" value={a.employerPayrollTaxRate * 100} step={0.05}
+              onChange={(v) => setA({ ...a, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">
               <p className="text-[11px] text-ink-faint">
                 Changes are local to this session — not saved to Airtable.
@@ -269,7 +291,11 @@ function ProjectionCard({
   monthlyProfit,
   founderMonthly,
   founderAnnual,
+  payrollTaxMonthly,
+  founderNetMonthly,
+  founderNetAnnual,
   ownership,
+  payrollPct,
   footnote,
   accent,
 }: {
@@ -279,7 +305,11 @@ function ProjectionCard({
   monthlyProfit: number;
   founderMonthly: number;
   founderAnnual: number;
+  payrollTaxMonthly: number;
+  founderNetMonthly: number;
+  founderNetAnnual: number;
   ownership: number;
+  payrollPct: string;
   footnote: string;
   accent?: boolean;
 }) {
@@ -295,10 +325,17 @@ function ProjectionCard({
         <Row label="Monthly revenue" value={fmtUsd(revenue)} />
         <Row label="Estimated monthly profit" value={fmtUsd(monthlyProfit)} />
         <Row label="Founder ownership" value={fmtPct1(ownership)} />
-        <Row label="Founder monthly earnings" value={fmtUsd(founderMonthly)} strong />
+        <Row label="Founder monthly (gross)" value={fmtUsd(founderMonthly)} />
+        <Row label="Founder annualized (gross)" value={fmtUsd(founderAnnual)} />
         <Row
-          label="Founder annualized earnings"
-          value={fmtUsd(founderAnnual)}
+          label={`Employer payroll tax (${payrollPct}%)`}
+          value={`−${fmtUsd(payrollTaxMonthly)} / mo`}
+          muted
+        />
+        <Row label="Founder net monthly" value={fmtUsd(founderNetMonthly)} strong />
+        <Row
+          label="Founder net annualized"
+          value={fmtUsd(founderNetAnnual)}
           strong
           accent={accent}
         />
@@ -313,18 +350,20 @@ function Row({
   value,
   strong,
   accent,
+  muted,
 }: {
   label: string;
   value: string;
   strong?: boolean;
   accent?: boolean;
+  muted?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1">
-      <dt className="text-ink-muted">{label}</dt>
+      <dt className={muted ? "text-ink-faint" : "text-ink-muted"}>{label}</dt>
       <dd
         className={`tabnum font-mono ${
-          accent ? "text-emerald text-[18px] font-semibold" : strong ? "text-ink-strong font-semibold" : "text-ink-strong"
+          accent ? "text-emerald text-[18px] font-semibold" : strong ? "text-ink-strong font-semibold" : muted ? "text-ink-muted" : "text-ink-strong"
         }`}
       >
         {value}

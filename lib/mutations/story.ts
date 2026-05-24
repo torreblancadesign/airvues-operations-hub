@@ -193,3 +193,16 @@ export async function createStory(input: CreateStoryInput): Promise<CreateStoryR
     return { error: (e as Error).message };
   }
 }
+
+export async function deleteStory(storyId: string): Promise<MutationResult> {
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    await deleteRecord(Tables.Stories.id, storyId);
+    invalidateStoryCaches();
+    revalidateTag("pipeline:all-quotes");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

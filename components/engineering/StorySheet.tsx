@@ -302,9 +302,47 @@ export function StorySheet({
               All for {current.clientNames[0]}
             </button>
           )}
+          {allowDelete && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (!confirm(`Delete story "${current.name}"? This cannot be undone.`)) return;
+                setError(null);
+                startTransition(async () => {
+                  const result = await deleteStory(story!.id);
+                  if (!("ok" in result)) {
+                    setError(result.error);
+                  } else {
+                    onDeleted?.(story!.id);
+                    onClose();
+                  }
+                });
+              }}
+              className="px-3 py-1.5 text-[12px] bg-red/10 border border-red/40 text-red rounded hover:bg-red/20 transition-colors disabled:opacity-50"
+            >
+              Delete story
+            </button>
+          )}
         </div>
 
         <div className="px-5 py-2">
+          {/* Editable Description */}
+          {canEdit && (
+            <Field label="Description">
+              <textarea
+                key={`desc-${current.id}`}
+                defaultValue={current.description ?? ""}
+                disabled={pending}
+                rows={4}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val !== (current.description ?? "")) save({ description: val }, { description: val });
+                }}
+                className={`${inputCls} w-full resize-y`}
+              />
+            </Field>
+          )}
           {/* Editable Status */}
           <Field label="Status">
             {canEdit ? (

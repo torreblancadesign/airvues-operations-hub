@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Story } from "@/lib/engineering-types";
-import { updateStory } from "@/lib/mutations/story";
+import { updateStory, deleteStory } from "@/lib/mutations/story";
 
 type EngineerOption = { id: string; name: string };
 
@@ -11,7 +11,9 @@ type Props = {
   story: Story | null;
   engineers?: EngineerOption[];
   canEdit?: boolean;
+  canDelete?: boolean;
   onClose: () => void;
+  onDeleted?: (id: string) => void;
   onFilterByEngineer: (engineerId: string) => void;
   onFilterByClient: (client: string) => void;
 };

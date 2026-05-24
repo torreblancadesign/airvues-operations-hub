@@ -168,9 +168,23 @@ export function StorySheet({
               {savedFlash && !pending && <span className="text-emerald">· saved</span>}
               {error && <span className="text-red truncate">· {error}</span>}
             </div>
-            <h2 className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
-              {current.name}
-            </h2>
+            {canEdit ? (
+              <input
+                key={`name-${current.id}`}
+                type="text"
+                defaultValue={current.name}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val && val !== current.name) save({ name: val }, { name: val });
+                }}
+                className="w-full text-[15px] font-semibold text-ink-strong leading-tight bg-transparent border-b border-transparent focus:border-emerald focus:outline-none"
+              />
+            ) : (
+              <h2 className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
+                {current.name}
+              </h2>
+            )}
           </div>
           <button
             type="button"

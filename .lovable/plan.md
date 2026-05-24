@@ -1,55 +1,56 @@
 ## Goal
 
-Two tightly-scoped changes to the Pipeline quote drawer:
+Add a **Create AI Proposal** button inside the "Client input for proposal" section that flips the Airtable checkbox `Run AI Proposal Agent` to true, then polls until the AI/calc fields show up.
 
-1. Replace the green "Client visible 👁" chip with the same "🖥️ Portal visible" chip used by the AI section, so every field that ends up in the client-facing proposal carries a single, consistent label.
-2. Let users click a row in the quote calculator's Stories table to open the existing StorySheet drawer (the same one used on `/engineering`, `/backlog`, `/sprints`, etc.) for full detail view + inline editing.
+## Behavior
 
-No backend / data shape changes.
+**Button placement:** new footer row inside the "Client input for proposal" section, below the documents attachment row.
 
-## 1. Standardize visibility chips
+**Disabled / grayed-out states (in order of precedence):**
+1. User is read-only (`canEdit === false`).
+2. **Inputs not filled out:** both `Custom Problem Statement` is empty AND no documents are attached. Tooltip: "Add a problem statement or attach documents first."
+3. **Already running:** the `Run AI Proposal Agent` checkbox is currently true on the record (button shows spinner + "Generating proposal…").
+4. **Already populated** (no re-runs from UI for now): if `recommendedApproach`, `recommendedApproachSummary`, `projectOverview`, `problemStatementSolution`, `estimateHoursRange`, and `estimateCostRange` are all non-empty AND at least one Story is linked, button is replaced with "Proposal generated · [Re-run]". Re-run is allowed but requires explicit click.
 
-In `components/pipeline/QuoteSheetEditor.tsx`:
+**On click:**
+1. Server action sets `Run AI Proposal Agent = true` on the Quote.
+2. Drawer enters "generating" state and starts polling.
 
-- Delete `ClientVisibleChip()` (lines ~41–50).
-- Replace every `<ClientVisibleChip />` usage (the Section header + each `FieldRow` chip in "Quote details") with `<PortalChip />`.
-- Keep `InternalChip` and `PortalChip` as-is. Result: "Quote details" + "AI-generated proposal content" both display the blue 🖥️ Portal visible chip; "Client input for proposal" keeps the amber 🔒 Internal only chip.
+**Polling:**
+- Every 10 seconds, call `loadQuoteDetail(quoteId)`.
+- Stop when the checkbox flips back to false (Airtable automation un-checks it at the end) OR after ~5 min timeout.
+- On stop, refresh local quote state (drawer fields + stories table re-render with new AI-generated content).
+- Poll loop is cancelled on drawer close, on quote switch, or on error.
+- Show inline progress copy: "Generating proposal… usually 1–2 minutes" + a small ticking elapsed counter.
 
-## 2. Click-to-open Stories from the quote calculator
+## Technical Changes
 
-Reuse the existing `components/engineering/StorySheet.tsx` drawer — that's the canonical story editor (status, priority, hours, assignee, notes, etc., all gated by `canEdit`).
+**`lib/quote-types.ts`**
+- Add `runAiProposalAgent: boolean` to `QuoteDetail`.
 
-### Data: fetch a full Story by id
+**`lib/quotes.ts`** (`getQuoteDetail`)
+- Read the `Run AI Proposal Agent` field by name (not in `schema.ts` yet — pass through `fields` array as a string literal, same pattern used elsewhere for non-regenerated fields).
+- Map to `runAiProposalAgent` boolean (Airtable returns `true`/`undefined`).
 
-Add `getStoryById(storyId)` to `lib/engineering.ts` (server-only). It returns the same `Story` shape already produced by the engineering board loader for one record — pull the existing field-mapping code into a small helper so both the list loader and `getStoryById` share it. Cache tag: `story:${id}` + the existing `airtable` umbrella tag.
+**`lib/mutations/quote.ts`**
+- New server action `triggerAiProposalAgent(quoteId)`:
+  - Validates quoteId.
+  - `gate()` (admin / lead / editor).
+  - `patchRecords(Tables.Quotes.id, [{ id, fields: { "Run AI Proposal Agent": true } }])`.
+  - `invalidateQuote(quoteId)`.
+  - Returns refreshed `QuoteDetail`.
 
-### Wiring on the client
-
-- `components/pipeline/QuoteStoriesTable.tsx`
-  - Add `onRowClick(storyId: string)` prop.
-  - Make each `<tr>` clickable (cursor-pointer + hover row tint + role="button" + keyboard Enter handler). The "+ Add story" button keeps its own handler.
-- `components/pipeline/QuoteSheetEditor.tsx`
-  - New state: `selectedStoryId: string | null`, `selectedStory: Story | null`, plus a small loading flag.
-  - On row click, call a thin client-side server action wrapper (`loadStory(storyId)` in `lib/mutations/quote.ts` or new `lib/mutations/story-fetch.ts`) that internally calls `getStoryById`. Stash result in state.
-  - Render `<StorySheet story={selectedStory} engineers={people} canEdit={canEdit} onClose={() => setSelectedStoryId(null)} onFilterByEngineer={() => {}} onFilterByClient={() => {}} />`. The two filter callbacks are no-ops here (Pipeline has no engineer/client filter to seed).
-  - On StorySheet close, re-fetch the parent quote (existing `revalidateTag("quote:${id}")` already runs when StorySheet's `updateStory` mutation completes — it revalidates `airtable`). Add `quote:${quoteId}` revalidation to `updateStory`'s revalidate list **only if** the story belongs to a quote — simpler alternative: in `QuoteSheetEditor`, after the StorySheet closes, call an existing `refresh()`/`router.refresh()` so the Stories table + Total Cost re-pull.
-
-- `app/(app)/pipeline/page.tsx` — no change. `people` is already passed through.
-
-### Permissions
-
-`StorySheet` already respects `canEdit`. Pass the same `canEdit` already in scope on `QuoteSheetEditor`. No new role checks needed; existing `updateStory` in `lib/mutations/story.ts` gates on `requireRole`.
+**`components/pipeline/QuoteSheetEditor.tsx`**
+- Add `CreateAiProposalButton` block at the end of the "Client input for proposal" section.
+- New local state: `aiTriggering` (during the initial mutation) and `aiPolling` (during the 10s polling loop) with a `pollStartedAt` timestamp for the elapsed counter.
+- `useEffect` that starts a `setInterval(10_000)` when `aiPolling` is true, calls `loadQuoteDetail`, updates `quote` state, and stops when `runAiProposalAgent` flips back to false or timeout reached. Always cleans up on unmount.
+- Compute `hasClientInput = customProblemStatement.trim().length > 0 || documents.length > 0`.
+- Compute `aiContentReady = all six AI fields non-empty && stories.length > 0`.
+- Render disabled-with-tooltip button until `hasClientInput`; show "Generating…" while `runAiProposalAgent === true`; show "Re-run" affordance when `aiContentReady`.
 
 ## Out of scope
 
-- Removing/unlinking a story from a quote (still create-only from this view).
-- Changing the StorySheet UI itself.
-- Inline editing of rows in the table without opening the drawer (drawer is the editor).
-- Renaming AI-section subtitle suffixes like "(Portal Visible 🖥️)" inside field labels — the chip replacement is the single visual change requested.
-
-## Files changed
-
-- `components/pipeline/QuoteSheetEditor.tsx` — drop `ClientVisibleChip`, swap chip usages, mount `StorySheet`, wire row-click + load.
-- `components/pipeline/QuoteStoriesTable.tsx` — add `onRowClick` + clickable rows.
-- `lib/engineering.ts` — export `getStoryById` (extract shared row→Story mapper).
-- `lib/mutations/quote.ts` (or small new file) — `loadStoryForQuote(storyId)` server action wrapper if needed for client invocation.
+- No new Airtable automation logic — we only flip the checkbox; the existing Airtable automation does the rest.
+- No webhook/realtime updates; polling only.
+- No edit to the AI output section UI itself (it just re-renders when the polled data arrives).
+- No tracking of last-run timestamp beyond what's already on the record.

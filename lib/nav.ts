@@ -118,4 +118,12 @@ export const NAV_ITEMS: NavItem[] = [
     showInSidebar: true,
     showOnHome: true,
   },
+  {
+    href: "/founder",
+    label: "Founder Dashboard",
+    desc: "Path to replacement income · monthly goal · earnings projection",
+    group: "founder",
+    showInSidebar: true,
+    showOnHome: false,
+  },
 ];

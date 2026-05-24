@@ -8,6 +8,7 @@ import {
   loadStoryDetail,
   updateQuoteFields,
   attachQuoteDocuments,
+  triggerAiProposalAgent,
 } from "@/lib/mutations/quote";
 import type { Story } from "@/lib/engineering-types";
 import { StorySheet } from "@/components/engineering/StorySheet";

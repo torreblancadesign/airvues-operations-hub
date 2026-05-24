@@ -993,7 +993,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
 
       <StorySheet
         story={selectedStory}
-        engineers={people.filter((p) => p.isInternal).map((p) => ({ id: p.id, name: p.name }))}
+        engineers={people.filter((p) => p.isInternal && p.isActive).map((p) => ({ id: p.id, name: p.name }))}
         canEdit={canEdit}
         onClose={closeStory}
         onFilterByEngineer={() => {}}

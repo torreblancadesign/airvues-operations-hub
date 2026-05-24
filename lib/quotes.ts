@@ -183,11 +183,13 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
         (f["Primary Email"] as string) ||
         "(no name)";
       const type = (f["Type"] as string) ?? null;
+      const status = (f["Status"] as string) ?? null;
       return {
         id: r.id,
         name,
         email: (f["Primary Email"] as string) ?? null,
         isInternal: type === "Internal" || type === "Internal team member",
+        isActive: status === "Active",
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

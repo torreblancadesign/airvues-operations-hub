@@ -49,7 +49,7 @@ export type QuoteDetail = {
   totalHours: number | null;
 };
 
-export type PersonOption = { id: string; name: string; email: string | null; isInternal: boolean };
+export type PersonOption = { id: string; name: string; email: string | null; isInternal: boolean; isActive: boolean };
 
 export const PROJECT_STATUS_CHOICES = [
   "Proposal Created",

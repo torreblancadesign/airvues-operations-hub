@@ -35,7 +35,7 @@ function StatusPill({ status }: { status: string | null }) {
   );
 }
 
-export function QuoteStoriesTable({ stories, totalCost, totalHours, canEdit, onAddClick }: Props) {
+export function QuoteStoriesTable({ stories, totalCost, totalHours, canEdit, onAddClick, onRowClick }: Props) {
   return (
     <div className="bg-bg-elevated/60 border border-rule rounded-md overflow-hidden">
       {/* Totals + Add story strip */}

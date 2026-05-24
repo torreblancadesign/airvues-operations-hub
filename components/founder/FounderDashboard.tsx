@@ -504,6 +504,32 @@ export function FounderDashboard({
 }
 
 function Tile({
+
+}
+function HeroStat({
+  label,
+  value,
+  hint,
+  tone = "ink",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "ink" | "emerald";
+}) {
+  const valueClass = tone === "emerald" ? "text-emerald" : "text-ink-strong";
+  return (
+    <div className="relative bg-bg-elevated/60 border border-rule rounded-lg p-3.5 backdrop-blur-sm hover:border-emerald/40 transition-colors">
+      <div className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">{label}</div>
+      <div className={`mt-1 text-[22px] sm:text-[24px] font-semibold tabnum font-mono leading-tight ${valueClass}`}>
+        {value}
+      </div>
+      {hint && <div className="mt-1 text-[11px] text-ink-muted leading-snug">{hint}</div>}
+    </div>
+  );
+}
+
+function _Tile({
   label,
   value,
   tone = "ink",

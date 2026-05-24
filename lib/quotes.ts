@@ -156,6 +156,7 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
     "Last Name"?: string;
     "Primary Email"?: string;
     "Status"?: string;
+    "Type"?: string;
   }>(
     t.id,
     {
@@ -165,6 +166,7 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
         t.fields["Last Name"].id,
         t.fields["Primary Email"].id,
         t.fields["Status"].id,
+        t.fields["Type"].id,
       ],
     },
     ["pipeline:people-options"],
@@ -178,10 +180,12 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
         [f["First Name"], f["Last Name"]].filter(Boolean).join(" ").trim() ||
         (f["Primary Email"] as string) ||
         "(no name)";
+      const type = (f["Type"] as string) ?? null;
       return {
         id: r.id,
         name,
         email: (f["Primary Email"] as string) ?? null,
+        isInternal: type === "Internal" || type === "Internal team member",
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));

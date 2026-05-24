@@ -329,5 +329,9 @@ export async function getFirmPulse(): Promise<FirmPulse> {
         sent: sentMtd,
       },
     },
+    leadsYtd: { count: leadsYtdCount, sold: leadsYtdSold, conversionPct: leadConvPct },
+    newClientsYtd: { count: newClientsYtd },
+    projects: { active: projectsActive, completedYtd: projectsCompletedYtd },
+    revenueBySource,
   };
 }

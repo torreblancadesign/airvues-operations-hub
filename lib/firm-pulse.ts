@@ -39,6 +39,10 @@ export type RevenueWindow = {
 
 export type SourceSlice = { source: string; revenue: number; count: number };
 
+export type LeadsWindow = { count: number; sold: number; conversionPct: number };
+export type NewClientsWindow = { count: number };
+export type ProjectsWindow = { active: number; completed: number };
+
 export type FirmPulse = {
   revenue: { ytd: RevenueWindow; mtd: RevenueWindow };
   booked: { ytd: { value: number; count: number }; mtd: { value: number; count: number } };
@@ -51,11 +55,12 @@ export type FirmPulse = {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
     mtd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
   };
-  // Display-only extras (no Airtable schema changes)
-  leadsYtd: { count: number; sold: number; conversionPct: number };
-  newClientsYtd: { count: number };
-  projects: { active: number; completedYtd: number };
-  revenueBySource: SourceSlice[]; // invoice-source mix, paid YTD
+  // Display-only extras (no Airtable schema changes). Windowed for the toggle.
+  leads: { ytd: LeadsWindow; mtd: LeadsWindow };
+  newClients: { ytd: NewClientsWindow; mtd: NewClientsWindow };
+  // `active` is a snapshot (same in both windows); `completed` is window-scoped.
+  projects: { ytd: ProjectsWindow; mtd: ProjectsWindow };
+  revenueBySource: { ytd: SourceSlice[]; mtd: SourceSlice[] };
 };
 
 function buildRevenueWindow(
@@ -228,18 +233,24 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     }
   }
 
-  // ── Leads YTD + conversion ────────────────────────────────
-  let leadsYtdCount = 0;
-  let leadsYtdSold = 0;
+  // ── Leads: YTD + MTD + conversion ─────────────────────────
+  let leadsYtdCount = 0, leadsYtdSold = 0;
+  let leadsMtdCount = 0, leadsMtdSold = 0;
   for (const l of leads) {
     if (!l.createdTime) continue;
-    if (l.createdTime.slice(0, 10) < yearStart) continue;
-    leadsYtdCount += 1;
-    if (l.status === "Sold") leadsYtdSold += 1;
+    const d = l.createdTime.slice(0, 10);
+    if (d >= yearStart) {
+      leadsYtdCount += 1;
+      if (l.status === "Sold") leadsYtdSold += 1;
+    }
+    if (d >= monthStart) {
+      leadsMtdCount += 1;
+      if (l.status === "Sold") leadsMtdSold += 1;
+    }
   }
-  const leadConvPct = leadsYtdCount > 0 ? leadsYtdSold / leadsYtdCount : 0;
 
   // ── Projects (from Quote.projectStatus) ───────────────────
+  // `active` is a snapshot — same in either window. `completed` is windowed.
   const PROJECT_ACTIVE = new Set([
     "Proposal Signed",
     "Commencement Invoice Paid",
@@ -248,6 +259,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
   ]);
   let projectsActive = 0;
   let projectsCompletedYtd = 0;
+  let projectsCompletedMtd = 0;
   for (const q of quotes) {
     const ps = q.projectStatus;
     if (!ps) continue;
@@ -255,10 +267,11 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     if (ps === "Completion Invoice Paid") {
       const ref = q.signedDate ?? q.preparedDate;
       if (ref && ref >= yearStart) projectsCompletedYtd += 1;
+      if (ref && ref >= monthStart) projectsCompletedMtd += 1;
     }
   }
 
-  // ── New clients YTD (first paid invoice this year) ────────
+  // ── New clients (first paid invoice in window) ────────────
   const firstPaidByPayer = new Map<string, string>();
   for (const inv of invoices) {
     if (inv.status !== "paid") continue;
@@ -267,25 +280,29 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     const prev = firstPaidByPayer.get(payer);
     if (!prev || inv.date < prev) firstPaidByPayer.set(payer, inv.date);
   }
-  let newClientsYtd = 0;
+  let newClientsYtd = 0, newClientsMtd = 0;
   for (const d of firstPaidByPayer.values()) {
     if (d >= yearStart) newClientsYtd += 1;
+    if (d >= monthStart) newClientsMtd += 1;
   }
 
-  // ── Revenue by invoice source, YTD paid ───────────────────
-  const sourceTotals = new Map<string, { revenue: number; count: number }>();
-  for (const inv of invoices) {
-    if (inv.status !== "paid" || !inv.date) continue;
-    if (inv.date < yearStart) continue;
-    const key = inv.source ?? "Other";
-    const cur = sourceTotals.get(key) ?? { revenue: 0, count: 0 };
-    cur.revenue += inv.amount;
-    cur.count += 1;
-    sourceTotals.set(key, cur);
-  }
-  const revenueBySource: SourceSlice[] = Array.from(sourceTotals.entries())
-    .map(([source, v]) => ({ source, revenue: v.revenue, count: v.count }))
-    .sort((a, b) => b.revenue - a.revenue);
+  // ── Revenue by invoice source, paid, per window ───────────
+  const tallySource = (since: string): SourceSlice[] => {
+    const totals = new Map<string, { revenue: number; count: number }>();
+    for (const inv of invoices) {
+      if (inv.status !== "paid" || !inv.date) continue;
+      if (inv.date < since) continue;
+      const key = inv.source ?? "Other";
+      const cur = totals.get(key) ?? { revenue: 0, count: 0 };
+      cur.revenue += inv.amount;
+      cur.count += 1;
+      totals.set(key, cur);
+    }
+    return Array.from(totals.entries())
+      .map(([source, v]) => ({ source, revenue: v.revenue, count: v.count }))
+      .sort((a, b) => b.revenue - a.revenue);
+  };
+  const revenueBySource = { ytd: tallySource(yearStart), mtd: tallySource(monthStart) };
 
   const annualTarget = revYtd.target ?? 500_000;
   const monthlyTarget = revMtd.target ?? annualTarget / 12;
@@ -329,9 +346,23 @@ export async function getFirmPulse(): Promise<FirmPulse> {
         sent: sentMtd,
       },
     },
-    leadsYtd: { count: leadsYtdCount, sold: leadsYtdSold, conversionPct: leadConvPct },
-    newClientsYtd: { count: newClientsYtd },
-    projects: { active: projectsActive, completedYtd: projectsCompletedYtd },
+    leads: {
+      ytd: {
+        count: leadsYtdCount,
+        sold: leadsYtdSold,
+        conversionPct: leadsYtdCount > 0 ? leadsYtdSold / leadsYtdCount : 0,
+      },
+      mtd: {
+        count: leadsMtdCount,
+        sold: leadsMtdSold,
+        conversionPct: leadsMtdCount > 0 ? leadsMtdSold / leadsMtdCount : 0,
+      },
+    },
+    newClients: { ytd: { count: newClientsYtd }, mtd: { count: newClientsMtd } },
+    projects: {
+      ytd: { active: projectsActive, completed: projectsCompletedYtd },
+      mtd: { active: projectsActive, completed: projectsCompletedMtd },
+    },
     revenueBySource,
   };
 }

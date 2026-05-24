@@ -6,6 +6,8 @@ import "server-only";
 
 import { revenueYtd, revenueMtd, mrr, openReceivables } from "./kpi";
 import { listAllQuotes } from "./pipeline";
+import { listAllLeads } from "./leads";
+import { listAllInvoices } from "./money";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 

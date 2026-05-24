@@ -113,6 +113,7 @@ export async function loadQuoteDetail(quoteId: string): Promise<MutationResult<{
     return { ok: true, quote };
   } catch (e) {
     return { error: (e as Error).message };
+  }
 }
 
 // Load a single Story (for opening the StorySheet from the quote drawer).
@@ -129,7 +130,6 @@ export async function loadStoryDetail(
   } catch (e) {
     return { error: (e as Error).message };
   }
-}
 }
 
 export async function updateQuoteFields(

@@ -96,5 +96,30 @@ export const fmtUsd = (n: number) =>
     maximumFractionDigits: 0,
   }).format(Math.round(n));
 
+
 export const fmtPct1 = (n: number) => `${(n * 100).toFixed(1)}%`;
+
+export type MonthsToGoalPrediction =
+  | { kind: "at-goal" }
+  | { kind: "flat" }
+  | { kind: "months"; value: number };
+
+// Predict how many months until current monthly revenue reaches the goal,
+// assuming the average month-over-month growth ($) continues. Returns a
+// discriminated union so the UI can render an explicit label for edge cases
+// (already at goal, flat / negative trend) instead of NaN/Infinity.
+export function predictMonthsToGoal(args: {
+  currentMonthlyRevenue: number;
+  monthlyGoal: number;
+  avgMonthlyGrowth: number;
+}): MonthsToGoalPrediction {
+  const { currentMonthlyRevenue, monthlyGoal, avgMonthlyGrowth } = args;
+  if (!Number.isFinite(monthlyGoal) || monthlyGoal <= 0) return { kind: "flat" };
+  if (currentMonthlyRevenue >= monthlyGoal) return { kind: "at-goal" };
+  if (!Number.isFinite(avgMonthlyGrowth) || avgMonthlyGrowth <= 0) return { kind: "flat" };
+  const gap = monthlyGoal - currentMonthlyRevenue;
+  const months = Math.ceil(gap / avgMonthlyGrowth);
+  if (!Number.isFinite(months) || months <= 0) return { kind: "flat" };
+  return { kind: "months", value: months };
+}
 

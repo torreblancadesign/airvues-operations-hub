@@ -11,12 +11,19 @@ import {
   FounderAssumptions,
   fmtPct1,
   fmtUsd,
+  predictMonthsToGoal,
   project,
   requiredRevenueForNetAnnual,
 } from "@/lib/founder-math";
 import { updateRetirementNumber } from "@/lib/mutations/founder";
 
 const SCENARIO_ROWS = [40_000, 50_000, 75_000, 100_000, 115_000, 130_000, 150_000];
+
+type RevenueTrend = {
+  monthlyHistory: number[];
+  avgMonthlyGrowth: number;
+  latestClosedMonth: number;
+};
 
 type Props = {
   initialMonthlyRevenue: number;
@@ -25,6 +32,7 @@ type Props = {
   retirementAnnual: number | null;
   ownershipPercentage: number | null;
   canEdit: boolean;
+  revenueTrend: RevenueTrend;
 };
 
 export function FounderDashboard({
@@ -34,6 +42,7 @@ export function FounderDashboard({
   retirementAnnual,
   ownershipPercentage,
   canEdit,
+  revenueTrend,
 }: Props) {
   const router = useRouter();
   const [revenue, setRevenue] = useState<number>(initialMonthlyRevenue);
@@ -91,6 +100,16 @@ export function FounderDashboard({
     Math.abs(r - revenue) < Math.abs(best - revenue) ? r : best,
   SCENARIO_ROWS[0]);
 
+  const monthsPrediction = useMemo(
+    () =>
+      predictMonthsToGoal({
+        currentMonthlyRevenue: revenue,
+        monthlyGoal: a.monthlyGoal,
+        avgMonthlyGrowth: revenueTrend.avgMonthlyGrowth,
+      }),
+    [revenue, a.monthlyGoal, revenueTrend.avgMonthlyGrowth],
+  );
+
   const saveRetirement = (value: number | null) => {
     if (!personId) return;
     setRetirementError(null);
@@ -123,48 +142,110 @@ export function FounderDashboard({
   return (
     <div className="space-y-5">
       {/* 1. Hero — Path to Founder Replacement Income */}
-      <section className="bg-surface border border-rule rounded-card p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-          <div>
-            <div className="eyebrow">Founder mission</div>
-            <h2 className="text-[20px] sm:text-[22px] font-semibold text-ink-strong tracking-tight mt-1">
-              Path to Founder Replacement Income
-            </h2>
-          </div>
-          <div className="text-right">
-            <div className="text-[11px] font-mono text-ink-faint uppercase tracking-wider">
-              Progress
-            </div>
-            <div className="text-[28px] font-semibold text-emerald tabnum leading-none mt-1">
-              {fmtPct1(current.progressToGoal)}
-            </div>
-          </div>
-        </div>
+      <section className="relative overflow-hidden bg-surface border border-emerald/30 rounded-card p-5 sm:p-7 shadow-[0_0_60px_-20px_rgba(34,211,168,0.25)]">
+        {/* ambient glow */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 -right-24 h-72 w-72 rounded-full bg-emerald/15 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -bottom-32 -left-20 h-64 w-64 rounded-full bg-emerald/10 blur-3xl"
+        />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-          <Tile label="Current month revenue" value={fmtUsd(revenue)} editable>
-            <input
-              type="number"
-              value={revenue}
-              onChange={(e) => setRevenue(Number(e.target.value) || 0)}
-              className="mt-1 w-full bg-bg-elevated border border-rule rounded px-2 py-1 text-[13px] text-ink-strong tabnum font-mono focus:outline-none focus:border-emerald"
-            />
-            <div className="mt-1 text-[10px] text-ink-faint font-mono uppercase tracking-wider">
-              {revenueSource === "mtd" ? "Prefilled from paid invoices MTD" : "Default — no invoice data"}
+        <div className="relative">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="eyebrow">Founder mission</div>
+              <h2 className="text-[22px] sm:text-[26px] font-semibold text-ink-strong tracking-tight mt-1">
+                Path to Founder Replacement Income
+              </h2>
+              <p className="text-[12px] text-ink-muted mt-1">
+                {retirementSource === "airtable"
+                  ? `Targeting ${fmtUsd(effectiveRetirement)}/yr net take-home`
+                  : `Default target · ${fmtUsd(effectiveRetirement)}/yr net take-home`}
+              </p>
             </div>
-          </Tile>
-          <Tile label="Monthly revenue needed" value={goalReachable ? fmtUsd(a.monthlyGoal) : "—"} >
-            <div className="mt-1 text-[10px] text-ink-faint font-mono uppercase tracking-wider">
-              {retirementSource === "airtable"
-                ? `To net ${fmtUsd(effectiveRetirement)}/yr take-home`
-                : `Default · target ${fmtUsd(effectiveRetirement)}/yr take-home`}
-            </div>
-            {!goalReachable && (
-              <div className="mt-1 text-[10px] text-amber">
-                Unreachable with current ownership / commissions.
+            <div className="text-right">
+              <div className="text-[11px] font-mono text-ink-faint uppercase tracking-wider">
+                Progress to goal
               </div>
-            )}
-            {canEdit && (
+              <div className="text-[52px] sm:text-[64px] font-semibold text-emerald tabnum leading-none mt-1 drop-shadow-[0_0_24px_rgba(34,211,168,0.4)]">
+                {fmtPct1(current.progressToGoal)}
+              </div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-5">
+            <div className="relative h-3 bg-bg-elevated rounded-full overflow-hidden border border-rule/60">
+              <div
+                className="h-full bg-gradient-to-r from-emerald via-emerald to-emerald/60 rounded-full transition-all duration-700 shadow-[0_0_18px_rgba(34,211,168,0.6)]"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono text-ink-faint tabnum uppercase tracking-wider">
+              <span>$0</span>
+              <span>{goalReachable ? fmtUsd(a.monthlyGoal) : "—"} / mo goal</span>
+            </div>
+          </div>
+
+          {/* Headline KPI strip */}
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <HeroStat
+              label="Current yearly earnings"
+              value={fmtUsd(current.founderNetAnnual)}
+              hint="Annualized net take-home at today's pace"
+              tone="emerald"
+            />
+            <HeroStat
+              label="Predicted months to goal"
+              value={
+                monthsPrediction.kind === "at-goal"
+                  ? "At goal"
+                  : monthsPrediction.kind === "flat"
+                    ? "—"
+                    : `~${monthsPrediction.value} mo`
+              }
+              hint={
+                monthsPrediction.kind === "months"
+                  ? `Based on +${fmtUsd(revenueTrend.avgMonthlyGrowth)}/mo avg growth (last ${revenueTrend.monthlyHistory.length} mo)`
+                  : monthsPrediction.kind === "at-goal"
+                    ? "Current run-rate already meets the goal"
+                    : revenueTrend.monthlyHistory.length < 2
+                      ? "Need at least 2 closed months of data"
+                      : "Trend flat or negative — no predicted date"
+              }
+              tone={monthsPrediction.kind === "at-goal" ? "emerald" : "ink"}
+            />
+            <HeroStat
+              label="Monthly revenue needed"
+              value={goalReachable ? fmtUsd(a.monthlyGoal) : "—"}
+              hint={
+                additionalMonthlyRevenue === 0
+                  ? "Goal cleared this month"
+                  : `${fmtUsd(additionalMonthlyRevenue)} remaining this month`
+              }
+            />
+          </div>
+
+          {/* Footer row — quieter edit affordances */}
+          <div className="mt-5 pt-4 border-t border-rule/60 flex items-end gap-4 flex-wrap">
+            <label className="block">
+              <span className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">
+                Current month revenue
+              </span>
+              <input
+                type="number"
+                value={revenue}
+                onChange={(e) => setRevenue(Number(e.target.value) || 0)}
+                className="mt-1 w-[180px] bg-bg-elevated border border-rule rounded px-2 py-1 text-[13px] text-ink-strong tabnum font-mono focus:outline-none focus:border-emerald"
+              />
+              <div className="mt-1 text-[10px] text-ink-faint font-mono uppercase tracking-wider">
+                {revenueSource === "mtd" ? "Prefilled from paid invoices MTD" : "Default — no invoice data"}
+              </div>
+            </label>
+            {canEdit && !editingRetirement && (
               <button
                 type="button"
                 onClick={() => {
@@ -172,84 +253,74 @@ export function FounderDashboard({
                   setRetirementError(null);
                   setEditingRetirement(true);
                 }}
-                className="mt-2 text-[10px] font-mono uppercase tracking-wider text-emerald hover:underline"
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline ml-auto"
               >
                 Edit retirement #
               </button>
             )}
-          </Tile>
-          <Tile
-            label="Remaining this month"
-            value={fmtUsd(additionalMonthlyRevenue)}
-            tone={additionalMonthlyRevenue === 0 ? "emerald" : "ink"}
-          />
-        </div>
+          </div>
 
-        {editingRetirement && (
-          <div className="bg-bg-elevated/50 border border-emerald/40 rounded-md p-4 mb-4">
-            <div className="text-[11px] font-mono uppercase tracking-wider text-emerald mb-2">
-              Edit annual retirement number
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-[14px] font-mono">$</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  autoFocus
-                  value={draftRetirement}
-                  onChange={(e) => setDraftRetirement(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSaveRetirement();
-                    if (e.key === "Escape") setEditingRetirement(false);
-                  }}
-                  placeholder="1380000"
-                  className="pl-7 pr-3 py-1.5 text-[14px] font-mono tabnum bg-bg border border-rule text-ink-strong rounded-md focus:border-emerald focus:outline-none w-[200px]"
-                />
+          {editingRetirement && (
+            <div className="mt-4 bg-bg-elevated/50 border border-emerald/40 rounded-md p-4">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-emerald mb-2">
+                Edit annual retirement number
               </div>
-              <button
-                type="button"
-                onClick={handleSaveRetirement}
-                disabled={isSaving}
-                className="px-3 py-1.5 text-[12px] font-medium bg-emerald text-bg rounded-md hover:opacity-90 disabled:opacity-50"
-              >
-                {isSaving ? "Saving…" : "Save"}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setEditingRetirement(false); setRetirementError(null); }}
-                disabled={isSaving}
-                className="px-3 py-1.5 text-[12px] text-ink-muted hover:text-ink-strong"
-              >
-                Cancel
-              </button>
-              {retirement != null && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-[14px] font-mono">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    autoFocus
+                    value={draftRetirement}
+                    onChange={(e) => setDraftRetirement(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleSaveRetirement();
+                      if (e.key === "Escape") setEditingRetirement(false);
+                    }}
+                    placeholder="1380000"
+                    className="pl-7 pr-3 py-1.5 text-[14px] font-mono tabnum bg-bg border border-rule text-ink-strong rounded-md focus:border-emerald focus:outline-none w-[200px]"
+                  />
+                </div>
                 <button
                   type="button"
-                  onClick={() => saveRetirement(null)}
+                  onClick={handleSaveRetirement}
                   disabled={isSaving}
-                  className="ml-auto text-[11px] text-red hover:underline"
+                  className="px-3 py-1.5 text-[12px] font-medium bg-emerald text-bg rounded-md hover:opacity-90 disabled:opacity-50"
                 >
-                  Clear
+                  {isSaving ? "Saving…" : "Save"}
                 </button>
-              )}
+                <button
+                  type="button"
+                  onClick={() => { setEditingRetirement(false); setRetirementError(null); }}
+                  disabled={isSaving}
+                  className="px-3 py-1.5 text-[12px] text-ink-muted hover:text-ink-strong"
+                >
+                  Cancel
+                </button>
+                {retirement != null && (
+                  <button
+                    type="button"
+                    onClick={() => saveRetirement(null)}
+                    disabled={isSaving}
+                    className="ml-auto text-[11px] text-red hover:underline"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {retirementError && <div className="text-[11px] text-red mt-2">{retirementError}</div>}
+              <div className="text-[11px] text-ink-faint mt-2">
+                Target annual NET take-home (after employer payroll tax). We back-solve the monthly revenue needed to reach it. Saves to your People record as Retirement Number.
+              </div>
             </div>
-            {retirementError && <div className="text-[11px] text-red mt-2">{retirementError}</div>}
-            <div className="text-[11px] text-ink-faint mt-2">
-              Target annual NET take-home (after employer payroll tax). We back-solve the monthly revenue needed to reach it. Saves to your People record as Retirement Number.
-            </div>
-          </div>
-        )}
+          )}
 
-        <div className="relative h-4 bg-bg-elevated rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-emerald to-emerald/70 rounded-full transition-all duration-500"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-        <div className="mt-2 flex items-center justify-between text-[11px] font-mono text-ink-muted tabnum">
-          <span>$0</span>
-          <span>{fmtUsd(a.monthlyGoal)}</span>
+          {!goalReachable && (
+            <div className="mt-3 text-[11px] text-amber">
+              Goal unreachable with current ownership / commissions — adjust assumptions below.
+            </div>
+          )}
         </div>
       </section>
 
@@ -428,6 +499,29 @@ export function FounderDashboard({
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function HeroStat({
+  label,
+  value,
+  hint,
+  tone = "ink",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "ink" | "emerald";
+}) {
+  const valueClass = tone === "emerald" ? "text-emerald" : "text-ink-strong";
+  return (
+    <div className="relative bg-bg-elevated/60 border border-rule rounded-lg p-3.5 backdrop-blur-sm hover:border-emerald/40 transition-colors">
+      <div className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">{label}</div>
+      <div className={`mt-1 text-[22px] sm:text-[24px] font-semibold tabnum font-mono leading-tight ${valueClass}`}>
+        {value}
+      </div>
+      {hint && <div className="mt-1 text-[11px] text-ink-muted leading-snug">{hint}</div>}
     </div>
   );
 }

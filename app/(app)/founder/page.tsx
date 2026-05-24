@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole, AuthzError } from "@/lib/authz";
 import { assertCanAccess } from "@/lib/page-guard";
 import { revenueMtd } from "@/lib/kpi";
-import { getFounderProfile } from "@/lib/founder";
+import { getFounderProfile, getFounderRevenueTrend } from "@/lib/founder";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FounderDashboard } from "@/components/founder/FounderDashboard";
 
@@ -36,6 +36,12 @@ export default async function FounderPage() {
   }
 
   const profile = await getFounderProfile();
+  let trend = { monthlyHistory: [] as number[], avgMonthlyGrowth: 0, latestClosedMonth: 0 };
+  try {
+    trend = await getFounderRevenueTrend();
+  } catch {
+    // fall back to empty trend
+  }
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
@@ -50,6 +56,7 @@ export default async function FounderPage() {
         retirementAnnual={profile.retirementNumber}
         ownershipPercentage={profile.ownershipPercentage}
         canEdit={!!profile.personId}
+        revenueTrend={trend}
       />
     </main>
   );

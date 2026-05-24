@@ -1,58 +1,54 @@
 ## Goal
 
-Make the two "status" fields on a Quote unambiguous everywhere they appear in the dashboard, without touching Airtable field names or data.
+Redo the top "Path to Founder Replacement Income" section on `/founder` so it's the visual centerpiece: clean, sleek, hero-grade. Surface the three numbers that matter most + one new predictive metric.
 
-## The two fields, restated
+## New top-section content (4 KPIs)
 
-| Airtable field | What it actually tracks | Audience | Examples |
-|---|---|---|---|
-| `Status` | Internal sales/quote lifecycle — where the **proposal document** is in our workflow | Us (internal) | Draft · Sent. Awaiting Approval · Approved and Signed · Awaiting Payment · Paid · Cancelled · Rejected · Auditing 🚩 |
-| `Project Status` | Client-facing delivery milestones — where the **engagement** is in the 7-stage journey shown on the web quote | Client (visible) | Proposal Created → Proposal Accepted → Proposal Signed → Commencement Invoice Paid → First Draft Delivered → Project Accepted → Completion Invoice Paid |
+1. **% to goal** — large hero number + animated progress bar (already exists, refined)
+2. **Current yearly earnings (net)** — annualized founder take-home at today's run-rate (we already compute `current.founderNetAnnual`)
+3. **Monthly revenue needed** — kept, but demoted to a supporting stat
+4. **NEW — Predicted months to goal** — based on recent monthly revenue growth trend
 
-So: one is *"what is the paperwork doing?"*, the other is *"how far along is the actual project the client sees?"*.
+Everything below the hero (current-pace card, at-goal card, gap analysis, scenarios, assumptions) stays as-is.
 
-## Proposed display labels (UI only — Airtable fields untouched)
+## "Predicted months to goal" math
 
-- `Status` → **"Deal Stage"** (internal sales pipeline)
-- `Project Status` → **"Client Journey"** (client-facing delivery milestones)
+Fetch the last 6 closed months of paid-invoice revenue (same source as `buildRevenueSeries` in `lib/firm-pulse.ts`, but server-side helper scoped to founder page).
 
-Alternative pairs if you prefer different wording — pick one set, I'll apply it everywhere:
+```text
+recent_months   = last up-to-6 fully-closed months of paid revenue
+avg_growth_$    = mean of (month[i] - month[i-1]) over that window
+current_rev     = latest closed month (or live MTD if it already exceeds)
+gap_to_goal     = max(0, monthlyGoal - current_rev)
 
-1. **Deal Stage** / **Client Journey** ← recommended, clearest split
-2. **Sales Status** / **Delivery Stage**
-3. **Quote Status** / **Project Phase**
-4. **Internal Status** / **Client-Visible Stage**
+if current_rev >= monthlyGoal      → "At goal"
+else if avg_growth_$ <= 0          → "Trend flat/negative"
+else months_to_goal ≈ ceil(gap_to_goal / avg_growth_$)
+```
 
-## Where the relabel lands
+Display as `~N months` with a one-line subtext: `"based on +$X,XXX/mo avg growth (last 6 mo)"`. Edge cases ("at goal", "trend flat") render a short label instead of a number, never NaN/Infinity.
 
-Pipeline table (`components/pipeline/QuoteTable.tsx`):
-- Header "Status" → new internal label (e.g. "Deal Stage")
-- Header "Project" (the progress bar column) → new client label (e.g. "Client Journey")
-- Add a tiny `?` info icon on each header → hover tooltip with the one-line definition
+## Visual direction
 
-Quote drawer (`components/pipeline/QuoteSheet.tsx` + `QuoteSheetEditor.tsx`):
-- Header strip's mono "Status" chip relabeled
-- Editor section currently labeled "Project Status" relabeled to match
-- Add a one-line helper under each field: *"Internal sales pipeline — not shown to client"* / *"Client-visible delivery milestone — appears on the web quote"*
+Hero section becomes a layered card:
 
-Filter bar (`components/pipeline/FilterBar.tsx`):
-- Stage filter dropdown labeled with the new internal name
+- Eyebrow + title line unchanged
+- **Primary row:** giant % to goal (left, ~64px emerald) and animated gradient progress bar with shimmer
+- **Secondary KPI strip:** 3 sleek mini-tiles in a row — `Current yearly earnings` / `Predicted months to goal` / `Monthly revenue needed` — each with eyebrow, tabnum value, one-line context
+- Existing `Current month revenue` input + `Edit retirement #` action move into a compact, less prominent footer row inside the same card (still editable, just visually quieter)
+- Subtle inner glow + gradient border accent on the hero card to make it feel like the dashboard's centerpiece without breaking the existing dark/emerald system
 
-Legend / discoverability:
-- Add a small inline legend above the 7-segment bar in the drawer showing the 7 stages with the current one highlighted (replaces the hover-only tooltip you have to discover)
-- Keep the same compact bar in the table row (tooltip stays), since space is tight
+No new design tokens needed — uses existing `bg-surface`, `border-rule`, `emerald`, `ink-*`.
 
-Out of scope (per your earlier "no Airtable changes" rule):
-- Renaming the actual Airtable fields
-- Changing the 7-stage values, the internal Status enum, or any mutation logic
-- Adding/removing columns
+## Files to touch
 
-## Implementation notes (technical)
+- `lib/founder.ts` — add `getFounderRevenueTrend()` returning `{ monthlyHistory: number[], avgMonthlyGrowth: number, latestClosedMonth: number }`. Reuses the same Airtable paid-invoice query shape as `buildRevenueSeries`.
+- `app/(app)/founder/page.tsx` — call the new helper, pass trend data into `FounderDashboard`.
+- `components/founder/FounderDashboard.tsx` — accept new props, compute `monthsToGoal`, rebuild the top hero section layout. Everything below the hero is untouched.
+- `lib/founder-math.ts` — add a tiny pure helper `predictMonthsToGoal({ currentMonthlyRevenue, monthlyGoal, avgMonthlyGrowth })` returning `{ kind: "at-goal" | "flat" | "months", value?: number }`.
 
-- Centralize the two labels + their tooltip copy in a tiny `components/pipeline/labels.ts` (e.g. `DEAL_STAGE_LABEL`, `DEAL_STAGE_HELP`, `CLIENT_JOURNEY_LABEL`, `CLIENT_JOURNEY_HELP`) so future renames are one-file changes.
-- All underlying types (`PipelineQuote.status`, `PipelineQuote.projectStatus`, `QuoteDetail.status`, `QuoteDetail.projectStatus`) keep their current names — this is pure display.
-- No data-layer, mutation, or schema files change.
+## Out of scope
 
-## Question before I build
-
-Which label pair do you want? (1 Deal Stage / Client Journey is my pick, but say the word and I'll use any of the others — or your own wording.)
+- No changes to assumptions, scenario table, gap analysis, or projection cards.
+- No Airtable schema changes.
+- No new routes or nav entries.

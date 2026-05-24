@@ -145,7 +145,25 @@ export async function patchRecords<F = Record<string, unknown>>(
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(`Airtable PATCH ${tableIdOrName} failed (${resp.status}): ${body.slice(0, 300)}`);
-    }
+}
+
+export async function deleteRecord(
+  tableIdOrName: string,
+  recordId: string,
+): Promise<void> {
+  assertEnv();
+  const resp = await fetch(
+    `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(tableIdOrName)}/${recordId}`,
+    {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    },
+  );
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Airtable DELETE ${tableIdOrName}/${recordId} failed (${resp.status}): ${body.slice(0, 300)}`);
+  }
+}
     const data = (await resp.json()) as { records: AirtableRecord<F>[] };
     out.push(...data.records);
     if (i + 10 < patches.length) await new Promise((r) => setTimeout(r, 220));

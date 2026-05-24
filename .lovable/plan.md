@@ -1,46 +1,66 @@
-## Goal
+# Display-only metric upgrades (no Airtable changes)
 
-Make the Founder Dashboard per-founder by reading two values from Airtable's People table for the signed-in user:
-- `Retirement Number` — the founder's annual earnings target (currently hardcoded as $115K/mo = ~$1.38M/yr)
-- `Ownership Percentage` — the founder's share of monthly profit (currently hardcoded at 60%)
+Scope filter: only items where the field already exists in Airtable and is already pulled (or trivially pullable) by an existing `lib/*.ts` data layer. Anything that needs a new column, new table, new webhook, or new workflow is **out of scope** for this pass.
 
-Retirement Number becomes editable inline on the dashboard (saves to Airtable). Ownership Percentage is read-only display.
+---
 
-## Changes
+## 1. Home / Overview — new KPI tiles
 
-### 1. `lib/founder.ts` (new, server-only)
-- `getFounderProfile()` — resolves the signed-in user via `resolvePersonByEmail` (already used by `/me`), then fetches their People record fields `Retirement Number` and `Ownership Percentage`.
-- Returns `{ personId, name, retirementNumber: number | null, ownershipPercentage: number | null }`.
-- Normalizes ownership the same way `lib/scorecard.ts` normalizes commission (`> 1 ? /100 : value`) so Airtable percent fields work whether stored as `0.6` or `60`.
-- Cache tag: `["founder:profile"]`.
+`lib/firm-pulse.ts` already computes revenue + MRR + AR. Extend it (read-only, same cached calls) with:
 
-### 2. `lib/mutations/founder.ts` (new)
-- `updateRetirementNumber({ personId, value })` server action.
-- Gates with `requireRole("admin")` plus a self-check (signed-in email must resolve to `personId`) — same pattern as `lib/mutations/person.ts::updateAnnualEarningsGoal`.
-- `patchRecords(Tables.People.id, [{ id, fields: { "Retirement Number": value } }])`.
-- `revalidateTag("airtable")` + `revalidateTag("founder:profile")`.
+- **Leads YTD** — count of `Leads` with `Created Time` ≥ Jan 1.
+- **New Clients YTD** — count of distinct `Invoice Payer` whose first invoice landed YTD (already have all invoices via `listAllInvoices`).
+- **Lead → Sold conversion %** — `Sold / total leads YTD` from existing `lib/leads.ts` source.
+- **Active Projects** — count of Quotes/Projects where `Project Status` ∈ {Proposal Signed, Commencement Invoice Paid, First Draft Delivered}.
+- **Completed Projects YTD** — `Project Status = "Completion Invoice Paid"`, scoped to YTD.
+- **Revenue by Lead Source** — join `Leads.Source` → `Companies` → `Invoices` if linked, else show invoice-source mix (Stripe/Fiverr/Other) which we already have. Render as a tiny breakdown row, not a chart.
 
-### 3. `app/(app)/founder/page.tsx`
-- After the existing `requireRole("admin")` gate, call `getFounderProfile()`.
-- Pass `retirementNumber`, `ownershipPercentage`, `personId`, and a `canEdit` flag (self) into `<FounderDashboard />`.
-- If `retirementNumber` is null → fall back to current default ($115K/mo × 12) and show an empty editor.
-- If `ownershipPercentage` is null → fall back to `DEFAULT_ASSUMPTIONS.founderOwnership` (0.6) with a small "default — set in Airtable" hint.
+Render in `FirmPulse` as a second row of 4–6 small tiles under the existing hero KPIs. No new component primitives needed — reuse `HomeKpiCard`.
 
-### 4. `components/founder/FounderDashboard.tsx`
-- Accept new props: `personId`, `retirementAnnual: number | null`, `ownershipPercentage: number | null`, `ownershipSource: "airtable" | "default"`, `canEdit: boolean`.
-- Seed `monthlyGoal` from `retirementAnnual / 12` and `founderOwnership` from `ownershipPercentage` when present.
-- In the Hero "Monthly goal" tile, when `canEdit` show a small "Edit retirement #" affordance that opens an inline editor (annual dollar input) calling `updateRetirementNumber`. Optimistic update + `router.refresh()` — mirrors `components/me/GoalEditor.tsx`.
-- In the Assumptions panel:
-  - Remove the editable "Monthly revenue goal" and "Founder ownership" inputs (they're now driven by Airtable).
-  - Add two read-only rows showing the values + their source (Airtable / default).
-  - Keep the other assumptions (commissions, fixed cost, overhead, payroll tax) as local-only knobs — same as today.
+## 2. Money page — Late vs Unpaid split + Upcoming Payments
 
-### Out of scope
-- No multi-founder comparison view; the page shows the signed-in founder's numbers only.
-- No edits to `Ownership Percentage` from the UI (per request).
-- No changes to `lib/founder-math.ts` — all math stays pure; only the seed values change.
-- No regeneration of `lib/schema.ts`; the two new fields are passed by name (same approach already used for `Annual Earnings Goal` in `lib/scorecard.ts`).
+`Invoices.Invoice Status` already contains `"past due"`, `"open"`, `"sent"`, `"unsent"`, `"paid"`, `"subscribed"`, etc. `Date` field is already loaded.
 
-## Open question
+- **Split the existing "Open" KPI into two tiles:**
+  - **Unpaid (current)** — status ∈ {open, sent, unsent} AND `Date` ≥ today (or null).
+  - **Late** — status = `"past due"` OR (status ∈ open/sent/unsent AND `Date` < today).
+- **Upcoming Payments panel** — table of unpaid invoices sorted by `Date` ascending, next 30 days. Columns: payer, amount, due date, days-until. Place above the existing invoice table.
+- **Invoice Type breakdown strip** — small inline counts of `Invoice Type` (One-time / Recurring / Payment Plan) using the already-loaded field. Useful context, no chart.
 
-The dashboard is currently behind `requireRole("admin")`. If a non-founder admin (e.g. a lead later promoted) opens it, there's no People record with these fields. The plan falls back to defaults and disables the edit button in that case. Confirm that's acceptable, or specify which People should be treated as "founders" (e.g. a `Role = "Founder"` check) and what to show otherwise.
+## 3. Pipeline / Quotes — Project Status progress bar
+
+`Project Status` is a 7-stage enum already in `lib/schema.ts`. On the existing Quote rows and `QuoteSheet`, render a 7-segment progress bar (filled up to current stage). Pure visual; no data fetch changes.
+
+## 4. Engineering — bottleneck signal
+
+`Story Status` already powers the board. Add a one-line indicator above `EngineeringBoard`:
+- Count of stories stuck in `QA Review` > 7 days (use `Last Modified` if loaded; if not, skip — verify in build phase).
+- Count of `Analysis Required` stories (signals stalled discovery).
+
+Lightweight banner, same pattern as the existing stale-leads banner.
+
+---
+
+## Technical notes
+
+- All changes live in: `lib/firm-pulse.ts`, `components/home/FirmPulse.tsx`, `lib/money.ts` (only if we need a derived `isLate` flag), `components/money/MoneyDashboard.tsx`, `components/money/InvoiceTable.tsx` (new "Upcoming Payments" subcomponent), `components/pipeline/QuoteTable.tsx` + `QuoteSheet.tsx`, `components/engineering/EngineeringBoard.tsx`.
+- No new Server Actions. No mutations. No `lib/mutations/*` edits.
+- No `lib/schema.ts` changes — every field referenced is already mapped.
+- All reads go through existing `listRecordsCached` calls; we only widen the `fields[]` array where a needed field isn't yet requested (verified case-by-case in build phase).
+- Tag-based cache invalidation untouched.
+
+## Explicitly out of scope (deferred — needs Airtable changes or new workflows)
+
+- Project entity as distinct from Quote/Sprint
+- Change Orders
+- Discount Applied / Discounts Earned rollup
+- Active Contacts sub-table
+- Project Log / audit timeline
+- Handoff Folder
+- Client-facing external portal
+- Cal.com webhook → auto-Lead, new-Lead modal, CM notifications
+- Proposal Review workflow, Proposal Type enum, "Audited" status
+- 14-day project deadline flag
+- Retainer Relationships dedicated view
+
+These were in the earlier audit but each requires either a new Airtable field/table or a workflow change, which you've deferred.

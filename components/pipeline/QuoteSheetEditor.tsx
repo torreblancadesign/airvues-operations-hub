@@ -589,8 +589,8 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
   return (
     <>
       {/* SECTION 1: Quote details (client-visible header) */}
-      <Section title="Quote details" chip={<ClientVisibleChip />}>
-        <FieldRow label="Project name" chip={<ClientVisibleChip />} state={stateFor("projectName")}>
+      <Section title="Quote details" chip={<PortalChip />}>
+        <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")}>
           <TextField
             initialValue={quote.projectName}
             disabled={!canEdit}
@@ -599,7 +599,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Prepared by" chip={<ClientVisibleChip />} state={stateFor("preparedById")}>
+        <FieldRow label="Prepared by" chip={<PortalChip />} state={stateFor("preparedById")}>
           <PersonPicker
             value={quote.preparedById}
             options={people}
@@ -609,7 +609,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Prepared date" chip={<ClientVisibleChip />} state={stateFor("preparedDate")}>
+        <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")}>
           <input
             type="date"
             value={quote.preparedDate ?? ""}
@@ -621,7 +621,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Prepared for" chip={<ClientVisibleChip />} state={stateFor("preparedForId")}>
+        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")}>
           <PersonPicker
             value={quote.preparedForId}
             options={people}
@@ -631,7 +631,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Project status" chip={<ClientVisibleChip />} state={stateFor("projectStatus")}>
+        <FieldRow label="Project status" chip={<PortalChip />} state={stateFor("projectStatus")}>
           <select
             value={quote.projectStatus ?? ""}
             disabled={!canEdit}
@@ -649,7 +649,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           </select>
         </FieldRow>
 
-        <FieldRow label="Proposal type" chip={<ClientVisibleChip />} state={stateFor("proposalType")}>
+        <FieldRow label="Proposal type" chip={<PortalChip />} state={stateFor("proposalType")}>
           <select
             value={quote.proposalType ?? ""}
             disabled={!canEdit}

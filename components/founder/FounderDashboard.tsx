@@ -236,7 +236,7 @@ export function FounderDashboard({
             </div>
             {retirementError && <div className="text-[11px] text-red mt-2">{retirementError}</div>}
             <div className="text-[11px] text-ink-faint mt-2">
-              Annual target. Saves to your People record as Retirement Number. Monthly goal = retirement / 12.
+              Target annual NET take-home (after employer payroll tax). We back-solve the monthly revenue needed to reach it. Saves to your People record as Retirement Number.
             </div>
           </div>
         )}
@@ -271,7 +271,7 @@ export function FounderDashboard({
         />
         <ProjectionCard
           title="Founder earnings — at goal"
-          eyebrow={`At ${fmtUsd(a.monthlyGoal)}/mo`}
+          eyebrow={goalReachable ? `At ${fmtUsd(a.monthlyGoal)}/mo · your retirement #` : "Unreachable at current assumptions"}
           revenue={goal.revenue}
           monthlyProfit={goal.monthlyProfit}
           founderMonthly={goal.founderMonthly}

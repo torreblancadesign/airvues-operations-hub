@@ -8,6 +8,7 @@ import {
   loadStoryDetail,
   updateQuoteFields,
   attachQuoteDocuments,
+  triggerAiProposalAgent,
 } from "@/lib/mutations/quote";
 import type { Story } from "@/lib/engineering-types";
 import { StorySheet } from "@/components/engineering/StorySheet";
@@ -522,7 +523,100 @@ function Section({
   );
 }
 
+// ---------- Create AI Proposal button row ----------
+
+function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+}
+
+function CreateAiProposalRow({
+  canEdit,
+  hasClientInput,
+  aiContentReady,
+  isAgentRunning,
+  isTriggering,
+  pollStartedAt,
+  pollTick,
+  error,
+  onClick,
+}: {
+  canEdit: boolean;
+  hasClientInput: boolean;
+  aiContentReady: boolean;
+  isAgentRunning: boolean;
+  isTriggering: boolean;
+  pollStartedAt: number | null;
+  pollTick: number;
+  error: string | null;
+  onClick: () => void;
+}) {
+  // pollTick is read so React re-renders the elapsed counter every poll.
+  void pollTick;
+
+  const disabledReason = !canEdit
+    ? "Read-only access"
+    : !hasClientInput && !aiContentReady
+      ? "Add a problem statement or attach documents first."
+      : null;
+
+  const label = isTriggering
+    ? "Starting…"
+    : isAgentRunning
+      ? "Generating proposal…"
+      : aiContentReady
+        ? "Re-run AI Proposal"
+        : "Create AI Proposal";
+
+  const disabled = isTriggering || isAgentRunning || disabledReason !== null;
+
+  return (
+    <div className="px-5 py-4 border-t border-rule-soft bg-bg-elevated/40">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-[11px] text-ink-muted">
+          {isAgentRunning ? (
+            <>
+              <span className="text-sky font-medium">Generating proposal…</span>{" "}
+              <span className="text-ink-faint">
+                usually 1–2 minutes
+                {pollStartedAt ? ` · ${formatElapsed(Date.now() - pollStartedAt)} elapsed` : ""}
+              </span>
+            </>
+          ) : aiContentReady ? (
+            <span className="text-emerald">Proposal generated. Edits below override AI output.</span>
+          ) : (
+            "Once client input is captured, run the AI agent to draft the proposal + quote calculator."
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          title={disabledReason ?? undefined}
+          className={`px-3.5 py-2 text-[12px] font-semibold rounded transition-colors inline-flex items-center gap-2 ${
+            disabled
+              ? "bg-bg-elevated text-ink-faint border border-rule cursor-not-allowed"
+              : aiContentReady
+                ? "bg-bg-elevated text-ink border border-rule hover:border-emerald hover:text-emerald"
+                : "bg-emerald text-bg hover:bg-emerald/80"
+          }`}
+        >
+          {isAgentRunning || isTriggering ? (
+            <span className="inline-block w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+          ) : null}
+          <span>{label}</span>
+        </button>
+      </div>
+      {error ? (
+        <div className="mt-2 text-[11px] text-red">⚠ {error}</div>
+      ) : null}
+    </div>
+  );
+}
+
 // ---------- Main editor ----------
+
 
 export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
   const router = useRouter();
@@ -554,6 +648,54 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
     router.refresh();
   };
 
+  // ---- AI proposal trigger + polling ----
+  const [aiTriggering, setAiTriggering] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [pollStartedAt, setPollStartedAt] = useState<number | null>(null);
+  const [pollTick, setPollTick] = useState(0);
+  const isAgentRunning = quote?.runAiProposalAgent === true;
+
+  // Poll every 10s while the agent is running. Auto-stops when checkbox flips
+  // back to false (Airtable automation un-checks at completion) or after 5 min.
+  useEffect(() => {
+    if (!isAgentRunning) {
+      setPollStartedAt(null);
+      return;
+    }
+    if (pollStartedAt === null) setPollStartedAt(Date.now());
+    const startedAt = pollStartedAt ?? Date.now();
+    let alive = true;
+    const tick = setInterval(() => {
+      if (!alive) return;
+      // 5 min safety cutoff
+      if (Date.now() - startedAt > 5 * 60_000) {
+        clearInterval(tick);
+        return;
+      }
+      loadQuoteDetail(quoteId).then((res) => {
+        if (!alive) return;
+        if ("ok" in res) setQuote(res.quote);
+        setPollTick((t) => t + 1);
+      });
+    }, 10_000);
+    return () => {
+      alive = false;
+      clearInterval(tick);
+    };
+  }, [isAgentRunning, quoteId, pollStartedAt]);
+
+  const handleTriggerAi = async () => {
+    setAiError(null);
+    setAiTriggering(true);
+    const res = await triggerAiProposalAgent(quoteId);
+    setAiTriggering(false);
+    if ("ok" in res) {
+      setQuote(res.quote);
+      setPollStartedAt(Date.now());
+    } else {
+      setAiError(res.error);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -728,6 +870,28 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
             canEdit={canEdit}
           />
         </FieldRow>
+
+        <CreateAiProposalRow
+          canEdit={canEdit}
+          hasClientInput={
+            quote.customProblemStatement.trim().length > 0 || quote.documents.length > 0
+          }
+          aiContentReady={
+            quote.recommendedApproach.trim().length > 0 &&
+            quote.recommendedApproachSummary.trim().length > 0 &&
+            quote.projectOverview.trim().length > 0 &&
+            quote.problemStatementSolution.trim().length > 0 &&
+            quote.estimateHoursRange.trim().length > 0 &&
+            quote.estimateCostRange.trim().length > 0 &&
+            quote.stories.length > 0
+          }
+          isAgentRunning={isAgentRunning}
+          isTriggering={aiTriggering}
+          pollStartedAt={pollStartedAt}
+          pollTick={pollTick}
+          error={aiError}
+          onClick={handleTriggerAi}
+        />
       </Section>
 
       {/* SECTION 3: AI proposal output — client-visible */}

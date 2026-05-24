@@ -41,6 +41,8 @@ export type QuoteDetail = {
   problemStatementSolution: string;
   estimateHoursRange: string;
   estimateCostRange: string;
+  // AI automation trigger (checkbox)
+  runAiProposalAgent: boolean;
   // Stories + totals
   stories: QuoteStoryRow[];
   totalCost: number;

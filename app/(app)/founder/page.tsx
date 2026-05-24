@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { requireRole, AuthzError } from "@/lib/authz";
 import { assertCanAccess } from "@/lib/page-guard";
 import { revenueMtd } from "@/lib/kpi";
-import { getFounderProfile } from "@/lib/founder";
+import { getFounderProfile, getFounderRevenueTrend } from "@/lib/founder";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FounderDashboard } from "@/components/founder/FounderDashboard";
 

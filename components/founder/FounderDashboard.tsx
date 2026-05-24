@@ -235,6 +235,8 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
               onChange={(v) => setA({ ...a, fixedTeamCost: v })} />
             <NumInput label="Software / overhead ($/mo)" value={a.overhead} step={100}
               onChange={(v) => setA({ ...a, overhead: v })} />
+            <NumInput label="Employer payroll tax (%)" value={a.employerPayrollTaxRate * 100} step={0.05}
+              onChange={(v) => setA({ ...a, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">
               <p className="text-[11px] text-ink-faint">
                 Changes are local to this session — not saved to Airtable.

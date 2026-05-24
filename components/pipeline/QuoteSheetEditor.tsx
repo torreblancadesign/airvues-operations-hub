@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { upload } from "@vercel/blob/client";
+import { useRouter } from "next/navigation";
 import {
   loadQuoteDetail,
+  loadStoryDetail,
   updateQuoteFields,
   attachQuoteDocuments,
 } from "@/lib/mutations/quote";
+import type { Story } from "@/lib/engineering-types";
+import { StorySheet } from "@/components/engineering/StorySheet";
 import type {
   PersonOption,
   QuoteAttachment,

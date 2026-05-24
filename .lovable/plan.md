@@ -1,56 +1,37 @@
 ## Goal
 
-Add a **Create AI Proposal** button inside the "Client input for proposal" section that flips the Airtable checkbox `Run AI Proposal Agent` to true, then polls until the AI/calc fields show up.
+On the quote sheet's Stories side panel (the `StorySheet` drawer opened from `QuoteStoriesTable`), let editors edit **Story Name, Description, Hours, and Cost**, and **delete** the story.
 
-## Behavior
+Today `StorySheet` already supports inline-saved edits for Status, Priority, Hours, Hours worked, and Assignees. It does not edit Name, Description, or Cost (Airtable `Invoice`), and has no delete. The underlying mutation layer (`lib/mutations/story.ts`) also lacks those field patches and any delete action.
 
-**Button placement:** new footer row inside the "Client input for proposal" section, below the documents attachment row.
+## Changes
 
-**Disabled / grayed-out states (in order of precedence):**
-1. User is read-only (`canEdit === false`).
-2. **Inputs not filled out:** both `Custom Problem Statement` is empty AND no documents are attached. Tooltip: "Add a problem statement or attach documents first."
-3. **Already running:** the `Run AI Proposal Agent` checkbox is currently true on the record (button shows spinner + "Generating proposal…").
-4. **Already populated** (no re-runs from UI for now): if `recommendedApproach`, `recommendedApproachSummary`, `projectOverview`, `problemStatementSolution`, `estimateHoursRange`, and `estimateCostRange` are all non-empty AND at least one Story is linked, button is replaced with "Proposal generated · [Re-run]". Re-run is allowed but requires explicit click.
+### 1. `lib/mutations/story.ts`
+- Extend `StoryPatch` with `name?: string`, `description?: string`, `invoice?: number | null` (Airtable field = `Invoice`, surfaced as "Cost" in UI).
+- Extend `buildStoryFields` to map those onto `"Story Name"`, `"Description"`, `"Invoice"`.
+- Add new server action `deleteStory(storyId)`:
+  - `requireRole("admin","lead","editor")` via existing `gate()`.
+  - DELETE `https://api.airtable.com/v0/{baseId}/{Stories.id}/{storyId}` (add a small `deleteRecord` helper in `lib/airtable.ts` — single DELETE, same auth/error pattern as `getRecord`).
+  - Call `invalidateStoryCaches()` and also `revalidateTag("pipeline:quotes")` (the tag used for quote reads — confirm in `lib/quotes.ts`; fall back to umbrella `airtable` if name differs).
+  - Return `{ ok: true } | { error }`.
 
-**On click:**
-1. Server action sets `Run AI Proposal Agent = true` on the Quote.
-2. Drawer enters "generating" state and starts polling.
+### 2. `components/engineering/StorySheet.tsx`
+- Add optional props `onDeleted?: (id: string) => void` and `canDelete?: boolean` (defaults to `canEdit`).
+- Replace the static header title with an inline-editable Name input (same blur-to-save pattern as Hours), only when `canEdit`.
+- Add a new editable **Description** Field above Status — `<textarea>`, blur-to-save, only when `canEdit`. Keep the read-only Description block in the Context section for non-editors; hide it when the editable one is shown to avoid duplication.
+- Add a new editable **Cost (USD)** Field next to Hours — number input, blur-to-save, maps to `invoice`.
+- Hours editing already exists — no change.
+- Add a **Delete story** button in the action row at the bottom (red, with a `confirm()` guard). On success: call `onDeleted?.(story.id)` then `onClose()`. Show inline error on failure.
 
-**Polling:**
-- Every 10 seconds, call `loadQuoteDetail(quoteId)`.
-- Stop when the checkbox flips back to false (Airtable automation un-checks it at the end) OR after ~5 min timeout.
-- On stop, refresh local quote state (drawer fields + stories table re-render with new AI-generated content).
-- Poll loop is cancelled on drawer close, on quote switch, or on error.
-- Show inline progress copy: "Generating proposal… usually 1–2 minutes" + a small ticking elapsed counter.
+### 3. `components/pipeline/QuoteSheetEditor.tsx`
+- When rendering `StorySheet` for the quote drawer, pass `onDeleted={() => { setOpenStoryId(null); loadQuoteDetail(); }}` (or whatever the existing reload hook is) so the row disappears and totals recompute. Keep `canEdit` wiring as-is.
 
-## Technical Changes
+### 4. No changes needed to
+- `QuoteStoriesTable.tsx` — it just lists rows and opens the sheet.
+- Engineering board callers — new props are optional and default to safe values, so behavior there is unchanged (no delete button shown unless `canDelete` is passed).
 
-**`lib/quote-types.ts`**
-- Add `runAiProposalAgent: boolean` to `QuoteDetail`.
+## Technical notes
 
-**`lib/quotes.ts`** (`getQuoteDetail`)
-- Read the `Run AI Proposal Agent` field by name (not in `schema.ts` yet — pass through `fields` array as a string literal, same pattern used elsewhere for non-regenerated fields).
-- Map to `runAiProposalAgent` boolean (Airtable returns `true`/`undefined`).
-
-**`lib/mutations/quote.ts`**
-- New server action `triggerAiProposalAgent(quoteId)`:
-  - Validates quoteId.
-  - `gate()` (admin / lead / editor).
-  - `patchRecords(Tables.Quotes.id, [{ id, fields: { "Run AI Proposal Agent": true } }])`.
-  - `invalidateQuote(quoteId)`.
-  - Returns refreshed `QuoteDetail`.
-
-**`components/pipeline/QuoteSheetEditor.tsx`**
-- Add `CreateAiProposalButton` block at the end of the "Client input for proposal" section.
-- New local state: `aiTriggering` (during the initial mutation) and `aiPolling` (during the 10s polling loop) with a `pollStartedAt` timestamp for the elapsed counter.
-- `useEffect` that starts a `setInterval(10_000)` when `aiPolling` is true, calls `loadQuoteDetail`, updates `quote` state, and stops when `runAiProposalAgent` flips back to false or timeout reached. Always cleans up on unmount.
-- Compute `hasClientInput = customProblemStatement.trim().length > 0 || documents.length > 0`.
-- Compute `aiContentReady = all six AI fields non-empty && stories.length > 0`.
-- Render disabled-with-tooltip button until `hasClientInput`; show "Generating…" while `runAiProposalAgent === true`; show "Re-run" affordance when `aiContentReady`.
-
-## Out of scope
-
-- No new Airtable automation logic — we only flip the checkbox; the existing Airtable automation does the rest.
-- No webhook/realtime updates; polling only.
-- No edit to the AI output section UI itself (it just re-renders when the polled data arrives).
-- No tracking of last-run timestamp beyond what's already on the record.
+- Airtable field for "Cost" on Stories is `Invoice` (currency). Existing `createStory` uses the same mapping.
+- `Hours Worked`, `Status`, `Priority`, assignees stay editable as today — user only asked for the four fields + delete, but removing existing edits would be a regression, so we leave them.
+- Delete is destructive: confirm dialog + role gate on the server. Cache invalidation must hit both engineering (`engineering:stories`) and pipeline quote reads so the row vanishes from the quote totals immediately.

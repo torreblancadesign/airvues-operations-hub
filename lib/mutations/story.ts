@@ -4,11 +4,14 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { createRecords, patchRecords } from "../airtable";
+import { createRecords, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
 
 export type StoryPatch = {
+  name?: string;
+  description?: string;
+  invoice?: number | null;
   status?: string | null;
   priority?: string | null;
   hours?: number | null;
@@ -22,6 +25,9 @@ const SPRINT_FIELD_NAME = "📆Sprints";
 
 function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
+  if (patch.name !== undefined) fields["Story Name"] = patch.name;
+  if (patch.description !== undefined) fields["Description"] = patch.description;
+  if (patch.invoice !== undefined) fields["Invoice"] = patch.invoice;
   if (patch.status !== undefined) fields["Story Status"] = patch.status;
   if (patch.priority !== undefined) fields["Priority"] = patch.priority;
   if (patch.hours !== undefined) fields["Hours"] = patch.hours;
@@ -183,6 +189,19 @@ export async function createStory(input: CreateStoryInput): Promise<CreateStoryR
     const created = await createRecords(Tables.Stories.id, [{ fields }]);
     invalidateStoryCaches();
     return { ok: true, id: created[0]?.id ?? "" };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function deleteStory(storyId: string): Promise<MutationResult> {
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    await deleteRecord(Tables.Stories.id, storyId);
+    invalidateStoryCaches();
+    revalidateTag("pipeline:all-quotes");
+    return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }

@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Story } from "@/lib/engineering-types";
-import { updateStory } from "@/lib/mutations/story";
+import { updateStory, deleteStory } from "@/lib/mutations/story";
 
 type EngineerOption = { id: string; name: string };
 
@@ -11,7 +11,9 @@ type Props = {
   story: Story | null;
   engineers?: EngineerOption[];
   canEdit?: boolean;
+  canDelete?: boolean;
   onClose: () => void;
+  onDeleted?: (id: string) => void;
   onFilterByEngineer: (engineerId: string) => void;
   onFilterByClient: (client: string) => void;
 };
@@ -60,10 +62,13 @@ export function StorySheet({
   story,
   engineers = [],
   canEdit = false,
+  canDelete,
   onClose,
+  onDeleted,
   onFilterByEngineer,
   onFilterByClient,
 }: Props) {
+  const allowDelete = canDelete ?? canEdit;
   const [local, setLocal] = useState<Partial<Story>>({});
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -163,9 +168,23 @@ export function StorySheet({
               {savedFlash && !pending && <span className="text-emerald">· saved</span>}
               {error && <span className="text-red truncate">· {error}</span>}
             </div>
-            <h2 className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
-              {current.name}
-            </h2>
+            {canEdit ? (
+              <input
+                key={`name-${current.id}`}
+                type="text"
+                defaultValue={current.name}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val && val !== current.name) save({ name: val }, { name: val });
+                }}
+                className="w-full text-[15px] font-semibold text-ink-strong leading-tight bg-transparent border-b border-transparent focus:border-emerald focus:outline-none"
+              />
+            ) : (
+              <h2 className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
+                {current.name}
+              </h2>
+            )}
           </div>
           <button
             type="button"
@@ -283,9 +302,47 @@ export function StorySheet({
               All for {current.clientNames[0]}
             </button>
           )}
+          {allowDelete && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (!confirm(`Delete story "${current.name}"? This cannot be undone.`)) return;
+                setError(null);
+                startTransition(async () => {
+                  const result = await deleteStory(story!.id);
+                  if (!("ok" in result)) {
+                    setError(result.error);
+                  } else {
+                    onDeleted?.(story!.id);
+                    onClose();
+                  }
+                });
+              }}
+              className="px-3 py-1.5 text-[12px] bg-red/10 border border-red/40 text-red rounded hover:bg-red/20 transition-colors disabled:opacity-50"
+            >
+              Delete story
+            </button>
+          )}
         </div>
 
         <div className="px-5 py-2">
+          {/* Editable Description */}
+          {canEdit && (
+            <Field label="Description">
+              <textarea
+                key={`desc-${current.id}`}
+                defaultValue={current.description ?? ""}
+                disabled={pending}
+                rows={4}
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val !== (current.description ?? "")) save({ description: val }, { description: val });
+                }}
+                className={`${inputCls} w-full resize-y`}
+              />
+            </Field>
+          )}
           {/* Editable Status */}
           <Field label="Status">
             {canEdit ? (
@@ -343,6 +400,29 @@ export function StorySheet({
               <span>{current.hours ?? "—"} h</span>
             )}
           </Field>
+
+          {/* Editable Cost (Invoice) */}
+          <Field label="Cost (USD)">
+            {canEdit ? (
+              <input
+                key={`cost-${current.id}`}
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={current.cost ?? ""}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value === "" ? null : Number(e.target.value);
+                  if (val !== current.cost) save({ cost: val ?? 0 }, { invoice: val });
+                }}
+                className={`${inputCls} w-40`}
+              />
+            ) : (
+              <span>{current.cost != null ? `$${current.cost.toLocaleString()}` : "—"}</span>
+            )}
+          </Field>
+
+
 
           {/* Editable Hours Worked */}
           <Field label="Hours worked">

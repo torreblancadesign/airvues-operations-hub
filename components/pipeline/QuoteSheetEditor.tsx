@@ -555,6 +555,54 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
     router.refresh();
   };
 
+  // ---- AI proposal trigger + polling ----
+  const [aiTriggering, setAiTriggering] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [pollStartedAt, setPollStartedAt] = useState<number | null>(null);
+  const [pollTick, setPollTick] = useState(0);
+  const isAgentRunning = quote?.runAiProposalAgent === true;
+
+  // Poll every 10s while the agent is running. Auto-stops when checkbox flips
+  // back to false (Airtable automation un-checks at completion) or after 5 min.
+  useEffect(() => {
+    if (!isAgentRunning) {
+      setPollStartedAt(null);
+      return;
+    }
+    if (pollStartedAt === null) setPollStartedAt(Date.now());
+    const startedAt = pollStartedAt ?? Date.now();
+    let alive = true;
+    const tick = setInterval(() => {
+      if (!alive) return;
+      // 5 min safety cutoff
+      if (Date.now() - startedAt > 5 * 60_000) {
+        clearInterval(tick);
+        return;
+      }
+      loadQuoteDetail(quoteId).then((res) => {
+        if (!alive) return;
+        if ("ok" in res) setQuote(res.quote);
+        setPollTick((t) => t + 1);
+      });
+    }, 10_000);
+    return () => {
+      alive = false;
+      clearInterval(tick);
+    };
+  }, [isAgentRunning, quoteId, pollStartedAt]);
+
+  const handleTriggerAi = async () => {
+    setAiError(null);
+    setAiTriggering(true);
+    const res = await triggerAiProposalAgent(quoteId);
+    setAiTriggering(false);
+    if ("ok" in res) {
+      setQuote(res.quote);
+      setPollStartedAt(Date.now());
+    } else {
+      setAiError(res.error);
+    }
+  };
 
   useEffect(() => {
     let alive = true;

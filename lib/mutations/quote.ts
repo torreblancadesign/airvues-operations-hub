@@ -132,6 +132,25 @@ export async function loadStoryDetail(
   }
 }
 
+// Flip the Airtable "Run AI Proposal Agent" checkbox so the automation runs.
+export async function triggerAiProposalAgent(
+  quoteId: string,
+): Promise<MutationResult<{ quote: QuoteDetail }>> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    await patchRecords(Tables.Quotes.id, [
+      { id: quoteId, fields: { "Run AI Proposal Agent": true } },
+    ]);
+    invalidateQuote(quoteId);
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function updateQuoteFields(
   quoteId: string,
   patch: QuoteFieldPatch,

@@ -1,37 +1,46 @@
 ## Goal
 
-On the quote sheet's Stories side panel (the `StorySheet` drawer opened from `QuoteStoriesTable`), let editors edit **Story Name, Description, Hours, and Cost**, and **delete** the story.
+Make the Founder Dashboard per-founder by reading two values from Airtable's People table for the signed-in user:
+- `Retirement Number` — the founder's annual earnings target (currently hardcoded as $115K/mo = ~$1.38M/yr)
+- `Ownership Percentage` — the founder's share of monthly profit (currently hardcoded at 60%)
 
-Today `StorySheet` already supports inline-saved edits for Status, Priority, Hours, Hours worked, and Assignees. It does not edit Name, Description, or Cost (Airtable `Invoice`), and has no delete. The underlying mutation layer (`lib/mutations/story.ts`) also lacks those field patches and any delete action.
+Retirement Number becomes editable inline on the dashboard (saves to Airtable). Ownership Percentage is read-only display.
 
 ## Changes
 
-### 1. `lib/mutations/story.ts`
-- Extend `StoryPatch` with `name?: string`, `description?: string`, `invoice?: number | null` (Airtable field = `Invoice`, surfaced as "Cost" in UI).
-- Extend `buildStoryFields` to map those onto `"Story Name"`, `"Description"`, `"Invoice"`.
-- Add new server action `deleteStory(storyId)`:
-  - `requireRole("admin","lead","editor")` via existing `gate()`.
-  - DELETE `https://api.airtable.com/v0/{baseId}/{Stories.id}/{storyId}` (add a small `deleteRecord` helper in `lib/airtable.ts` — single DELETE, same auth/error pattern as `getRecord`).
-  - Call `invalidateStoryCaches()` and also `revalidateTag("pipeline:quotes")` (the tag used for quote reads — confirm in `lib/quotes.ts`; fall back to umbrella `airtable` if name differs).
-  - Return `{ ok: true } | { error }`.
+### 1. `lib/founder.ts` (new, server-only)
+- `getFounderProfile()` — resolves the signed-in user via `resolvePersonByEmail` (already used by `/me`), then fetches their People record fields `Retirement Number` and `Ownership Percentage`.
+- Returns `{ personId, name, retirementNumber: number | null, ownershipPercentage: number | null }`.
+- Normalizes ownership the same way `lib/scorecard.ts` normalizes commission (`> 1 ? /100 : value`) so Airtable percent fields work whether stored as `0.6` or `60`.
+- Cache tag: `["founder:profile"]`.
 
-### 2. `components/engineering/StorySheet.tsx`
-- Add optional props `onDeleted?: (id: string) => void` and `canDelete?: boolean` (defaults to `canEdit`).
-- Replace the static header title with an inline-editable Name input (same blur-to-save pattern as Hours), only when `canEdit`.
-- Add a new editable **Description** Field above Status — `<textarea>`, blur-to-save, only when `canEdit`. Keep the read-only Description block in the Context section for non-editors; hide it when the editable one is shown to avoid duplication.
-- Add a new editable **Cost (USD)** Field next to Hours — number input, blur-to-save, maps to `invoice`.
-- Hours editing already exists — no change.
-- Add a **Delete story** button in the action row at the bottom (red, with a `confirm()` guard). On success: call `onDeleted?.(story.id)` then `onClose()`. Show inline error on failure.
+### 2. `lib/mutations/founder.ts` (new)
+- `updateRetirementNumber({ personId, value })` server action.
+- Gates with `requireRole("admin")` plus a self-check (signed-in email must resolve to `personId`) — same pattern as `lib/mutations/person.ts::updateAnnualEarningsGoal`.
+- `patchRecords(Tables.People.id, [{ id, fields: { "Retirement Number": value } }])`.
+- `revalidateTag("airtable")` + `revalidateTag("founder:profile")`.
 
-### 3. `components/pipeline/QuoteSheetEditor.tsx`
-- When rendering `StorySheet` for the quote drawer, pass `onDeleted={() => { setOpenStoryId(null); loadQuoteDetail(); }}` (or whatever the existing reload hook is) so the row disappears and totals recompute. Keep `canEdit` wiring as-is.
+### 3. `app/(app)/founder/page.tsx`
+- After the existing `requireRole("admin")` gate, call `getFounderProfile()`.
+- Pass `retirementNumber`, `ownershipPercentage`, `personId`, and a `canEdit` flag (self) into `<FounderDashboard />`.
+- If `retirementNumber` is null → fall back to current default ($115K/mo × 12) and show an empty editor.
+- If `ownershipPercentage` is null → fall back to `DEFAULT_ASSUMPTIONS.founderOwnership` (0.6) with a small "default — set in Airtable" hint.
 
-### 4. No changes needed to
-- `QuoteStoriesTable.tsx` — it just lists rows and opens the sheet.
-- Engineering board callers — new props are optional and default to safe values, so behavior there is unchanged (no delete button shown unless `canDelete` is passed).
+### 4. `components/founder/FounderDashboard.tsx`
+- Accept new props: `personId`, `retirementAnnual: number | null`, `ownershipPercentage: number | null`, `ownershipSource: "airtable" | "default"`, `canEdit: boolean`.
+- Seed `monthlyGoal` from `retirementAnnual / 12` and `founderOwnership` from `ownershipPercentage` when present.
+- In the Hero "Monthly goal" tile, when `canEdit` show a small "Edit retirement #" affordance that opens an inline editor (annual dollar input) calling `updateRetirementNumber`. Optimistic update + `router.refresh()` — mirrors `components/me/GoalEditor.tsx`.
+- In the Assumptions panel:
+  - Remove the editable "Monthly revenue goal" and "Founder ownership" inputs (they're now driven by Airtable).
+  - Add two read-only rows showing the values + their source (Airtable / default).
+  - Keep the other assumptions (commissions, fixed cost, overhead, payroll tax) as local-only knobs — same as today.
 
-## Technical notes
+### Out of scope
+- No multi-founder comparison view; the page shows the signed-in founder's numbers only.
+- No edits to `Ownership Percentage` from the UI (per request).
+- No changes to `lib/founder-math.ts` — all math stays pure; only the seed values change.
+- No regeneration of `lib/schema.ts`; the two new fields are passed by name (same approach already used for `Annual Earnings Goal` in `lib/scorecard.ts`).
 
-- Airtable field for "Cost" on Stories is `Invoice` (currency). Existing `createStory` uses the same mapping.
-- `Hours Worked`, `Status`, `Priority`, assignees stay editable as today — user only asked for the four fields + delete, but removing existing edits would be a regression, so we leave them.
-- Delete is destructive: confirm dialog + role gate on the server. Cache invalidation must hit both engineering (`engineering:stories`) and pipeline quote reads so the row vanishes from the quote totals immediately.
+## Open question
+
+The dashboard is currently behind `requireRole("admin")`. If a non-founder admin (e.g. a lead later promoted) opens it, there's no People record with these fields. The plan falls back to defaults and disables the edit button in that case. Confirm that's acceptable, or specify which People should be treated as "founders" (e.g. a `Role = "Founder"` check) and what to show otherwise.

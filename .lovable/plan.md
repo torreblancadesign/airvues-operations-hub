@@ -1,86 +1,76 @@
+## Founder Dashboard — /founder
 
-## Goal
+A private, admin-only page that translates monthly revenue into projected founder replacement income and tracks progress to a $115K/mo goal.
 
-Let users upload supporting documents from the Lead drawer, in addition to whatever was added in Airtable. Files round-trip into the existing `Attach Supporting Documentations` field on the Lead record.
+### Routing & access
 
-## Approach
+- New route: `app/(app)/founder/page.tsx` (Server Component).
+- Add to `lib/nav.ts` as a brand-new nav group `"founder"` (label "Founder") so it sits in its own section in the Sidebar / MobileNav / Home jump-cards. Single entry: `{ href: "/founder", label: "Founder Dashboard", group: "founder", showInSidebar: true, showOnHome: false }`.
+- Access gating (defense in depth, matching existing patterns):
+  1. Page top: `await requireRole("admin")` — hard server-side gate. Non-admins get redirected/error (use the same try/catch + `redirect("/")` shape used elsewhere when convenient, or let AuthzError bubble).
+  2. Add a new `Permission` value `"Founder"` to `lib/permissions.ts` and map `founder: "Founder"` in `ROUTE_PERMISSION` + a new `GROUP_PERMISSION.founder = "Founder"` so the nav item is hidden from anyone without the Founder permission, even if somehow admin. This mirrors how Revenue/Delivery/Operations are gated.
+  3. Founders get the `"Founder"` permission added to their People.Permissions multi-select in Airtable (one-time, manual — call out in delivery notes).
 
-Airtable's REST API only accepts attachments by URL — it then fetches and mirrors the file into its own storage. So we need to host the file somewhere public-readable just long enough for Airtable to grab it. We'll use **Vercel Blob** (native to the existing Vercel deploy).
+### Data
 
-Upload flow:
-```text
-Browser ── (1) direct PUT ──▶ Vercel Blob
-   │                              │
-   │                              └── returns public URL
-   │
-   └── (2) server action ─▶ Airtable PATCH (append URL to attachment field)
+- Current month revenue comes from `revenueMtd()` in `lib/kpi.ts` (already exists, cached, paid invoices MTD). Pass `kpi.value ?? 0` to the client.
+- No new Airtable reads. No mutations. No schema changes.
+- All projection math runs in the client so assumptions sliders feel instant.
+
+### File layout
+
+```
+app/(app)/founder/page.tsx          Server component: requireRole("admin"),
+                                    fetches revenueMtd(), renders <FounderDashboard
+                                    currentMonthRevenue=... />
+components/founder/FounderDashboard.tsx   Client component, owns assumptions state +
+                                          editable Current Month Revenue override
+components/founder/types.ts         Assumptions type + default constants
+lib/founder-math.ts                 Pure helpers: monthlyProfit, founderMonthly,
+                                    founderAnnual, given assumptions
+lib/nav.ts                          + new "founder" group + nav item
+lib/permissions.ts                  + "Founder" permission, route + group mapping
 ```
 
-Why direct client→Blob (not server-streamed): Vercel serverless has a 4.5 MB request body cap. The official `@vercel/blob/client` flow sidesteps that and supports up to 5 GB.
+### Component breakdown (single client component, internally sectioned)
 
-## One-time setup you'll do
+1. **Path to Founder Replacement Income** — big hero card. Uses existing `GoalBar` (`components/home/GoalBar.tsx`) with `value=currentMonthRevenue`, `target=monthlyGoal`, currency formatter. Shows current / goal / progress % / remaining.
+2. **Founder Earnings Projection** (current pace) — KPI card grid using `StatCard`: monthly revenue, monthly profit, ownership %, founder monthly, founder annualized. Tag-line: "Based on the current monthly revenue pace…".
+3. **Goal Earnings** card — same shape, computed at `monthlyGoal`. Includes the tax/structure caveat note.
+4. **Gap to Replacement Income** card — current annualized vs goal annualized, delta, additional monthly revenue needed (= goal - current revenue, floored at 0).
+5. **Revenue Scenario Table** — rows $40K / 50K / 75K / 100K / 115K / 130K / 150K with profit, founder monthly, founder annualized, progress to goal. Tabular numbers, monospace, highlight the row closest to current revenue.
+6. **Assumptions panel** — collapsible card at the bottom with number inputs for: monthly goal, founder ownership %, engineer commission %, Shania commission %, fixed team cost, software/overhead. Editing any value live-updates all the cards + table (React state, no persistence — call out as v1 limitation).
+7. **Current Month Revenue override** — small inline edit affordance on the hero card: defaults to `revenueMtd` value; if zero or admin wants to model, they can override locally. State only.
 
-In Vercel → Storage → Create Blob Store → it auto-populates `BLOB_READ_WRITE_TOKEN` in the project env. I'll flag this clearly when shipping; the mutation throws a friendly "Blob store not configured" error until it's there.
+### Design
 
-## Scope
+- Reuse `PageHeader`, `SectionTitle`, `StatCard`, `GoalBar`, surface/rule tokens — matches the rest of the app's dark, JetBrains-Mono-numerics look.
+- Layout: hero card full-width; projection + goal earnings side-by-side on `md:`; gap card full-width; scenario table full-width; assumptions panel full-width collapsible.
+- Currency: `Intl.NumberFormat USD, maximumFractionDigits: 0`. Percent: one decimal place per spec.
 
-- Drag-and-drop + click-to-pick uploader inside the existing Attachments block on `LeadSheet`.
-- Multi-file uploads with per-file progress + error states + cancel.
-- Limits: **25 MB per file**, **10 files per batch**, common doc/image types (pdf, png, jpg, jpeg, webp, gif, doc, docx, txt, csv, xls, xlsx, ppt, pptx, mp4, mov).
-- Appends to existing attachments — never replaces.
-- Optimistic UI: newly-uploaded items appear immediately, reconciled with Airtable's response (which includes the real `id`, `size`, `type`, thumbnails).
-- Gated on the existing `canEdit` (admin / lead / editor). Engineers + clients see view-only list.
+### Formulas (centralized in `lib/founder-math.ts`)
 
-Out of scope: deleting attachments, inline previews, applying the same uploader to stories. Easy follow-ups.
-
-## Changes
-
-### 1. `package.json`
-Add `@vercel/blob`.
-
-### 2. `app/api/leads/upload/route.ts` (new)
-Server route that wraps `@vercel/blob/client`'s `handleUpload`. It:
-- Calls `requireRole("admin", "lead", "editor")` — uploads are auth-gated.
-- Validates `leadId` exists, filename, contentType against allowlist, size ≤ 25 MB.
-- Returns a short-lived client token scoped to pathname `leads/{leadId}/{timestamp}-{sanitized-filename}`.
-- `onUploadCompleted` callback is a no-op (we handle the Airtable PATCH from the client after upload, so we get the response back).
-
-### 3. `lib/mutations/lead.ts` — add `attachLeadFiles`
-```ts
-attachLeadFiles({ leadId, files: [{ url, filename }] })
 ```
-- `requireRole("admin", "lead", "editor")`, zod validation.
-- Reads current `Attach Supporting Documentations` array from the Lead, appends new `{url, filename}` entries.
-- `patchRecords(Tables.Leads.id, …)` using the field ID from `Tables.Leads.fields["Attach Supporting Documentations"].id`.
-- Returns the rehydrated attachment objects from Airtable's response so the UI can swap in real ids/sizes/types.
-- `revalidateTag("airtable")` + `revalidateTag("leads:all")`.
+variableRate     = engineerCommission + shaniaCommission   // default 0.325
+fixedMonthly     = teamCost + overhead                     // default 12000
+monthlyProfit    = revenue * (1 - variableRate) - fixedMonthly
+founderMonthly   = monthlyProfit * founderOwnership
+founderAnnual    = founderMonthly * 12
+progressToGoal   = revenue / monthlyGoal
+```
 
-### 4. `components/leads/LeadSheet.tsx`
-Extend the existing `Attachments` component:
-- Keep the read-only list at top.
-- Below, when `canEdit`, render a drop zone (`<div>` with `onDragOver` / `onDrop` + hidden `<input type="file" multiple>`).
-- On file select: call `upload()` from `@vercel/blob/client` with `handleUploadUrl: "/api/leads/upload"` and lead context in `clientPayload`. Each upload returns a `PutBlobResult` with the public URL.
-- After all in-batch uploads succeed, call `attachLeadFiles` once with the full set, then swap optimistic rows for the real attachments.
-- Per-file row shows: icon, filename, progress bar (driven by `onUploadProgress`), cancel button, error + retry on failure.
-- Match the existing `useTransition` pattern from `StatusEditor` / `TranscriptEditor`.
+Defaults match the spec exactly ($115K, 0.60, 0.225, 0.10, $11K, $1K).
 
-### 5. Docs
-Add a one-liner to `HANDOVER.md` under env vars: `BLOB_READ_WRITE_TOKEN` (auto-set when Blob store is created in Vercel).
+### Out of scope (v1)
 
-## Technical Notes
+- Persisting assumption tweaks to Airtable or env (state lives in React only).
+- Historical revenue trend chart.
+- Tax modeling.
+- Showing on /home or any non-founder surface.
 
-- **Pathname**: `leads/{leadId}/{Date.now()}-{sanitizedFilename}` keeps things grouped + collision-free. `addRandomSuffix: false` because the timestamp prefix already disambiguates.
-- **Filename sanitization**: keep alphanumerics, `.`, `_`, `-`; strip everything else; cap at 200 chars before the timestamp prefix. Display name preserved in Airtable's `filename` field.
-- **MIME allowlist** enforced both client-side (immediate UX) and server-side in `handleUpload` (security).
-- **Orphan blobs**: if blob upload succeeds but the Airtable PATCH fails, the blob is left in the bucket. Acceptable for now; documented in code. A cleanup cron is a later concern.
-- **No schema changes** to `lib/leads.ts` — the `attachments` array type already exists.
+### Verification
 
-## Verification
-
-1. `npx tsc --noEmit`
-2. `npm run build`
-3. Local: with `BLOB_READ_WRITE_TOKEN` set, sign in as admin → open lead → drop a 15 MB PDF + a PNG → progress bars complete → list updates → refresh → both still there → check Airtable web UI → files present.
-4. Drag a 30 MB file → rejected client-side with clear message.
-5. Drag a `.exe` → rejected client-side.
-6. Sign in as engineer → drop zone hidden, existing files still listed + downloadable.
-7. Curl `/api/leads/upload` unauthenticated → 401/403.
+- `npx tsc --noEmit` + `npm run build` both clean.
+- As an admin user: `/founder` renders, current MTD revenue prefilled, sliders update everything live.
+- As a non-admin (engineer/client): `/founder` redirects, and the nav item is not visible in Sidebar/MobileNav.
+- Hand-check the worked examples in the spec ($40K → $108K annualized; $115K → $472,500 annualized).

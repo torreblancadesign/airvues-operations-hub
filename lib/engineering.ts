@@ -399,6 +399,8 @@ function tallyGlobal(stories: Story[]): EngineeringBoardData["totals"] {
   let earnedInvoice = 0;
   let earnedCommission = 0;
   let overBudgetCount = 0;
+  let qaReviewCount = 0;
+  let analysisRequiredCount = 0;
 
   for (const s of stories) {
     if (s.status === "Archived" || s.status === "On Hold") continue;
@@ -414,6 +416,8 @@ function tallyGlobal(stories: Story[]): EngineeringBoardData["totals"] {
     if (ACTIVE_STATUSES.includes(s.status ?? "")) activeStories++;
     if (s.assigneeIds.length === 0 && s.status !== DONE_STATUS) orphanStories++;
     if (s.budgetPctUsed != null && s.budgetPctUsed > 1) overBudgetCount++;
+    if (s.status === "QA Review") qaReviewCount++;
+    if (s.status === "Analysis Required") analysisRequiredCount++;
   }
 
   return {
@@ -426,6 +430,8 @@ function tallyGlobal(stories: Story[]): EngineeringBoardData["totals"] {
     earnedInvoice,
     earnedCommission,
     overBudgetCount,
+    qaReviewCount,
+    analysisRequiredCount,
   };
 }
 

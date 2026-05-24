@@ -19,6 +19,38 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
+const PROJECT_STAGES = [
+  "Proposal Created",
+  "Proposal Accepted",
+  "Proposal Signed",
+  "Commencement Invoice Paid",
+  "First Draft Delivered",
+  "Project Accepted",
+  "Completion Invoice Paid",
+];
+
+function ProjectProgress({ status }: { status: string | null }) {
+  const idx = status ? PROJECT_STAGES.indexOf(status) : -1;
+  const filled = idx >= 0 ? idx + 1 : 0;
+  const done = idx === PROJECT_STAGES.length - 1;
+  return (
+    <div
+      className="inline-flex items-center gap-[2px]"
+      title={status ?? "No project status"}
+      aria-label={`Project stage ${filled} of ${PROJECT_STAGES.length}`}
+    >
+      {PROJECT_STAGES.map((_, i) => (
+        <span
+          key={i}
+          className={`block h-1.5 w-2 rounded-sm ${
+            i < filled ? (done ? "bg-emerald" : "bg-sky") : "bg-rule"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
 function statusPill(status: string | null): string {
   switch (status) {
     case "Paid":
@@ -70,13 +102,14 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <SortHeader label="Client" active={sort.key === "client"} dir={sort.dir} onClick={() => toggle("client")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Prep By</th>
               <SortHeader label="Status" active={sort.key === "status"} dir={sort.dir} onClick={() => toggle("status")} />
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Project</th>
               <SortHeader label="Days" align="right" active={sort.key === "daysSinceSent"} dir={sort.dir} onClick={() => toggle("daysSinceSent")} />
               <SortHeader label="Amount" align="right" active={sort.key === "totalCost"} dir={sort.dir} onClick={() => toggle("totalCost")} />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
               rows.map((q) => {
                 const days = daysSince(q.preparedDate);
@@ -92,6 +125,9 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                       <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${statusPill(q.status)}`}>
                         {q.status ?? "—"}
                       </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <ProjectProgress status={q.projectStatus} />
                     </td>
                     <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${stale ? "text-red font-semibold" : "text-ink-muted"}`}>
                       {days != null ? `${days}d` : "—"}

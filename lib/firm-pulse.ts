@@ -6,6 +6,8 @@ import "server-only";
 
 import { revenueYtd, revenueMtd, mrr, openReceivables } from "./kpi";
 import { listAllQuotes } from "./pipeline";
+import { listAllLeads } from "./leads";
+import { listAllInvoices } from "./money";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 
@@ -35,6 +37,8 @@ export type RevenueWindow = {
   series: TrendPoint[]; // cumulative collected revenue over the window
 };
 
+export type SourceSlice = { source: string; revenue: number; count: number };
+
 export type FirmPulse = {
   revenue: { ytd: RevenueWindow; mtd: RevenueWindow };
   booked: { ytd: { value: number; count: number }; mtd: { value: number; count: number } };
@@ -47,6 +51,11 @@ export type FirmPulse = {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
     mtd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
   };
+  // Display-only extras (no Airtable schema changes)
+  leadsYtd: { count: number; sold: number; conversionPct: number };
+  newClientsYtd: { count: number };
+  projects: { active: number; completedYtd: number };
+  revenueBySource: SourceSlice[]; // invoice-source mix, paid YTD
 };
 
 function buildRevenueWindow(
@@ -150,13 +159,15 @@ async function buildRevenueSeries(): Promise<{ ytd: TrendPoint[]; mtd: TrendPoin
 }
 
 export async function getFirmPulse(): Promise<FirmPulse> {
-  const [revYtd, revMtd, mrrRes, ar, quotes, series] = await Promise.all([
+  const [revYtd, revMtd, mrrRes, ar, quotes, series, leads, invoices] = await Promise.all([
     revenueYtd(),
     revenueMtd(),
     mrr(),
     openReceivables(),
     listAllQuotes(),
     buildRevenueSeries(),
+    listAllLeads().catch(() => []),
+    listAllInvoices().catch(() => []),
   ]);
 
   const now = new Date();
@@ -217,6 +228,65 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     }
   }
 
+  // ── Leads YTD + conversion ────────────────────────────────
+  let leadsYtdCount = 0;
+  let leadsYtdSold = 0;
+  for (const l of leads) {
+    if (!l.createdTime) continue;
+    if (l.createdTime.slice(0, 10) < yearStart) continue;
+    leadsYtdCount += 1;
+    if (l.status === "Sold") leadsYtdSold += 1;
+  }
+  const leadConvPct = leadsYtdCount > 0 ? leadsYtdSold / leadsYtdCount : 0;
+
+  // ── Projects (from Quote.projectStatus) ───────────────────
+  const PROJECT_ACTIVE = new Set([
+    "Proposal Signed",
+    "Commencement Invoice Paid",
+    "First Draft Delivered",
+    "Project Accepted",
+  ]);
+  let projectsActive = 0;
+  let projectsCompletedYtd = 0;
+  for (const q of quotes) {
+    const ps = q.projectStatus;
+    if (!ps) continue;
+    if (PROJECT_ACTIVE.has(ps)) projectsActive += 1;
+    if (ps === "Completion Invoice Paid") {
+      const ref = q.signedDate ?? q.preparedDate;
+      if (ref && ref >= yearStart) projectsCompletedYtd += 1;
+    }
+  }
+
+  // ── New clients YTD (first paid invoice this year) ────────
+  const firstPaidByPayer = new Map<string, string>();
+  for (const inv of invoices) {
+    if (inv.status !== "paid") continue;
+    const payer = inv.payerRecordId ?? inv.payer;
+    if (!payer || !inv.date) continue;
+    const prev = firstPaidByPayer.get(payer);
+    if (!prev || inv.date < prev) firstPaidByPayer.set(payer, inv.date);
+  }
+  let newClientsYtd = 0;
+  for (const d of firstPaidByPayer.values()) {
+    if (d >= yearStart) newClientsYtd += 1;
+  }
+
+  // ── Revenue by invoice source, YTD paid ───────────────────
+  const sourceTotals = new Map<string, { revenue: number; count: number }>();
+  for (const inv of invoices) {
+    if (inv.status !== "paid" || !inv.date) continue;
+    if (inv.date < yearStart) continue;
+    const key = inv.source ?? "Other";
+    const cur = sourceTotals.get(key) ?? { revenue: 0, count: 0 };
+    cur.revenue += inv.amount;
+    cur.count += 1;
+    sourceTotals.set(key, cur);
+  }
+  const revenueBySource: SourceSlice[] = Array.from(sourceTotals.entries())
+    .map(([source, v]) => ({ source, revenue: v.revenue, count: v.count }))
+    .sort((a, b) => b.revenue - a.revenue);
+
   const annualTarget = revYtd.target ?? 500_000;
   const monthlyTarget = revMtd.target ?? annualTarget / 12;
 
@@ -259,5 +329,9 @@ export async function getFirmPulse(): Promise<FirmPulse> {
         sent: sentMtd,
       },
     },
+    leadsYtd: { count: leadsYtdCount, sold: leadsYtdSold, conversionPct: leadConvPct },
+    newClientsYtd: { count: newClientsYtd },
+    projects: { active: projectsActive, completedYtd: projectsCompletedYtd },
+    revenueBySource,
   };
 }

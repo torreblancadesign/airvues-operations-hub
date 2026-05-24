@@ -323,6 +323,69 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
           }
         />
       </div>
+
+      {/* ── Funnel & projects row (YTD) ────────────────── */}
+      <div className="lg:col-span-12 grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Satellite
+          href="/leads"
+          label="Leads YTD"
+          value={pulse.leadsYtd.count.toLocaleString()}
+          numeric={pulse.leadsYtd.count}
+          format="number"
+          delay={600}
+          tone="sky"
+          sub={
+            <>
+              <span className="text-ink-strong tabnum">{pulse.leadsYtd.sold}</span> sold ·{" "}
+              <span className="tabnum">{Math.round(pulse.leadsYtd.conversionPct * 100)}%</span> lead conv.
+            </>
+          }
+        />
+        <Satellite
+          href="/clients"
+          label="New Clients YTD"
+          value={pulse.newClientsYtd.count.toLocaleString()}
+          numeric={pulse.newClientsYtd.count}
+          format="number"
+          delay={680}
+          tone="emerald"
+          sub={<>First paid invoice landed this year</>}
+        />
+        <Satellite
+          href="/pipeline?stage=active"
+          label="Active Projects"
+          value={pulse.projects.active.toLocaleString()}
+          numeric={pulse.projects.active}
+          format="number"
+          delay={760}
+          tone={pulse.projects.active > 0 ? "sky" : "neutral"}
+          sub={
+            <>
+              <span className="text-ink-strong tabnum">{pulse.projects.completedYtd}</span> completed YTD
+            </>
+          }
+        />
+        <Satellite
+          href="/money"
+          label="Revenue by Source · YTD"
+          value={pulse.revenueBySource[0] ? fmt(pulse.revenueBySource[0].revenue) : "—"}
+          sub={
+            pulse.revenueBySource.length === 0 ? (
+              <>No paid invoices yet</>
+            ) : (
+              <>
+                {pulse.revenueBySource.slice(0, 3).map((s, i) => (
+                  <span key={s.source}>
+                    {i > 0 && " · "}
+                    <span className="text-ink-strong">{s.source}</span>{" "}
+                    <span className="tabnum">{fmtCompact(s.revenue)}</span>
+                  </span>
+                ))}
+              </>
+            )
+          }
+        />
+      </div>
       </div>
     </div>
   );

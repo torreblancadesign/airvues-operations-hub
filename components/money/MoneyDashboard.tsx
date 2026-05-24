@@ -120,13 +120,20 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
     let paidCount = 0;
     let open = 0;
     let openCount = 0;
+    let unpaidCurrent = 0;
+    let unpaidCurrentCount = 0;
+    let lateAmount = 0;
+    let lateCount = 0;
     let mrr = 0;
     let mtdRevenue = 0;
     let mtdPaidCount = 0;
+    const typeCounts = { "One-time": 0, Recurring: 0, "Payment Plan": 0 } as Record<string, number>;
     const now = new Date();
+    const todayISO = now.toISOString().slice(0, 10);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     for (const r of invoices) {
+      if (r.type && typeCounts[r.type] != null) typeCounts[r.type] += 1;
       if (r.status === "paid") {
         totalRevenue += r.amount;
         totalMarginProfit += r.marginProfit ?? 0;
@@ -140,9 +147,18 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
           }
         }
       }
-      if (r.status && ["open", "sent", "unsent", "past due"].includes(r.status)) {
+      const isOpenish = r.status && ["open", "sent", "unsent", "past due"].includes(r.status);
+      if (isOpenish) {
         open += r.amount;
         openCount += 1;
+        const overdue = r.status === "past due" || (r.date != null && r.date < todayISO);
+        if (overdue) {
+          lateAmount += r.amount;
+          lateCount += 1;
+        } else {
+          unpaidCurrent += r.amount;
+          unpaidCurrentCount += 1;
+        }
       }
       if (r.type === "Recurring" && (r.status === "subscribed" || r.status === "send subscription link" || r.status === "paid")) {
         mrr += r.amount;
@@ -150,7 +166,22 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
     }
     const avgInvoice = paidCount > 0 ? totalRevenue / paidCount : 0;
     const marginPct = totalRevenue > 0 ? (totalMarginProfit / totalRevenue) * 100 : 0;
-    return { totalRevenue, totalMarginProfit, totalOverhead, paidCount, open, openCount, mrr, avgInvoice, marginPct, mtdRevenue, mtdPaidCount };
+    return { totalRevenue, totalMarginProfit, totalOverhead, paidCount, open, openCount, unpaidCurrent, unpaidCurrentCount, lateAmount, lateCount, typeCounts, mrr, avgInvoice, marginPct, mtdRevenue, mtdPaidCount };
+  }, [invoices]);
+
+  // Next 30 days of unpaid invoices, sorted by due date.
+  const upcoming = useMemo(() => {
+    const now = Date.now();
+    const horizon = now + 30 * 86_400_000;
+    return invoices
+      .filter((r) => {
+        if (!r.status || !["open", "sent", "unsent"].includes(r.status)) return false;
+        if (!r.date) return false;
+        const t = new Date(r.date).getTime();
+        return t >= now - 86_400_000 && t <= horizon;
+      })
+      .sort((a, b) => (a.date! < b.date! ? -1 : 1))
+      .slice(0, 8);
   }, [invoices]);
 
   const aging = useMemo(() => arAgingBuckets(invoices), [invoices]);
@@ -231,15 +262,23 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
         />
       </div>
 
-      {/* Outstanding + MRR row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+      {/* Outstanding split — Unpaid (current) vs Late · MRR */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <StatCard
-          label="Outstanding"
-          tone="red"
-          value={fmtCurrency(kpis.open)}
-          sub={`${kpis.openCount} unpaid invoices`}
+          label="Unpaid (current)"
+          tone="amber"
+          value={fmtCurrency(kpis.unpaidCurrent)}
+          sub={`${kpis.unpaidCurrentCount} invoices · not yet past due`}
           active={filter.status === "open"}
           onClick={() => setStatus("open")}
+        />
+        <StatCard
+          label="Late"
+          tone="red"
+          value={fmtCurrency(kpis.lateAmount)}
+          sub={`${kpis.lateCount} past due`}
+          active={filter.status === "overdue"}
+          onClick={() => setStatus("overdue")}
         />
         <StatCard
           label="MRR"
@@ -248,6 +287,67 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
           sub="Recurring · subscribed"
         />
       </div>
+
+      {/* Invoice type mix strip */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-muted">
+        <span className="font-mono uppercase tracking-wider text-ink-faint">Invoice mix:</span>
+        <span>
+          <span className="text-ink-strong tabnum">{kpis.typeCounts["One-time"] ?? 0}</span> one-time
+        </span>
+        <span>
+          <span className="text-ink-strong tabnum">{kpis.typeCounts["Recurring"] ?? 0}</span> recurring
+        </span>
+        <span>
+          <span className="text-ink-strong tabnum">{kpis.typeCounts["Payment Plan"] ?? 0}</span> payment plan
+        </span>
+      </div>
+
+      {/* Upcoming Payments — next 30 days, unpaid */}
+      {upcoming.length > 0 && (
+        <div className="mb-4 bg-surface border border-rule rounded-card overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-rule flex items-baseline justify-between">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-strong">
+              Upcoming Payments · next 30 days
+            </h3>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
+              {upcoming.length} due
+            </span>
+          </div>
+          <table className="w-full">
+            <thead className="bg-bg-elevated border-b border-rule">
+              <tr>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Payer</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Due</th>
+                <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-ink-muted">In</th>
+                <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcoming.map((r) => {
+                const days = r.date ? Math.ceil((new Date(r.date).getTime() - Date.now()) / 86_400_000) : null;
+                return (
+                  <tr
+                    key={r.id}
+                    onClick={() => setSelected(r)}
+                    className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
+                  >
+                    <td className="px-3 py-2 text-[12px] text-ink-strong max-w-[280px] truncate">{r.payer}</td>
+                    <td className="px-3 py-2 text-[11px] font-mono tabnum text-ink-muted">
+                      {r.date ? new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                    </td>
+                    <td className={`px-3 py-2 text-right text-[11px] font-mono tabnum ${days != null && days <= 7 ? "text-amber" : "text-ink-muted"}`}>
+                      {days != null ? `${days}d` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-[12px] font-semibold text-ink-strong tabnum">
+                      {fmtCurrency(r.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* AR Aging horizontal bar chart */}
       <div className="mb-6">

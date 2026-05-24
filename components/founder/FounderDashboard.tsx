@@ -100,6 +100,16 @@ export function FounderDashboard({
     Math.abs(r - revenue) < Math.abs(best - revenue) ? r : best,
   SCENARIO_ROWS[0]);
 
+  const monthsPrediction = useMemo(
+    () =>
+      predictMonthsToGoal({
+        currentMonthlyRevenue: revenue,
+        monthlyGoal: a.monthlyGoal,
+        avgMonthlyGrowth: revenueTrend.avgMonthlyGrowth,
+      }),
+    [revenue, a.monthlyGoal, revenueTrend.avgMonthlyGrowth],
+  );
+
   const saveRetirement = (value: number | null) => {
     if (!personId) return;
     setRetirementError(null);

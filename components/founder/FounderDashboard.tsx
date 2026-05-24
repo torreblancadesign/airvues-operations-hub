@@ -154,10 +154,12 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
               <tr className="text-left text-[11px] font-mono text-ink-faint uppercase tracking-wider border-b border-rule">
                 <th className="py-2 px-5 sm:px-6">Monthly Revenue</th>
                 <th className="py-2 px-3 text-right">Monthly Profit</th>
-                <th className="py-2 px-3 text-right">Founder Monthly</th>
-                <th className="py-2 px-3 text-right">Founder Annualized</th>
+                <th className="py-2 px-3 text-right">Founder Monthly (gross)</th>
+                <th className="py-2 px-3 text-right">Founder Annual (gross)</th>
+                <th className="py-2 px-3 text-right">Founder Net Annual</th>
                 <th className="py-2 px-5 sm:px-6 text-right">Progress to {fmtUsd(a.monthlyGoal)}</th>
               </tr>
+
             </thead>
             <tbody>
               {SCENARIO_ROWS.map((r) => {

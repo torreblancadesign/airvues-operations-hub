@@ -177,7 +177,10 @@ export function QuoteSheet({ quote, people, canEdit, onClose, onFilterByClient }
         </div>
 
         {/* Editable body */}
-        <QuoteSheetEditor quoteId={quote.id} people={people} canEdit={canEdit} />
+        <QuoteSheetErrorBoundary airtableUrl={quote.airtableUrl} onClose={onClose}>
+          <QuoteSheetEditor quoteId={quote.id} people={people} canEdit={canEdit} />
+        </QuoteSheetErrorBoundary>
+
       </aside>
     </>,
     document.body,

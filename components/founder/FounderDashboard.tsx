@@ -95,8 +95,12 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
           monthlyProfit={current.monthlyProfit}
           founderMonthly={current.founderMonthly}
           founderAnnual={current.founderAnnual}
+          payrollTaxMonthly={current.payrollTaxMonthly}
+          founderNetMonthly={current.founderNetMonthly}
+          founderNetAnnual={current.founderNetAnnual}
           ownership={a.founderOwnership}
-          footnote={`Based on the current monthly revenue pace, your estimated annualized founder earnings are approximately ${fmtUsd(current.founderAnnual)}.`}
+          payrollPct={payrollPct}
+          footnote={`Net of employer payroll tax (~${payrollPct}%). Based on the current monthly revenue pace, your take-home–equivalent annualized earnings are approximately ${fmtUsd(current.founderNetAnnual)}.`}
         />
         <ProjectionCard
           title="Founder earnings — at goal"
@@ -105,10 +109,15 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
           monthlyProfit={goal.monthlyProfit}
           founderMonthly={goal.founderMonthly}
           founderAnnual={goal.founderAnnual}
+          payrollTaxMonthly={goal.payrollTaxMonthly}
+          founderNetMonthly={goal.founderNetMonthly}
+          founderNetAnnual={goal.founderNetAnnual}
           ownership={a.founderOwnership}
-          footnote="This is an estimate before personal income taxes and assumes the compensation and overhead structure remains unchanged."
+          payrollPct={payrollPct}
+          footnote={`Net of employer payroll tax (Social Security 6.2% + Medicare 1.45%, modeled at ${payrollPct}%). Still before personal income taxes and assumes the comp structure is unchanged.`}
           accent
         />
+
       </div>
 
       {/* 4. Gap analysis */}

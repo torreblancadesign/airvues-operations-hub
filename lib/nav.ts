@@ -2,7 +2,7 @@
 // Consumed by Sidebar (desktop), MobileNav (drawer), and the home page Jump-To cards.
 // Add a new route here and it appears in all three.
 
-export type NavGroup = "overview" | "revenue" | "delivery" | "operations";
+export type NavGroup = "overview" | "revenue" | "delivery" | "operations" | "founder";
 
 export type NavItem = {
   href: string;
@@ -18,6 +18,7 @@ export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
   { id: "revenue", label: "Revenue" },
   { id: "delivery", label: "Delivery" },
   { id: "operations", label: "Operations" },
+  { id: "founder", label: "Founder" },
 ];
 
 export const NAV_ITEMS: NavItem[] = [
@@ -116,5 +117,13 @@ export const NAV_ITEMS: NavItem[] = [
     group: "operations",
     showInSidebar: true,
     showOnHome: true,
+  },
+  {
+    href: "/founder",
+    label: "Founder Dashboard",
+    desc: "Path to replacement income · monthly goal · earnings projection",
+    group: "founder",
+    showInSidebar: true,
+    showOnHome: false,
   },
 ];

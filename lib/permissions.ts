@@ -9,7 +9,8 @@ export type Permission =
   | "Delivery"
   | "Operations"
   | "Home - Firm Pulse"
-  | "Scorecard - Admin";
+  | "Scorecard - Admin"
+  | "Founder";
 
 export const ALL_PERMISSIONS: Permission[] = [
   "Revenue",
@@ -17,6 +18,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   "Operations",
   "Home - Firm Pulse",
   "Scorecard - Admin",
+  "Founder",
 ];
 
 // Map nav groups to the permission that unlocks them. Overview is always open.
@@ -24,6 +26,7 @@ const GROUP_PERMISSION: Partial<Record<NavGroup, Permission>> = {
   revenue: "Revenue",
   delivery: "Delivery",
   operations: "Operations",
+  founder: "Founder",
 };
 
 // Map first path segment → permission. Routes not in this map (e.g. "/", "/me")
@@ -39,6 +42,7 @@ const ROUTE_PERMISSION: Record<string, Permission> = {
   team: "Operations",
   stack: "Operations",
   hygiene: "Operations",
+  founder: "Founder",
 };
 
 // Admin role bypasses all permission checks.

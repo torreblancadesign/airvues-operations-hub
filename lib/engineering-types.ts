@@ -75,6 +75,8 @@ export type EngineeringBoardData = {
     earnedInvoice: number;
     earnedCommission: number;
     overBudgetCount: number;
+    qaReviewCount: number;
+    analysisRequiredCount: number;
   };
   clients: string[];
   sprints: { number: number; status: string | null }[];

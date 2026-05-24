@@ -153,12 +153,17 @@ export function FounderDashboard({
               {revenueSource === "mtd" ? "Prefilled from paid invoices MTD" : "Default — no invoice data"}
             </div>
           </Tile>
-          <Tile label="Monthly goal" value={fmtUsd(a.monthlyGoal)} >
+          <Tile label="Monthly revenue needed" value={goalReachable ? fmtUsd(a.monthlyGoal) : "—"} >
             <div className="mt-1 text-[10px] text-ink-faint font-mono uppercase tracking-wider">
               {retirementSource === "airtable"
-                ? `From Retirement # · ${fmtUsd(retirement!)}/yr`
-                : "Default — set your retirement number"}
+                ? `To net ${fmtUsd(effectiveRetirement)}/yr take-home`
+                : `Default · target ${fmtUsd(effectiveRetirement)}/yr take-home`}
             </div>
+            {!goalReachable && (
+              <div className="mt-1 text-[10px] text-amber">
+                Unreachable with current ownership / commissions.
+              </div>
+            )}
             {canEdit && (
               <button
                 type="button"

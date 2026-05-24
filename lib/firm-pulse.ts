@@ -37,6 +37,8 @@ export type RevenueWindow = {
   series: TrendPoint[]; // cumulative collected revenue over the window
 };
 
+export type SourceSlice = { source: string; revenue: number; count: number };
+
 export type FirmPulse = {
   revenue: { ytd: RevenueWindow; mtd: RevenueWindow };
   booked: { ytd: { value: number; count: number }; mtd: { value: number; count: number } };
@@ -49,6 +51,11 @@ export type FirmPulse = {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
     mtd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
   };
+  // Display-only extras (no Airtable schema changes)
+  leadsYtd: { count: number; sold: number; conversionPct: number };
+  newClientsYtd: { count: number };
+  projects: { active: number; completedYtd: number };
+  revenueBySource: SourceSlice[]; // invoice-source mix, paid YTD
 };
 
 function buildRevenueWindow(

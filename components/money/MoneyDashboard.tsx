@@ -262,15 +262,23 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
         />
       </div>
 
-      {/* Outstanding + MRR row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+      {/* Outstanding split — Unpaid (current) vs Late · MRR */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
         <StatCard
-          label="Outstanding"
-          tone="red"
-          value={fmtCurrency(kpis.open)}
-          sub={`${kpis.openCount} unpaid invoices`}
+          label="Unpaid (current)"
+          tone="amber"
+          value={fmtCurrency(kpis.unpaidCurrent)}
+          sub={`${kpis.unpaidCurrentCount} invoices · not yet past due`}
           active={filter.status === "open"}
           onClick={() => setStatus("open")}
+        />
+        <StatCard
+          label="Late"
+          tone="red"
+          value={fmtCurrency(kpis.lateAmount)}
+          sub={`${kpis.lateCount} past due`}
+          active={filter.status === "overdue"}
+          onClick={() => setStatus("overdue")}
         />
         <StatCard
           label="MRR"
@@ -279,6 +287,67 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
           sub="Recurring · subscribed"
         />
       </div>
+
+      {/* Invoice type mix strip */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-ink-muted">
+        <span className="font-mono uppercase tracking-wider text-ink-faint">Invoice mix:</span>
+        <span>
+          <span className="text-ink-strong tabnum">{kpis.typeCounts["One-time"] ?? 0}</span> one-time
+        </span>
+        <span>
+          <span className="text-ink-strong tabnum">{kpis.typeCounts["Recurring"] ?? 0}</span> recurring
+        </span>
+        <span>
+          <span className="text-ink-strong tabnum">{kpis.typeCounts["Payment Plan"] ?? 0}</span> payment plan
+        </span>
+      </div>
+
+      {/* Upcoming Payments — next 30 days, unpaid */}
+      {upcoming.length > 0 && (
+        <div className="mb-4 bg-surface border border-rule rounded-card overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-rule flex items-baseline justify-between">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-ink-strong">
+              Upcoming Payments · next 30 days
+            </h3>
+            <span className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
+              {upcoming.length} due
+            </span>
+          </div>
+          <table className="w-full">
+            <thead className="bg-bg-elevated border-b border-rule">
+              <tr>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Payer</th>
+                <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Due</th>
+                <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-ink-muted">In</th>
+                <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {upcoming.map((r) => {
+                const days = r.date ? Math.ceil((new Date(r.date).getTime() - Date.now()) / 86_400_000) : null;
+                return (
+                  <tr
+                    key={r.id}
+                    onClick={() => setSelected(r)}
+                    className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
+                  >
+                    <td className="px-3 py-2 text-[12px] text-ink-strong max-w-[280px] truncate">{r.payer}</td>
+                    <td className="px-3 py-2 text-[11px] font-mono tabnum text-ink-muted">
+                      {r.date ? new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"}
+                    </td>
+                    <td className={`px-3 py-2 text-right text-[11px] font-mono tabnum ${days != null && days <= 7 ? "text-amber" : "text-ink-muted"}`}>
+                      {days != null ? `${days}d` : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right text-[12px] font-semibold text-ink-strong tabnum">
+                      {fmtCurrency(r.amount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* AR Aging horizontal bar chart */}
       <div className="mb-6">

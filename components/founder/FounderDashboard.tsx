@@ -127,15 +127,19 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
           Gap to Replacement Income
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Tile label="Current annualized" value={fmtUsd(current.founderAnnual)} />
-          <Tile label="Goal annualized" value={fmtUsd(goal.founderAnnual)} tone="emerald" />
-          <Tile label="Annual gap" value={fmtUsd(gapAnnual)} tone={gapAnnual === 0 ? "emerald" : "amber"} />
+          <Tile label="Current annualized (net)" value={fmtUsd(current.founderNetAnnual)} />
+          <Tile label="Goal annualized (net)" value={fmtUsd(goal.founderNetAnnual)} tone="emerald" />
+          <Tile label="Annual gap (net)" value={fmtUsd(gapAnnual)} tone={gapAnnual === 0 ? "emerald" : "amber"} />
           <Tile
             label="Additional revenue / mo needed"
             value={fmtUsd(additionalMonthlyRevenue)}
             tone={additionalMonthlyRevenue === 0 ? "emerald" : "ink"}
           />
         </div>
+        <p className="mt-3 text-[11px] text-ink-muted leading-snug">
+          Net values deduct the ~{payrollPct}% employer payroll tax Airvues owes on founder compensation.
+        </p>
+
       </section>
 
       {/* 5. Scenario table */}

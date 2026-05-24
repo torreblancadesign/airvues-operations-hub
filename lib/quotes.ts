@@ -34,6 +34,7 @@ type QuoteFields = {
   "Stories"?: string[];
   "Total Cost"?: number;
   "Total Hours"?: number;
+  "Run AI Proposal Agent"?: boolean;
 };
 
 type StoryFields = {

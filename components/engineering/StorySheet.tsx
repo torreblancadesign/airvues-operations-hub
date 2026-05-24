@@ -401,6 +401,29 @@ export function StorySheet({
             )}
           </Field>
 
+          {/* Editable Cost (Invoice) */}
+          <Field label="Cost (USD)">
+            {canEdit ? (
+              <input
+                key={`cost-${current.id}`}
+                type="number"
+                step="0.01"
+                min="0"
+                defaultValue={current.cost ?? ""}
+                disabled={pending}
+                onBlur={(e) => {
+                  const val = e.target.value === "" ? null : Number(e.target.value);
+                  if (val !== current.cost) save({ cost: val ?? 0 }, { invoice: val });
+                }}
+                className={`${inputCls} w-40`}
+              />
+            ) : (
+              <span>{current.cost != null ? `$${current.cost.toLocaleString()}` : "—"}</span>
+            )}
+          </Field>
+
+
+
           {/* Editable Hours Worked */}
           <Field label="Hours worked">
             {canEdit ? (

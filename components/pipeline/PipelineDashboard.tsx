@@ -92,9 +92,11 @@ function applySort(rows: PipelineQuote[], s: Sort): PipelineQuote[] {
   });
 }
 
-type Props = { quotes: PipelineQuote[] };
+import type { PersonOption } from "@/lib/quote-types";
 
-export function PipelineDashboard({ quotes }: Props) {
+type Props = { quotes: PipelineQuote[]; people: PersonOption[]; canEdit: boolean };
+
+export function PipelineDashboard({ quotes, people, canEdit }: Props) {
   const [filter, setFilter] = useState<Filter>(EMPTY_FILTER);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<PipelineQuote | null>(null);

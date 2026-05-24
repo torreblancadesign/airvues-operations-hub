@@ -113,7 +113,23 @@ export async function loadQuoteDetail(quoteId: string): Promise<MutationResult<{
     return { ok: true, quote };
   } catch (e) {
     return { error: (e as Error).message };
+}
+
+// Load a single Story (for opening the StorySheet from the quote drawer).
+export async function loadStoryDetail(
+  storyId: string,
+): Promise<MutationResult<{ story: Story }>> {
+  if (!storyId || !storyId.startsWith("rec")) return { error: "Invalid storyId" };
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    const story = await getStoryById(storyId);
+    if (!story) return { error: "Story not found" };
+    return { ok: true, story };
+  } catch (e) {
+    return { error: (e as Error).message };
   }
+}
 }
 
 export async function updateQuoteFields(

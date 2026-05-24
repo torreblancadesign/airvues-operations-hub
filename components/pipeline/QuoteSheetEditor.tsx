@@ -812,7 +812,11 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
             totalHours={quote.totalHours}
             canEdit={canEdit}
             onAddClick={() => setShowAddStory(true)}
+            onRowClick={openStory}
           />
+          {storyLoading && (
+            <div className="mt-2 text-[11px] text-ink-faint">Loading story…</div>
+          )}
         </div>
       </Section>
 
@@ -821,6 +825,15 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
         quoteId={quoteId}
         onClose={() => setShowAddStory(false)}
         onCreated={(next) => setQuote(next)}
+      />
+
+      <StorySheet
+        story={selectedStory}
+        engineers={people.map((p) => ({ id: p.id, name: p.name }))}
+        canEdit={canEdit}
+        onClose={closeStory}
+        onFilterByEngineer={() => {}}
+        onFilterByClient={() => {}}
       />
     </>
   );

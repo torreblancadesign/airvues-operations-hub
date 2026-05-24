@@ -2,11 +2,15 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { upload } from "@vercel/blob/client";
+import { useRouter } from "next/navigation";
 import {
   loadQuoteDetail,
+  loadStoryDetail,
   updateQuoteFields,
   attachQuoteDocuments,
 } from "@/lib/mutations/quote";
+import type { Story } from "@/lib/engineering-types";
+import { StorySheet } from "@/components/engineering/StorySheet";
 import type {
   PersonOption,
   QuoteAttachment,
@@ -38,16 +42,9 @@ const inputCls =
   "w-full px-2.5 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none transition-colors disabled:opacity-50";
 const selectCls = `${inputCls} cursor-pointer`;
 
-function ClientVisibleChip() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-[9px] font-medium uppercase tracking-wider text-emerald bg-emerald/10 border border-emerald/30 px-1.5 py-0.5 rounded"
-      title="This field appears in the client-facing proposal."
-    >
-      <span>👁</span>Client visible
-    </span>
-  );
-}
+// (ClientVisibleChip removed — all client-facing fields now use PortalChip
+// so the labeling is consistent with the AI proposal section.)
+
 
 function InternalChip() {
   return (
@@ -528,6 +525,7 @@ function Section({
 // ---------- Main editor ----------
 
 export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
+  const router = useRouter();
   const [quote, setQuote] = useState<QuoteDetail | null>(initial ?? null);
   const [loading, setLoading] = useState(!initial);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -535,6 +533,27 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
   const [showAddStory, setShowAddStory] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [lastSavedField, setLastSavedField] = useState<string | null>(null);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [storyLoading, setStoryLoading] = useState(false);
+
+  const openStory = (storyId: string) => {
+    setStoryLoading(true);
+    loadStoryDetail(storyId).then((res) => {
+      setStoryLoading(false);
+      if ("ok" in res) setSelectedStory(res.story);
+    });
+  };
+
+  const closeStory = () => {
+    setSelectedStory(null);
+    // Re-fetch the quote so any edits to Hours/Cost/Status are reflected in the
+    // calculator and the Total Cost rollup.
+    loadQuoteDetail(quoteId).then((res) => {
+      if ("ok" in res) setQuote(res.quote);
+    });
+    router.refresh();
+  };
+
 
   useEffect(() => {
     let alive = true;
@@ -592,8 +611,8 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
   return (
     <>
       {/* SECTION 1: Quote details (client-visible header) */}
-      <Section title="Quote details" chip={<ClientVisibleChip />}>
-        <FieldRow label="Project name" chip={<ClientVisibleChip />} state={stateFor("projectName")}>
+      <Section title="Quote details" chip={<PortalChip />}>
+        <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")}>
           <TextField
             initialValue={quote.projectName}
             disabled={!canEdit}
@@ -602,7 +621,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Prepared by" chip={<ClientVisibleChip />} state={stateFor("preparedById")}>
+        <FieldRow label="Prepared by" chip={<PortalChip />} state={stateFor("preparedById")}>
           <PersonPicker
             value={quote.preparedById}
             options={people}
@@ -612,7 +631,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Prepared date" chip={<ClientVisibleChip />} state={stateFor("preparedDate")}>
+        <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")}>
           <input
             type="date"
             value={quote.preparedDate ?? ""}
@@ -624,7 +643,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Prepared for" chip={<ClientVisibleChip />} state={stateFor("preparedForId")}>
+        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")}>
           <PersonPicker
             value={quote.preparedForId}
             options={people}
@@ -634,7 +653,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
-        <FieldRow label="Project status" chip={<ClientVisibleChip />} state={stateFor("projectStatus")}>
+        <FieldRow label="Project status" chip={<PortalChip />} state={stateFor("projectStatus")}>
           <select
             value={quote.projectStatus ?? ""}
             disabled={!canEdit}
@@ -652,7 +671,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           </select>
         </FieldRow>
 
-        <FieldRow label="Proposal type" chip={<ClientVisibleChip />} state={stateFor("proposalType")}>
+        <FieldRow label="Proposal type" chip={<PortalChip />} state={stateFor("proposalType")}>
           <select
             value={quote.proposalType ?? ""}
             disabled={!canEdit}
@@ -793,7 +812,11 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
             totalHours={quote.totalHours}
             canEdit={canEdit}
             onAddClick={() => setShowAddStory(true)}
+            onRowClick={openStory}
           />
+          {storyLoading && (
+            <div className="mt-2 text-[11px] text-ink-faint">Loading story…</div>
+          )}
         </div>
       </Section>
 
@@ -802,6 +825,15 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
         quoteId={quoteId}
         onClose={() => setShowAddStory(false)}
         onCreated={(next) => setQuote(next)}
+      />
+
+      <StorySheet
+        story={selectedStory}
+        engineers={people.map((p) => ({ id: p.id, name: p.name }))}
+        canEdit={canEdit}
+        onClose={closeStory}
+        onFilterByEngineer={() => {}}
+        onFilterByClient={() => {}}
       />
     </>
   );

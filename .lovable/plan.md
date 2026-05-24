@@ -1,94 +1,55 @@
 ## Goal
 
-Turn the read-only `QuoteSheet` drawer (opened from `/pipeline`) into an editable workspace with four clear sections, mirroring the Airtable fields and labelling client-visible fields explicitly.
+Two tightly-scoped changes to the Pipeline quote drawer:
 
-## Sections (in order, inside the drawer)
+1. Replace the green "Client visible 👁" chip with the same "🖥️ Portal visible" chip used by the AI section, so every field that ends up in the client-facing proposal carries a single, consistent label.
+2. Let users click a row in the quote calculator's Stories table to open the existing StorySheet drawer (the same one used on `/engineering`, `/backlog`, `/sprints`, etc.) for full detail view + inline editing.
 
-### 1. Header — quote identity (editable, client-visible)
+No backend / data shape changes.
 
-Section label: **"Quote details"** with a small chip on each field saying `Client visible 👁`.
+## 1. Standardize visibility chips
 
-| Display label | Airtable field | Input |
-|---|---|---|
-| Project name | `Project Name` | text |
-| Prepared by | `Prepared by` (linked → People) | searchable single-select (People) |
-| Prepared date | `Prepared Date` | date |
-| Prepared for | `Prepared for` (linked → Clients) | searchable single-select (Clients) |
-| Project status | `Project Status` | single-select (existing options) |
-| Proposal type | `Proposal Type` | single-select (existing options) |
+In `components/pipeline/QuoteSheetEditor.tsx`:
 
-Autosave on blur / select change.
+- Delete `ClientVisibleChip()` (lines ~41–50).
+- Replace every `<ClientVisibleChip />` usage (the Section header + each `FieldRow` chip in "Quote details") with `<PortalChip />`.
+- Keep `InternalChip` and `PortalChip` as-is. Result: "Quote details" + "AI-generated proposal content" both display the blue 🖥️ Portal visible chip; "Client input for proposal" keeps the amber 🔒 Internal only chip.
 
-### 2. Client input — collapsible, internal-only
+## 2. Click-to-open Stories from the quote calculator
 
-Section label: **"Client input for proposal"** + small "Internal only" tag. Collapsed by default (chevron toggle).
+Reuse the existing `components/engineering/StorySheet.tsx` drawer — that's the canonical story editor (status, priority, hours, assignee, notes, etc., all gated by `canEdit`).
 
-- **Custom Problem Statement and Solution Summary** → label "Paste all information from client for proposal (meeting transcripts, emails, requirements, etc.)" — large multiline textarea, autosave on blur.
-- **Documents needed for Proposal** → label "Attach any documents from client (requirements, screenshots, etc.)" — Vercel Blob uploader + thumbnail list, identical pattern to `attachLeadFiles` in `lib/mutations/lead.ts`.
+### Data: fetch a full Story by id
 
-### 3. AI proposal output — client-visible, read-only by default
+Add `getStoryById(storyId)` to `lib/engineering.ts` (server-only). It returns the same `Story` shape already produced by the engineering board loader for one record — pull the existing field-mapping code into a small helper so both the list loader and `getStoryById` share it. Cache tag: `story:${id}` + the existing `airtable` umbrella tag.
 
-Section label: **"AI-generated proposal content"** with `Client visible 👁` tag. Each field has a small "Edit" toggle (the AI agent owns these, but humans can override).
+### Wiring on the client
 
-| Display label | Airtable field |
-|---|---|
-| Recommended Approach (Portal Visible 🖥️) | `Recommended Approach` (richText → render + edit as plain multiline) |
-| Recommended Approach Summary (Portal Visible 🖥️) | `Recommended Approach Summary` |
-| Project Overview (Portal Visible 🖥️) | `Project Overview` |
-| Problem Statement & Our Solution (Portal Visible 🖥️) | `Problem Statement & Our Solution` |
-| Estimate Hours Range (Portal Visible 🖥️) | `Estimate Hours Range` |
-| Estimate Cost Range (Portal Visible 🖥️) | `Estimate Cost Range` |
-
-### 4. Quote calculator — Stories table
-
-Header strip with **Total Cost** (from `Quotes."Total Cost"` rollup) shown large + total hours secondary, and an `+ Add story` button on the right.
-
-Stories table (matches the attached screenshot layout):
-
-| Column | Story field |
-|---|---|
-| Story Name | `Story Name` |
-| Description | `Description` (truncated) |
-| Hours | `Hours` |
-| Cost | `Cost` (currency; `Invoice` is the legacy alias — use `Cost`) |
-| Client Notes | `Client Notes` |
-| Story Status (Internal Only) | `Story Status` |
-| Engineer Assigned (Internal Only) | `Assignee` (people, comma-separated names) |
-
-`+ Add story` opens a small inline modal (reusing `components/backlog/NewStoryModal.tsx` pattern) that creates a Story and links it to the current quote via the Story `Quote` field, then revalidates.
-
-## Files to add / change
-
-**New**
-- `lib/quotes.ts` (server): `getQuoteDetail(quoteId)` → full quote fields + linked stories (Story Name, Description, Hours, Cost, Client Notes, Story Status, Assignee names). Cached with tag `quote:${id}`.
-- `lib/quote-types.ts`: client-safe `QuoteDetail`, `QuoteStoryRow`, `QuotePatch`.
-- `lib/mutations/quote.ts` (server actions, all gated by `requireRole("admin","lead","editor")` + `revalidateTag("airtable")` + `revalidateTag("quote:${id}")` + `revalidateTag("pipeline:all-quotes")`):
-  - `updateQuoteFields(quoteId, patch)` — handles all header + AI fields + Custom Problem Statement.
-  - `attachQuoteDocuments(quoteId, files[])` — clone of `attachLeadFiles`, writes to `Documents needed for Proposal`.
-  - `createQuoteStory(quoteId, input)` — creates Story linked to the quote.
-- `lib/uploads.ts` already exposes the Vercel Blob upload helper used by leads — reuse.
-- `components/pipeline/QuoteSheetEditor.tsx` — new client component that renders the four sections, owns local form state, calls the server actions.
 - `components/pipeline/QuoteStoriesTable.tsx`
-- `components/pipeline/NewQuoteStoryModal.tsx`
-- `components/pipeline/PeoplePicker.tsx` / `ClientPicker.tsx` — small typeahead-style single-select for linked-record fields (sourced from existing `lib/people.ts` + `lib/clients.ts`).
+  - Add `onRowClick(storyId: string)` prop.
+  - Make each `<tr>` clickable (cursor-pointer + hover row tint + role="button" + keyboard Enter handler). The "+ Add story" button keeps its own handler.
+- `components/pipeline/QuoteSheetEditor.tsx`
+  - New state: `selectedStoryId: string | null`, `selectedStory: Story | null`, plus a small loading flag.
+  - On row click, call a thin client-side server action wrapper (`loadStory(storyId)` in `lib/mutations/quote.ts` or new `lib/mutations/story-fetch.ts`) that internally calls `getStoryById`. Stash result in state.
+  - Render `<StorySheet story={selectedStory} engineers={people} canEdit={canEdit} onClose={() => setSelectedStoryId(null)} onFilterByEngineer={() => {}} onFilterByClient={() => {}} />`. The two filter callbacks are no-ops here (Pipeline has no engineer/client filter to seed).
+  - On StorySheet close, re-fetch the parent quote (existing `revalidateTag("quote:${id}")` already runs when StorySheet's `updateStory` mutation completes — it revalidates `airtable`). Add `quote:${quoteId}` revalidation to `updateStory`'s revalidate list **only if** the story belongs to a quote — simpler alternative: in `QuoteSheetEditor`, after the StorySheet closes, call an existing `refresh()`/`router.refresh()` so the Stories table + Total Cost re-pull.
 
-**Edited**
-- `components/pipeline/QuoteSheet.tsx` — replace current static body with a wrapper that fetches `getQuoteDetail` (via a thin server action invoked on open) and renders `QuoteSheetEditor`. Keep the header strip (total cost, status pill, stale badge) and the existing top action buttons.
-- `components/pipeline/PipelineDashboard.tsx` — pass nothing new (selection still by `selected.id`).
-- `lib/pipeline.ts` — no change to list query; detail comes from new `lib/quotes.ts`.
+- `app/(app)/pipeline/page.tsx` — no change. `people` is already passed through.
 
-## Behaviour notes
+### Permissions
 
-- Autosave per field on blur (text) or change (selects/date). Show a small "Saved" / spinner indicator next to section title. No global save button.
-- Client-visible chip on every header field + each AI section field. Internal-only chip on section 2 and on the two "Internal Only" story columns.
-- Section 2 starts collapsed; remember open/closed state in `localStorage` keyed by `quote:${id}:clientInput`.
-- AI section fields are read-only with per-field "Edit" pencil → switches to textarea + Save/Cancel (avoids accidental overwrites of the AI agent output).
-- Stories table reads from `getQuoteDetail`; `+ Add story` revalidates `quote:${id}` so the table + total refresh.
-- All write paths gated by `requireRole("admin","lead","editor")` — engineers/clients see read-only.
+`StorySheet` already respects `canEdit`. Pass the same `canEdit` already in scope on `QuoteSheetEditor`. No new role checks needed; existing `updateStory` in `lib/mutations/story.ts` gates on `requireRole`.
 
-## Out of scope (call out)
+## Out of scope
 
-- Editing existing stories inline (only create new + view). Story-level edits already live in `/backlog` and `StorySheet`.
-- Removing/unlinking stories from a quote.
-- Persisting the open/closed state of section 2 server-side.
-- Re-running the AI proposal agent from this UI.
+- Removing/unlinking a story from a quote (still create-only from this view).
+- Changing the StorySheet UI itself.
+- Inline editing of rows in the table without opening the drawer (drawer is the editor).
+- Renaming AI-section subtitle suffixes like "(Portal Visible 🖥️)" inside field labels — the chip replacement is the single visual change requested.
+
+## Files changed
+
+- `components/pipeline/QuoteSheetEditor.tsx` — drop `ClientVisibleChip`, swap chip usages, mount `StorySheet`, wire row-click + load.
+- `components/pipeline/QuoteStoriesTable.tsx` — add `onRowClick` + clickable rows.
+- `lib/engineering.ts` — export `getStoryById` (extract shared row→Story mapper).
+- `lib/mutations/quote.ts` (or small new file) — `loadStoryForQuote(storyId)` server action wrapper if needed for client invocation.

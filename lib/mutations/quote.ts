@@ -8,6 +8,8 @@ import { createRecords, getRecord, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
 import { getQuoteDetail } from "../quotes";
+import { getStoryById } from "../engineering";
+import type { Story } from "../engineering-types";
 import type { QuoteAttachment, QuoteDetail, QuoteFieldPatch } from "../quote-types";
 import {
   PROJECT_STATUS_CHOICES,
@@ -109,6 +111,22 @@ export async function loadQuoteDetail(quoteId: string): Promise<MutationResult<{
   try {
     const quote = await getQuoteDetail(quoteId);
     return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+// Load a single Story (for opening the StorySheet from the quote drawer).
+export async function loadStoryDetail(
+  storyId: string,
+): Promise<MutationResult<{ story: Story }>> {
+  if (!storyId || !storyId.startsWith("rec")) return { error: "Invalid storyId" };
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    const story = await getStoryById(storyId);
+    if (!story) return { error: "Story not found" };
+    return { ok: true, story };
   } catch (e) {
     return { error: (e as Error).message };
   }

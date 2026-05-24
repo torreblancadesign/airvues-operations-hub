@@ -126,6 +126,9 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                         {q.status ?? "—"}
                       </span>
                     </td>
+                    <td className="px-3 py-2.5">
+                      <ProjectProgress status={q.projectStatus} />
+                    </td>
                     <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${stale ? "text-red font-semibold" : "text-ink-muted"}`}>
                       {days != null ? `${days}d` : "—"}
                     </td>

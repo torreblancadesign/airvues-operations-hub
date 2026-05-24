@@ -25,7 +25,8 @@ export function FounderDashboard({ initialMonthlyRevenue, revenueSource }: Props
 
   const current = useMemo(() => project(revenue, a), [revenue, a]);
   const goal = useMemo(() => project(a.monthlyGoal, a), [a]);
-  const gapAnnual = Math.max(0, goal.founderAnnual - current.founderAnnual);
+  const gapAnnual = Math.max(0, goal.founderNetAnnual - current.founderNetAnnual);
+  const payrollPct = (a.employerPayrollTaxRate * 100).toFixed(2).replace(/\.?0+$/, "");
   const additionalMonthlyRevenue = Math.max(0, a.monthlyGoal - revenue);
   const progressPct = Math.min(100, Math.max(0, current.progressToGoal * 100));
   const closestScenario = SCENARIO_ROWS.reduce((best, r) =>

@@ -1,66 +1,48 @@
-# Display-only metric upgrades (no Airtable changes)
+## Problem
 
-Scope filter: only items where the field already exists in Airtable and is already pulled (or trivially pullable) by an existing `lib/*.ts` data layer. Anything that needs a new column, new table, new webhook, or new workflow is **out of scope** for this pass.
+Clicking certain quotes on `/pipeline` intermittently throws a client-side exception that takes down the whole app shell (whitescreen with Next.js "Application error"). It is random across rows, which means the trigger is a specific quote's field shape, not the click handler itself.
 
----
+The crash surfaces from inside `QuoteSheetEditor` (mounted by `QuoteSheet`), and right now there is **no error boundary** around the drawer, so any throw inside the editor unmounts the entire `/pipeline` route.
 
-## 1. Home / Overview — new KPI tiles
+## Likely causes (to confirm with the captured error)
 
-`lib/firm-pulse.ts` already computes revenue + MRR + AR. Extend it (read-only, same cached calls) with:
+Reading `components/pipeline/QuoteSheetEditor.tsx`:
 
-- **Leads YTD** — count of `Leads` with `Created Time` ≥ Jan 1.
-- **New Clients YTD** — count of distinct `Invoice Payer` whose first invoice landed YTD (already have all invoices via `listAllInvoices`).
-- **Lead → Sold conversion %** — `Sold / total leads YTD` from existing `lib/leads.ts` source.
-- **Active Projects** — count of Quotes/Projects where `Project Status` ∈ {Proposal Signed, Commencement Invoice Paid, First Draft Delivered}.
-- **Completed Projects YTD** — `Project Status = "Completion Invoice Paid"`, scoped to YTD.
-- **Revenue by Lead Source** — join `Leads.Source` → `Companies` → `Invoices` if linked, else show invoice-source mix (Stripe/Fiverr/Other) which we already have. Render as a tiny breakdown row, not a chart.
+1. **Unsafe `.trim()` calls in `aiContentReady`** (lines 879–887). They assume `quote.recommendedApproach`, `recommendedApproachSummary`, `projectOverview`, `problemStatementSolution`, `estimateHoursRange`, `estimateCostRange`, `customProblemStatement` are always strings. `lib/quotes.ts` does coerce with `?? ""`, but Airtable rich-text / formula fields occasionally return objects or arrays (e.g. `{ specialValue: "NaN" }` from a broken formula, or a rollup that returns an array). One non-string slips through and `.trim is not a function` throws on render.
+2. **`quote.documents` mapped without guard** (`lib/quotes.ts` line 117). If the field is anything other than `null` or `Array`, `.map` throws. Less likely but possible for misconfigured records.
+3. **`quote.client.split(" ")[0]`** in `QuoteSheet.tsx` is safe because `client` defaults to `"—"`, but worth hardening.
 
-Render in `FirmPulse` as a second row of 4–6 small tiles under the existing hero KPIs. No new component primitives needed — reuse `HomeKpiCard`.
+The exact field is impossible to confirm without the captured error. The fix below makes the drawer crash-proof AND surfaces the real error so we can patch the underlying data path.
 
-## 2. Money page — Late vs Unpaid split + Upcoming Payments
+## Plan
 
-`Invoices.Invoice Status` already contains `"past due"`, `"open"`, `"sent"`, `"unsent"`, `"paid"`, `"subscribed"`, etc. `Date` field is already loaded.
+### 1. Add a contained error boundary around the drawer (`components/pipeline/QuoteSheet.tsx`)
 
-- **Split the existing "Open" KPI into two tiles:**
-  - **Unpaid (current)** — status ∈ {open, sent, unsent} AND `Date` ≥ today (or null).
-  - **Late** — status = `"past due"` OR (status ∈ open/sent/unsent AND `Date` < today).
-- **Upcoming Payments panel** — table of unpaid invoices sorted by `Date` ascending, next 30 days. Columns: payer, amount, due date, days-until. Place above the existing invoice table.
-- **Invoice Type breakdown strip** — small inline counts of `Invoice Type` (One-time / Recurring / Payment Plan) using the already-loaded field. Useful context, no chart.
+- New small `QuoteSheetErrorBoundary` (client component, classic React class boundary — no extra deps).
+- Renders a friendly fallback inside the drawer: title, the error message, "Open in Airtable" link (using the already-known `quote.airtableUrl`), and a "Close" button. Drawer chrome and overlay stay intact; rest of the app stays mounted.
+- `console.error(error, info)` so we get a stack trace in the browser console next time it reproduces, instead of just the generic Next.js page.
+- Wrap `<QuoteSheetEditor ... />` only — keep the header strip / action buttons outside the boundary so the user can always close or jump to Airtable.
 
-## 3. Pipeline / Quotes — Project Status progress bar
+### 2. Harden `aiContentReady` and other string reads in `QuoteSheetEditor.tsx`
 
-`Project Status` is a 7-stage enum already in `lib/schema.ts`. On the existing Quote rows and `QuoteSheet`, render a 7-segment progress bar (filled up to current stage). Pure visual; no data fetch changes.
+- Add a tiny local helper `asStr(v: unknown): string` that returns `typeof v === "string" ? v : ""`.
+- Use `asStr(quote.X).trim()` in the `aiContentReady` boolean.
+- Use the same helper for `TextField initialValue` props and `AiField value` props on every AI text field. This stops a single bad Airtable value from ever crashing the editor.
 
-## 4. Engineering — bottleneck signal
+### 3. Harden `lib/quotes.ts` normalization
 
-`Story Status` already powers the board. Add a one-line indicator above `EngineeringBoard`:
-- Count of stories stuck in `QA Review` > 7 days (use `Last Modified` if loaded; if not, skip — verify in build phase).
-- Count of `Analysis Required` stories (signals stalled discovery).
+- Wrap the `Documents needed for Proposal` read with `Array.isArray(f["Documents needed for Proposal"]) ? ... : []`.
+- For all rich-text-ish fields (`Recommended Approach`, `Recommended Approach Summary`, `Project Overview`, `Problem Statement & Our Solution`, `Estimate Hours Range`, `Estimate Cost Range`, `Custom Problem Statement and Solution Summary`, `Client Notes` on stories), replace the `(f["X"] as string) ?? ""` cast with `typeof f["X"] === "string" ? f["X"] : ""`. This kills the bad-shape class of crash at the source for every consumer of `QuoteDetail`, not just the drawer.
 
-Lightweight banner, same pattern as the existing stale-leads banner.
+### 4. Verification
 
----
+- `npx tsc --noEmit` and `npm run build` must pass.
+- Manually click through 10+ quotes on `/pipeline` in preview, including older ones that previously crashed, and confirm:
+  - Drawer opens without crashing.
+  - If a row still hits an unexpected shape, the contained fallback renders and the actual error is now visible in DevTools console — bring that back to investigate the underlying field.
 
-## Technical notes
+## Out of scope
 
-- All changes live in: `lib/firm-pulse.ts`, `components/home/FirmPulse.tsx`, `lib/money.ts` (only if we need a derived `isLate` flag), `components/money/MoneyDashboard.tsx`, `components/money/InvoiceTable.tsx` (new "Upcoming Payments" subcomponent), `components/pipeline/QuoteTable.tsx` + `QuoteSheet.tsx`, `components/engineering/EngineeringBoard.tsx`.
-- No new Server Actions. No mutations. No `lib/mutations/*` edits.
-- No `lib/schema.ts` changes — every field referenced is already mapped.
-- All reads go through existing `listRecordsCached` calls; we only widen the `fields[]` array where a needed field isn't yet requested (verified case-by-case in build phase).
-- Tag-based cache invalidation untouched.
-
-## Explicitly out of scope (deferred — needs Airtable changes or new workflows)
-
-- Project entity as distinct from Quote/Sprint
-- Change Orders
-- Discount Applied / Discounts Earned rollup
-- Active Contacts sub-table
-- Project Log / audit timeline
-- Handoff Folder
-- Client-facing external portal
-- Cal.com webhook → auto-Lead, new-Lead modal, CM notifications
-- Proposal Review workflow, Proposal Type enum, "Audited" status
-- 14-day project deadline flag
-- Retainer Relationships dedicated view
-
-These were in the earlier audit but each requires either a new Airtable field/table or a workflow change, which you've deferred.
+- No Airtable schema or field changes.
+- No mutation-path changes (`lib/mutations/quote.ts` is untouched).
+- No redesign of the drawer — purely defensive hardening + an error boundary.

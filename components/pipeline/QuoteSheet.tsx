@@ -1,11 +1,57 @@
 "use client";
 
-import { useEffect } from "react";
+import { Component, ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useState } from "react";
 import { PipelineQuote } from "@/lib/pipeline";
 import type { PersonOption } from "@/lib/quote-types";
 import { QuoteSheetEditor } from "./QuoteSheetEditor";
+
+class QuoteSheetErrorBoundary extends Component<
+  { airtableUrl: string; onClose: () => void; children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: unknown) {
+    // Surface the real stack in the console so we can debug recurring shapes.
+    console.error("[QuoteSheet] render crashed:", error, info);
+  }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="m-5 bg-red/10 border border-red/30 rounded p-4 text-[12px] text-red space-y-3">
+        <div className="font-semibold text-[13px]">This quote couldn&apos;t be rendered.</div>
+        <div className="font-mono text-[11px] break-words text-red/90">
+          {this.state.error.message || String(this.state.error)}
+        </div>
+        <div className="text-ink-muted text-[11px]">
+          The error has been logged to the browser console. You can still open this quote directly in Airtable.
+        </div>
+        <div className="flex gap-2">
+          <a
+            href={this.props.airtableUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
+          >
+            Open in Airtable ↗
+          </a>
+          <button
+            type="button"
+            onClick={this.props.onClose}
+            className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
 
 type Props = {
   quote: PipelineQuote | null;
@@ -131,7 +177,10 @@ export function QuoteSheet({ quote, people, canEdit, onClose, onFilterByClient }
         </div>
 
         {/* Editable body */}
-        <QuoteSheetEditor quoteId={quote.id} people={people} canEdit={canEdit} />
+        <QuoteSheetErrorBoundary airtableUrl={quote.airtableUrl} onClose={onClose}>
+          <QuoteSheetEditor quoteId={quote.id} people={people} canEdit={canEdit} />
+        </QuoteSheetErrorBoundary>
+
       </aside>
     </>,
     document.body,

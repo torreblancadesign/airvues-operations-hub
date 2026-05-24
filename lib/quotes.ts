@@ -53,6 +53,14 @@ function first<T>(x: T[] | undefined): T | null {
   return Array.isArray(x) && x.length > 0 ? x[0] : null;
 }
 
+// Airtable rich-text / formula / rollup fields occasionally return non-string
+// values (objects like { specialValue: "NaN" }, arrays from rollups, etc.).
+// Coerce to a safe string so downstream React renders + .trim() calls never throw.
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+
 export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
   const t = Tables.Quotes;
   const rec = await getRecord<QuoteFields>(t.id, quoteId);
@@ -95,8 +103,8 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
         const assigneeNames = (sf["User (from Assignee)"] as string[] | undefined) ?? [];
         return {
           id: r.id,
-          name: (sf["Story Name"] as string) ?? "(untitled)",
-          description: (sf["Description"] as string) ?? "",
+          name: asStr(sf["Story Name"]) || "(untitled)",
+          description: asStr(sf["Description"]),
           hours: typeof sf["Hours"] === "number" ? (sf["Hours"] as number) : null,
           cost:
             typeof sf["Cost"] === "number"
@@ -104,7 +112,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
               : typeof sf["Invoice"] === "number"
                 ? (sf["Invoice"] as number)
                 : null,
-          clientNotes: (sf["Client Notes"] as string) ?? "",
+          clientNotes: asStr(sf["Client Notes"]),
           status: (sf["Story Status"] as string) ?? null,
           assignees: assigneeIds.map((id, i) => ({
             id,
@@ -114,7 +122,8 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
       });
   }
 
-  const docs: QuoteAttachment[] = (f["Documents needed for Proposal"] ?? []).map((a) => ({
+  const rawDocs = f["Documents needed for Proposal"];
+  const docs: QuoteAttachment[] = (Array.isArray(rawDocs) ? rawDocs : []).map((a) => ({
     id: a.id,
     filename: a.filename ?? "",
     url: a.url ?? "",
@@ -124,7 +133,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
 
   return {
     id: rec.id,
-    projectName: (f["Project Name"] as string) ?? "",
+    projectName: asStr(f["Project Name"]),
     preparedById: first(f["Prepared by"] as string[] | undefined),
     preparedByName: first(f["Prepared By Name"] as string[] | undefined),
     preparedDate: (f["Prepared Date"] as string) ?? null,
@@ -133,14 +142,15 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     projectStatus: (f["Project Status"] as string) ?? null,
     proposalType: (f["Proposal Type"] as string) ?? null,
     status: (f["Status"] as string) ?? null,
-    customProblemStatement: (f["Custom Problem Statement and Solution Summary"] as string) ?? "",
+    customProblemStatement: asStr(f["Custom Problem Statement and Solution Summary"]),
     documents: docs,
-    recommendedApproach: (f["Recommended Approach"] as string) ?? "",
-    recommendedApproachSummary: (f["Recommended Approach Summary"] as string) ?? "",
-    projectOverview: (f["Project Overview"] as string) ?? "",
-    problemStatementSolution: (f["Problem Statement & Our Solution"] as string) ?? "",
-    estimateHoursRange: (f["Estimate Hours Range"] as string) ?? "",
-    estimateCostRange: (f["Estimate Cost Range"] as string) ?? "",
+    recommendedApproach: asStr(f["Recommended Approach"]),
+    recommendedApproachSummary: asStr(f["Recommended Approach Summary"]),
+    projectOverview: asStr(f["Project Overview"]),
+    problemStatementSolution: asStr(f["Problem Statement & Our Solution"]),
+    estimateHoursRange: asStr(f["Estimate Hours Range"]),
+    estimateCostRange: asStr(f["Estimate Cost Range"]),
+
     runAiProposalAgent: f["Run AI Proposal Agent"] === true,
     stories,
     totalCost: (f["Total Cost"] as number) ?? 0,

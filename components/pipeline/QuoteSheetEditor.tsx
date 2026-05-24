@@ -43,6 +43,14 @@ const inputCls =
   "w-full px-2.5 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none transition-colors disabled:opacity-50";
 const selectCls = `${inputCls} cursor-pointer`;
 
+// Defensive: Airtable rich-text / formula / rollup fields can return non-string
+// values (e.g. { specialValue: "NaN" } from a broken formula). Coerce so
+// downstream React renders + .trim() calls never throw and unmount the drawer.
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+
 // (ClientVisibleChip removed — all client-facing fields now use PortalChip
 // so the labeling is consistent with the AI proposal section.)
 
@@ -874,17 +882,18 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
         <CreateAiProposalRow
           canEdit={canEdit}
           hasClientInput={
-            quote.customProblemStatement.trim().length > 0 || quote.documents.length > 0
+            asStr(quote.customProblemStatement).trim().length > 0 || quote.documents.length > 0
           }
           aiContentReady={
-            quote.recommendedApproach.trim().length > 0 &&
-            quote.recommendedApproachSummary.trim().length > 0 &&
-            quote.projectOverview.trim().length > 0 &&
-            quote.problemStatementSolution.trim().length > 0 &&
-            quote.estimateHoursRange.trim().length > 0 &&
-            quote.estimateCostRange.trim().length > 0 &&
+            asStr(quote.recommendedApproach).trim().length > 0 &&
+            asStr(quote.recommendedApproachSummary).trim().length > 0 &&
+            asStr(quote.projectOverview).trim().length > 0 &&
+            asStr(quote.problemStatementSolution).trim().length > 0 &&
+            asStr(quote.estimateHoursRange).trim().length > 0 &&
+            asStr(quote.estimateCostRange).trim().length > 0 &&
             quote.stories.length > 0
           }
+
           isAgentRunning={isAgentRunning}
           isTriggering={aiTriggering}
           pollStartedAt={pollStartedAt}

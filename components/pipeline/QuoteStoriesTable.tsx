@@ -93,7 +93,24 @@ export function QuoteStoriesTable({ stories, totalCost, totalHours, canEdit, onA
             </thead>
             <tbody>
               {stories.map((s) => (
-                <tr key={s.id} className="border-b border-rule-soft last:border-0 align-top">
+                <tr
+                  key={s.id}
+                  className={`border-b border-rule-soft last:border-0 align-top ${onRowClick ? "cursor-pointer hover:bg-bg-elevated/60 transition-colors" : ""}`}
+                  onClick={onRowClick ? () => onRowClick(s.id) : undefined}
+                  role={onRowClick ? "button" : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onRowClick(s.id);
+                          }
+                        }
+                      : undefined
+                  }
+                >
+
                   <td className="px-3 py-2.5 text-ink font-medium max-w-[160px]">
                     <div className="truncate" title={s.name}>{s.name}</div>
                   </td>

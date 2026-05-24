@@ -8,6 +8,8 @@ import { createRecords, getRecord, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
 import { getQuoteDetail } from "../quotes";
+import { getStoryById } from "../engineering";
+import type { Story } from "../engineering-types";
 import type { QuoteAttachment, QuoteDetail, QuoteFieldPatch } from "../quote-types";
 import {
   PROJECT_STATUS_CHOICES,

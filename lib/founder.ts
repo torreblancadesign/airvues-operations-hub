@@ -56,15 +56,17 @@ export type FounderRevenueTrend = {
   latestClosedMonth: number;
 };
 
-// Pulls the last 6 fully-closed months of paid invoice revenue and computes
+// Pulls the last 3 fully-closed months of paid invoice revenue and computes
 // the average month-over-month growth. Used to predict months-to-goal on
-// the Founder Dashboard hero.
+// the Founder Dashboard hero. (3-month window better reflects recent trend.)
+const TREND_MONTHS = 3;
+
 export async function getFounderRevenueTrend(): Promise<FounderRevenueTrend> {
   const now = new Date();
   // Start of current month — anything before this is a "closed" month.
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  // Look back 6 closed months.
-  const windowStart = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+  // Look back TREND_MONTHS closed months.
+  const windowStart = new Date(now.getFullYear(), now.getMonth() - TREND_MONTHS, 1);
   const windowStartISO = windowStart.toISOString().slice(0, 10);
 
   const t = Tables.Invoices;
@@ -77,9 +79,9 @@ export async function getFounderRevenueTrend(): Promise<FounderRevenueTrend> {
     ["kpi:revenue", "founder:revenue-trend"],
   );
 
-  // Bucket by YYYY-MM for the 6 closed months preceding currentMonthStart.
+  // Bucket by YYYY-MM for the closed months preceding currentMonthStart.
   const buckets = new Map<string, number>();
-  for (let i = 6; i >= 1; i--) {
+  for (let i = TREND_MONTHS; i >= 1; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     buckets.set(key, 0);

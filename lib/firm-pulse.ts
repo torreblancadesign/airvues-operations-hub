@@ -39,6 +39,10 @@ export type RevenueWindow = {
 
 export type SourceSlice = { source: string; revenue: number; count: number };
 
+export type LeadsWindow = { count: number; sold: number; conversionPct: number };
+export type NewClientsWindow = { count: number };
+export type ProjectsWindow = { active: number; completed: number };
+
 export type FirmPulse = {
   revenue: { ytd: RevenueWindow; mtd: RevenueWindow };
   booked: { ytd: { value: number; count: number }; mtd: { value: number; count: number } };
@@ -51,11 +55,12 @@ export type FirmPulse = {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
     mtd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
   };
-  // Display-only extras (no Airtable schema changes)
-  leadsYtd: { count: number; sold: number; conversionPct: number };
-  newClientsYtd: { count: number };
-  projects: { active: number; completedYtd: number };
-  revenueBySource: SourceSlice[]; // invoice-source mix, paid YTD
+  // Display-only extras (no Airtable schema changes). Windowed for the toggle.
+  leads: { ytd: LeadsWindow; mtd: LeadsWindow };
+  newClients: { ytd: NewClientsWindow; mtd: NewClientsWindow };
+  // `active` is a snapshot (same in both windows); `completed` is window-scoped.
+  projects: { ytd: ProjectsWindow; mtd: ProjectsWindow };
+  revenueBySource: { ytd: SourceSlice[]; mtd: SourceSlice[] };
 };
 
 function buildRevenueWindow(

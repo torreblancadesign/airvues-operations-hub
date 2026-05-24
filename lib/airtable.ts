@@ -145,6 +145,12 @@ export async function patchRecords<F = Record<string, unknown>>(
     if (!resp.ok) {
       const body = await resp.text();
       throw new Error(`Airtable PATCH ${tableIdOrName} failed (${resp.status}): ${body.slice(0, 300)}`);
+    }
+    const data = (await resp.json()) as { records: AirtableRecord<F>[] };
+    out.push(...data.records);
+    if (i + 10 < patches.length) await new Promise((r) => setTimeout(r, 220));
+  }
+  return out;
 }
 
 export async function deleteRecord(
@@ -163,12 +169,6 @@ export async function deleteRecord(
     const body = await resp.text();
     throw new Error(`Airtable DELETE ${tableIdOrName}/${recordId} failed (${resp.status}): ${body.slice(0, 300)}`);
   }
-}
-    const data = (await resp.json()) as { records: AirtableRecord<F>[] };
-    out.push(...data.records);
-    if (i + 10 < patches.length) await new Promise((r) => setTimeout(r, 220));
-  }
-  return out;
 }
 
 export async function createRecords<F = Record<string, unknown>>(

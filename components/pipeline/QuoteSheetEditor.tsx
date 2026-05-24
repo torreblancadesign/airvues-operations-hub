@@ -525,6 +525,7 @@ function Section({
 // ---------- Main editor ----------
 
 export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
+  const router = useRouter();
   const [quote, setQuote] = useState<QuoteDetail | null>(initial ?? null);
   const [loading, setLoading] = useState(!initial);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -532,6 +533,27 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
   const [showAddStory, setShowAddStory] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [lastSavedField, setLastSavedField] = useState<string | null>(null);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [storyLoading, setStoryLoading] = useState(false);
+
+  const openStory = (storyId: string) => {
+    setStoryLoading(true);
+    loadStoryDetail(storyId).then((res) => {
+      setStoryLoading(false);
+      if ("ok" in res) setSelectedStory(res.story);
+    });
+  };
+
+  const closeStory = () => {
+    setSelectedStory(null);
+    // Re-fetch the quote so any edits to Hours/Cost/Status are reflected in the
+    // calculator and the Total Cost rollup.
+    loadQuoteDetail(quoteId).then((res) => {
+      if ("ok" in res) setQuote(res.quote);
+    });
+    router.refresh();
+  };
+
 
   useEffect(() => {
     let alive = true;

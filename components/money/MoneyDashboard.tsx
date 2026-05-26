@@ -120,11 +120,12 @@ export function MoneyDashboard({
   const [showNew, setShowNew] = useState(false);
   const [paidScope, setPaidScope] = useState<"mtd" | "ytd">("mtd");
 
-  const payers = useMemo(() => {
+  const payerNames = useMemo(() => {
     const set = new Set<string>();
     for (const r of invoices) set.add(r.payer);
     return Array.from(set).sort();
   }, [invoices]);
+
 
   // KPIs against unfiltered base
   const kpis = useMemo(() => {

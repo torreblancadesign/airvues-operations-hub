@@ -74,7 +74,7 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
   };
 
 
-  return (
+  return createPortal(
     <>
       <div
         className="fixed inset-0 bg-black/40 z-40 transition-opacity"

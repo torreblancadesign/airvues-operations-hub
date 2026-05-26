@@ -426,7 +426,16 @@ export function MoneyDashboard({
           setFilter({ ...EMPTY_FILTER, payer });
           setSelected(null);
         }}
+        canEdit={canEdit}
+      />
+
+      <NewInvoiceModal
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        payers={payers}
+        quotes={quotes}
       />
     </>
+
   );
 }

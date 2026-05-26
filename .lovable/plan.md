@@ -1,54 +1,73 @@
 ## Goal
+Enhance `/money` in place with:
+1. A focused header strip (Total Outstanding + Paid MTD/YTD).
+2. A "New invoice" modal that creates an Airtable record only.
+3. A "Send" action on an existing invoice that flips status → `sent`, which triggers Airtable's existing automation to actually issue the invoice.
 
-Redo the top "Path to Founder Replacement Income" section on `/founder` so it's the visual centerpiece: clean, sleek, hero-grade. Surface the three numbers that matter most + one new predictive metric.
+Quote sheet stays unchanged.
 
-## New top-section content (4 KPIs)
+## Scope
 
-1. **% to goal** — large hero number + animated progress bar (already exists, refined)
-2. **Current yearly earnings (net)** — annualized founder take-home at today's run-rate (we already compute `current.founderNetAnnual`)
-3. **Monthly revenue needed** — kept, but demoted to a supporting stat
-4. **NEW — Predicted months to goal** — based on recent monthly revenue growth trend
+### 1. Header metric strip
+Two oversized hero cards above the existing "This Month" block:
+- **Total Outstanding (AR)** — sum of `open` + `sent` + `unsent` + `past due`. Sub: "X current · Y late".
+- **Paid** — toggleable between MTD and YTD (default MTD). Sub: invoice count.
 
-Everything below the hero (current-pace card, at-goal card, gap analysis, scenarios, assumptions) stays as-is.
+Values come from the existing `kpis` memo in `MoneyDashboard.tsx`; add a tiny YTD addition.
 
-## "Predicted months to goal" math
+### 2. "New invoice" modal (create record only)
+- **Button**: "+ New invoice" in `PageHeader` meta on `/money`, gated by `canMutate()`.
+- **Modal** (`components/money/NewInvoiceModal.tsx`):
+  - Payer (Company) — searchable picker
+  - Linked Quote — optional, searchable
+  - Amount (currency, required, > 0)
+  - Date (defaults to today)
+  - Type — One-time / Recurring / Payment Plan
+  - Source — Stripe / Fiverr / Other (default Other)
+  - Description (optional, multiline)
+  - **Status is hard-coded to `unsent`** — not user-editable. No "Create and Send Invoice" checkbox toggled.
+- **Server action** `createInvoice` in `lib/mutations/invoice.ts`:
+  - `requireRole("admin", "lead", "editor")`
+  - Zod-validate
+  - `createRecords(Tables.Invoices.id, [{ fields: { ... } }])` — schema field names, `typecast: true` already on
+  - `revalidateTag("airtable")` + `revalidateTag("money:all-invoices")`
+  - Returns `{ ok, id }` or `{ error }`
 
-Fetch the last 6 closed months of paid-invoice revenue (same source as `buildRevenueSeries` in `lib/firm-pulse.ts`, but server-side helper scoped to founder page).
+### 3. "Send" action on existing invoices
+- In `InvoiceSheet`, when the row's status is `unsent`, show a primary **"Send invoice"** button (gated by `canMutate()`).
+- Clicking it calls a new server action `markInvoiceSent(id)`:
+  - `requireRole(...)`
+  - `patchRecords(Tables.Invoices.id, [{ id, fields: { "Invoice Status": "sent" } }])`
+  - Revalidate the same tags
+  - Returns `{ ok }` or `{ error }`
+- The Airtable side already has an automation that fires on status = `sent` to actually create the Stripe invoice. We just flip the field.
+- Optional confirm step ("This will send the invoice to the payer. Continue?") to prevent accidental fires.
 
-```text
-recent_months   = last up-to-6 fully-closed months of paid revenue
-avg_growth_$    = mean of (month[i] - month[i-1]) over that window
-current_rev     = latest closed month (or live MTD if it already exceeds)
-gap_to_goal     = max(0, monthlyGoal - current_rev)
+### 4. Quote sheet
+No change.
 
-if current_rev >= monthlyGoal      → "At goal"
-else if avg_growth_$ <= 0          → "Trend flat/negative"
-else months_to_goal ≈ ceil(gap_to_goal / avg_growth_$)
-```
+## File changes
 
-Display as `~N months` with a one-line subtext: `"based on +$X,XXX/mo avg growth (last 6 mo)"`. Edge cases ("at goal", "trend flat") render a short label instead of a number, never NaN/Infinity.
+**New**
+- `components/money/NewInvoiceModal.tsx` — client modal with pickers + validation
+- `lib/mutations/invoice.ts` — `createInvoice` + `markInvoiceSent`
+- `lib/companies-light.ts` — `{id, name}[]` for company picker (only if no existing helper)
 
-## Visual direction
+**Edited**
+- `app/(app)/money/page.tsx` — pass `canEdit`, companies-light, quotes-light into dashboard; "+ New invoice" trigger
+- `components/money/MoneyDashboard.tsx` — accept props, render hero strip, mount modal
+- `components/money/InvoiceSheet.tsx` — conditional "Send invoice" button when status is `unsent`
 
-Hero section becomes a layered card:
+## Technical notes
 
-- Eyebrow + title line unchanged
-- **Primary row:** giant % to goal (left, ~64px emerald) and animated gradient progress bar with shimmer
-- **Secondary KPI strip:** 3 sleek mini-tiles in a row — `Current yearly earnings` / `Predicted months to goal` / `Monthly revenue needed` — each with eyebrow, tabnum value, one-line context
-- Existing `Current month revenue` input + `Edit retirement #` action move into a compact, less prominent footer row inside the same card (still editable, just visually quieter)
-- Subtle inner glow + gradient border accent on the hero card to make it feel like the dashboard's centerpiece without breaking the existing dark/emerald system
+- All writes via `lib/airtable.ts` (`createRecords`, `patchRecords`).
+- Field references via `Tables.Invoices.fields[...]` keys per CLAUDE.md #3.
+- Status values are lowercase per `lib/schema.ts:273` — `unsent`, `sent`, etc.
+- Auth: UI gated by `canMutate()`; server enforced by `requireRole`.
+- No Stripe API calls; Airtable's existing automation owns invoice issuance.
 
-No new design tokens needed — uses existing `bg-surface`, `border-rule`, `emerald`, `ink-*`.
-
-## Files to touch
-
-- `lib/founder.ts` — add `getFounderRevenueTrend()` returning `{ monthlyHistory: number[], avgMonthlyGrowth: number, latestClosedMonth: number }`. Reuses the same Airtable paid-invoice query shape as `buildRevenueSeries`.
-- `app/(app)/founder/page.tsx` — call the new helper, pass trend data into `FounderDashboard`.
-- `components/founder/FounderDashboard.tsx` — accept new props, compute `monthsToGoal`, rebuild the top hero section layout. Everything below the hero is untouched.
-- `lib/founder-math.ts` — add a tiny pure helper `predictMonthsToGoal({ currentMonthlyRevenue, monthlyGoal, avgMonthlyGrowth })` returning `{ kind: "at-goal" | "flat" | "months", value?: number }`.
-
-## Out of scope
-
-- No changes to assumptions, scenario table, gap analysis, or projection cards.
-- No Airtable schema changes.
-- No new routes or nav entries.
+## Verification
+- `npx tsc --noEmit` + `npm run build`
+- As admin on `/money`: hero strip renders, "+ New invoice" visible, creates record with `unsent` status, row appears.
+- Open the new invoice → "Send invoice" button visible → click → status flips to `sent` → Airtable automation handles the rest.
+- As engineer: both buttons hidden.

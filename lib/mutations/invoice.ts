@@ -50,11 +50,10 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CreateIn
     throw e;
   }
 
-  const parsed = CreateInvoiceSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues.map((i) => i.message).join("; ") };
-  }
-  const data = parsed.data;
+  const err = validate(input);
+  if (err) return { error: err };
+  const data = input;
+
 
   const fields: Record<string, unknown> = {
     "Invoice Payer": [data.payerId],

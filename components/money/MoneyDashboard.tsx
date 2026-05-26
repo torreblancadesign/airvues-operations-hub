@@ -2,17 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { MoneyInvoice } from "@/lib/money";
+import type { PayerOption } from "@/lib/people-light";
+import type { QuoteOption } from "@/lib/quotes-light";
 import { StatCard } from "@/components/ui/StatCard";
 import { FilterBar } from "./FilterBar";
 import { InvoiceTable } from "./InvoiceTable";
 import { InvoiceSheet } from "./InvoiceSheet";
 import { ArAgingChart } from "./ArAgingChart";
 import { MonthlyFocus } from "./MonthlyFocus";
+import { NewInvoiceModal } from "./NewInvoiceModal";
 import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, StatusBucket } from "./types";
 
 type Props = {
   invoices: MoneyInvoice[];
   initialFilter?: Partial<Filter>;
+  canEdit?: boolean;
+  payers?: PayerOption[];
+  quotes?: QuoteOption[];
 };
 
 const fmtCurrency = (n: number) =>
@@ -101,10 +107,18 @@ function arAgingBuckets(rows: MoneyInvoice[]) {
   return buckets;
 }
 
-export function MoneyDashboard({ invoices, initialFilter }: Props) {
+export function MoneyDashboard({
+  invoices,
+  initialFilter,
+  canEdit = false,
+  payers = [],
+  quotes = [],
+}: Props) {
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...initialFilter });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<MoneyInvoice | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [paidScope, setPaidScope] = useState<"mtd" | "ytd">("mtd");
 
   const payers = useMemo(() => {
     const set = new Set<string>();

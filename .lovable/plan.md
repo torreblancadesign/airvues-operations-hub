@@ -1,73 +1,72 @@
-## Goal
-Enhance `/money` in place with:
-1. A focused header strip (Total Outstanding + Paid MTD/YTD).
-2. A "New invoice" modal that creates an Airtable record only.
-3. A "Send" action on an existing invoice that flips status → `sent`, which triggers Airtable's existing automation to actually issue the invoice.
+## Confirmed facts
 
-Quote sheet stays unchanged.
+- `BLOB_READ_WRITE_TOKEN` is set in Production (`hasToken: true, looksValid: true`).
+- `@vercel/blob` 2.4.0 is installed. Its default API URL really is `https://vercel.com/api/blob` — that part is **not** wrong.
+- Client code in `components/leads/LeadSheet.tsx` calls `upload(pathname, file, { handleUploadUrl: '/api/leads/upload', clientPayload: ..., access: 'public', contentType: ... })` — textbook correct.
+- The SDK's `upload()` always POSTs to `handleUploadUrl` first to retrieve a client token, then PUTs the file. No bypass path exists.
 
-## Scope
+## The actual symptom
 
-### 1. Header metric strip
-Two oversized hero cards above the existing "This Month" block:
-- **Total Outstanding (AR)** — sum of `open` + `sent` + `unsent` + `past due`. Sub: "X current · Y late".
-- **Paid** — toggleable between MTD and YTD (default MTD). Sub: invoice count.
+The PUT to `https://vercel.com/api/blob/?pathname=...` returns **400 Bad Request** with no CORS headers. The browser then surfaces it as a CORS error, but the underlying problem is the 400. A 400 from the Blob API on that endpoint almost always means **the Authorization header is missing or invalid** — i.e. the client never received a usable `clientToken` from `/api/leads/upload`.
 
-Values come from the existing `kpis` memo in `MoneyDashboard.tsx`; add a tiny YTD addition.
+You reported you don't see the POST to `/api/leads/upload` in DevTools. That's either (a) a filter/preserve-log issue, or (b) the POST is being blocked client-side before it leaves the browser. Either way, we need ground-truth instrumentation.
 
-### 2. "New invoice" modal (create record only)
-- **Button**: "+ New invoice" in `PageHeader` meta on `/money`, gated by `canMutate()`.
-- **Modal** (`components/money/NewInvoiceModal.tsx`):
-  - Payer (Company) — searchable picker
-  - Linked Quote — optional, searchable
-  - Amount (currency, required, > 0)
-  - Date (defaults to today)
-  - Type — One-time / Recurring / Payment Plan
-  - Source — Stripe / Fiverr / Other (default Other)
-  - Description (optional, multiline)
-  - **Status is hard-coded to `unsent`** — not user-editable. No "Create and Send Invoice" checkbox toggled.
-- **Server action** `createInvoice` in `lib/mutations/invoice.ts`:
-  - `requireRole("admin", "lead", "editor")`
-  - Zod-validate
-  - `createRecords(Tables.Invoices.id, [{ fields: { ... } }])` — schema field names, `typecast: true` already on
-  - `revalidateTag("airtable")` + `revalidateTag("money:all-invoices")`
-  - Returns `{ ok, id }` or `{ error }`
+## Step 1 — Add client-side breadcrumbs to `LeadSheet.tsx`
 
-### 3. "Send" action on existing invoices
-- In `InvoiceSheet`, when the row's status is `unsent`, show a primary **"Send invoice"** button (gated by `canMutate()`).
-- Clicking it calls a new server action `markInvoiceSent(id)`:
-  - `requireRole(...)`
-  - `patchRecords(Tables.Invoices.id, [{ id, fields: { "Invoice Status": "sent" } }])`
-  - Revalidate the same tags
-  - Returns `{ ok }` or `{ error }`
-- The Airtable side already has an automation that fires on status = `sent` to actually create the Stripe invoice. We just flip the field.
-- Optional confirm step ("This will send the invoice to the payer. Continue?") to prevent accidental fires.
+Wrap the `upload()` call so we log:
+- Before the call: pathname, lead.id, file name/size.
+- The native `fetch` request and response status for `/api/leads/upload` — done by temporarily monkey-patching `window.fetch` for the duration of the upload, so we capture the SDK's internal POST that the Network tab is missing.
+- After: success URL or full error object.
 
-### 4. Quote sheet
-No change.
+Concretely, in the `onDrop` / upload handler:
 
-## File changes
+```ts
+const origFetch = window.fetch;
+window.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input.toString();
+  console.log("[blob] fetch start", init?.method ?? "GET", url);
+  try {
+    const res = await origFetch(input, init);
+    console.log("[blob] fetch end", res.status, url);
+    return res;
+  } catch (e) {
+    console.log("[blob] fetch THREW", url, e);
+    throw e;
+  }
+};
+try {
+  const blob = await upload(pathname, file, { ... });
+  console.log("[blob] upload success", blob);
+} catch (e) {
+  console.log("[blob] upload FAILED", e);
+} finally {
+  window.fetch = origFetch;
+}
+```
 
-**New**
-- `components/money/NewInvoiceModal.tsx` — client modal with pickers + validation
-- `lib/mutations/invoice.ts` — `createInvoice` + `markInvoiceSent`
-- `lib/companies-light.ts` — `{id, name}[]` for company picker (only if no existing helper)
+This guarantees we see every fetch the SDK makes, in the browser console, regardless of Network tab filtering.
 
-**Edited**
-- `app/(app)/money/page.tsx` — pass `canEdit`, companies-light, quotes-light into dashboard; "+ New invoice" trigger
-- `components/money/MoneyDashboard.tsx` — accept props, render hero strip, mount modal
-- `components/money/InvoiceSheet.tsx` — conditional "Send invoice" button when status is `unsent`
+## Step 2 — Reproduce and capture
+
+Push the change. After Vercel redeploys, repeat the file upload and copy the Console output. Three possible outcomes, each with a known fix:
+
+| Console output | Diagnosis | Fix |
+|---|---|---|
+| `fetch start POST /api/leads/upload` → `fetch end 200` then `fetch start PUT vercel.com/api/blob/` → `fetch end 400` | Token route returns 200 but with wrong shape | Inspect `/api/leads/upload` response body via `console.log` of the `res.json()` to confirm; usually means `handleUpload` wrapper failed silently |
+| `fetch start POST /api/leads/upload` → `fetch end 401/403/302` | Auth middleware or Vercel Deployment Protection is blocking the route | Allow the route in `middleware.ts` matcher and/or disable Vercel Authentication for Production |
+| `fetch start POST /api/leads/upload` → `fetch THREW ...` | CSP / network policy / service worker | Check Console for CSP report; check `next.config.js` `headers()`; unregister any leftover SW |
+| No `fetch start POST /api/leads/upload` at all | Something is intercepting before our code runs (browser extension, SW) | Test in Incognito with extensions off |
+
+## Step 3 — Ship the fix
+
+Based on Step 2's outcome, apply the corresponding fix in one focused edit and remove the diagnostic logging.
 
 ## Technical notes
 
-- All writes via `lib/airtable.ts` (`createRecords`, `patchRecords`).
-- Field references via `Tables.Invoices.fields[...]` keys per CLAUDE.md #3.
-- Status values are lowercase per `lib/schema.ts:273` — `unsent`, `sent`, etc.
-- Auth: UI gated by `canMutate()`; server enforced by `requireRole`.
-- No Stripe API calls; Airtable's existing automation owns invoice issuance.
+- Monkey-patching `window.fetch` is safe here because it's scoped: we restore the original in `finally`, and the upload completes in a few seconds.
+- No need to touch `app/api/leads/upload/route.ts` or `lib/uploads.ts` yet — those look correct. We're proving the client is even reaching them first.
+- After fixing, also check `middleware.ts` to see if there's a matcher that includes `/api/*` and unintentionally redirects unauthenticated requests; that's a common Next.js gotcha when adding NextAuth middleware. Even if you're signed in, an auth-cookie SameSite issue can make the POST look unauthenticated.
 
-## Verification
-- `npx tsc --noEmit` + `npm run build`
-- As admin on `/money`: hero strip renders, "+ New invoice" visible, creates record with `unsent` status, row appears.
-- Open the new invoice → "Send invoice" button visible → click → status flips to `sent` → Airtable automation handles the rest.
-- As engineer: both buttons hidden.
+## What I need from you to proceed
+
+Just say "go" and I'll switch to build mode, add the diagnostic wrapper, and ship it. You then upload one file, paste the Console output, and I push the actual fix.

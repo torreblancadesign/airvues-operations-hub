@@ -439,3 +439,115 @@ export function MoneyDashboard({
 
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// Hero strip — Outstanding AR + Paid (MTD/YTD), oversized cards
+// ─────────────────────────────────────────────────────────────
+type HeroKpis = {
+  unpaidCurrent: number;
+  unpaidCurrentCount: number;
+  lateAmount: number;
+  lateCount: number;
+  mtdRevenue: number;
+  mtdPaidCount: number;
+};
+
+function HeroStrip({
+  kpis,
+  invoices,
+  paidScope,
+  setPaidScope,
+}: {
+  kpis: HeroKpis;
+  invoices: MoneyInvoice[];
+  paidScope: "mtd" | "ytd";
+  setPaidScope: (s: "mtd" | "ytd") => void;
+}) {
+  const ytd = useMemo(() => {
+    const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+    let total = 0;
+    let count = 0;
+    for (const r of invoices) {
+      if (r.status !== "paid" || !r.date) continue;
+      if (new Date(r.date).getTime() >= yearStart) {
+        total += r.amount;
+        count += 1;
+      }
+    }
+    return { total, count };
+  }, [invoices]);
+
+  const outstandingTotal = kpis.unpaidCurrent + kpis.lateAmount;
+  const outstandingCount = kpis.unpaidCurrentCount + kpis.lateCount;
+  const paidValue = paidScope === "mtd" ? kpis.mtdRevenue : ytd.total;
+  const paidCount = paidScope === "mtd" ? kpis.mtdPaidCount : ytd.count;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+      {/* Outstanding */}
+      <div className="relative overflow-hidden bg-surface rounded-card border border-rule p-5">
+        <div
+          className="absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(to right, transparent, rgba(245, 158, 11, 0.55), transparent)" }}
+          aria-hidden="true"
+        />
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="eyebrow">Outstanding AR</div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
+            {outstandingCount} invoices
+          </div>
+        </div>
+        <div className="text-[40px] font-semibold leading-none tabnum text-amber">
+          {fmtCurrency(outstandingTotal)}
+        </div>
+        <div className="mt-3 flex items-center gap-4 text-[12px]">
+          <span className="text-ink-muted">
+            <span className="text-ink-strong tabnum">{fmtCurrency(kpis.unpaidCurrent)}</span> current
+            <span className="text-ink-faint"> · {kpis.unpaidCurrentCount}</span>
+          </span>
+          <span className="text-ink-faint">·</span>
+          <span className="text-ink-muted">
+            <span className="text-red tabnum">{fmtCurrency(kpis.lateAmount)}</span> late
+            <span className="text-ink-faint"> · {kpis.lateCount}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Paid */}
+      <div className="relative overflow-hidden bg-surface rounded-card border border-rule p-5">
+        <div
+          className="absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(to right, transparent, rgba(34, 211, 168, 0.55), transparent)" }}
+          aria-hidden="true"
+        />
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="eyebrow">Paid</div>
+          <div className="inline-flex rounded-md border border-rule overflow-hidden text-[10px] font-mono uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={() => setPaidScope("mtd")}
+              className={`px-2 py-1 transition-colors ${paidScope === "mtd" ? "bg-emerald/15 text-emerald" : "text-ink-muted hover:text-ink-strong"}`}
+            >
+              MTD
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaidScope("ytd")}
+              className={`px-2 py-1 transition-colors border-l border-rule ${paidScope === "ytd" ? "bg-emerald/15 text-emerald" : "text-ink-muted hover:text-ink-strong"}`}
+            >
+              YTD
+            </button>
+          </div>
+        </div>
+        <div className="text-[40px] font-semibold leading-none tabnum text-emerald">
+          {fmtCurrency(paidValue)}
+        </div>
+        <div className="mt-3 text-[12px] text-ink-muted">
+          <span className="text-ink-strong tabnum">{paidCount}</span> invoices collected
+          <span className="text-ink-faint"> · {paidScope === "mtd" ? "month to date" : "year to date"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

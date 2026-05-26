@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { MoneyInvoice } from "@/lib/money";
+import { markInvoiceSent } from "@/lib/mutations/invoice";
 
 type Props = {
   invoice: MoneyInvoice | null;
   onClose: () => void;
   onFilterByPayer: (payer: string) => void;
+  canEdit?: boolean;
 };
 
 const fmtCurrency = (n: number) =>

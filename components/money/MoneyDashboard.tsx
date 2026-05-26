@@ -218,11 +218,36 @@ export function MoneyDashboard({
 
   return (
     <>
+      {/* Header action: New invoice */}
+      {canEdit && (
+        <div className="flex justify-end mb-3">
+          <button
+            type="button"
+            onClick={() => setShowNew(true)}
+            className="px-3 py-1.5 text-[12px] bg-emerald text-bg font-semibold rounded hover:bg-emerald/80 transition-colors inline-flex items-center gap-1.5"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New invoice
+          </button>
+        </div>
+      )}
+
+      {/* Hero strip — Outstanding AR + Paid (MTD/YTD) */}
+      <HeroStrip
+        kpis={kpis}
+        invoices={invoices}
+        paidScope={paidScope}
+        setPaidScope={setPaidScope}
+      />
+
       {/* Filter bar at top */}
       <FilterBar
         filter={filter}
         setFilter={setFilter}
-        payers={payers}
+        payers={payerNames}
         totalCount={invoices.length}
         filteredCount={filtered.length}
       />
@@ -233,6 +258,7 @@ export function MoneyDashboard({
         mtdPaidCount={kpis.mtdPaidCount}
         mrr={kpis.mrr}
       />
+
 
       {/* All-time section header */}
       <div className="mb-3 flex items-baseline justify-between gap-4">

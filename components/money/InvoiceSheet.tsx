@@ -31,9 +31,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function InvoiceSheet({ invoice, onClose, onFilterByPayer }: Props) {
+export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = false }: Props) {
+  const [pending, startTransition] = useTransition();
+  const [sendError, setSendError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!invoice) return;
+    setSendError(null);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -42,6 +46,18 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer }: Props) {
   }, [invoice, onClose]);
 
   if (!invoice) return null;
+
+  const canSend = canEdit && invoice.status === "unsent";
+  const handleSend = () => {
+    if (!confirm("Flip status to \"sent\"? This will trigger Airtable's automation to actually issue the invoice.")) return;
+    setSendError(null);
+    startTransition(async () => {
+      const res = await markInvoiceSent(invoice.id);
+      if ("error" in res) setSendError(res.error);
+      else onClose();
+    });
+  };
+
 
   return (
     <>

@@ -224,6 +224,7 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
           </Field>
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }

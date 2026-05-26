@@ -35,6 +35,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = false }: Props) {
   const [pending, startTransition] = useTransition();
   const [sendError, setSendError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!invoice) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [invoice]);
 
   useEffect(() => {
     if (!invoice) return;
@@ -46,7 +60,7 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
     return () => window.removeEventListener("keydown", onKey);
   }, [invoice, onClose]);
 
-  if (!invoice) return null;
+  if (!invoice || !mounted) return null;
 
   const canSend = canEdit && invoice.status === "unsent";
   const handleSend = () => {

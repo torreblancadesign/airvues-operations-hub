@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { MoneyInvoice } from "@/lib/money";
+import { markInvoiceSent } from "@/lib/mutations/invoice";
 
 type Props = {
   invoice: MoneyInvoice | null;
   onClose: () => void;
   onFilterByPayer: (payer: string) => void;
+  canEdit?: boolean;
 };
 
 const fmtCurrency = (n: number) =>
@@ -29,9 +31,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-export function InvoiceSheet({ invoice, onClose, onFilterByPayer }: Props) {
+export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = false }: Props) {
+  const [pending, startTransition] = useTransition();
+  const [sendError, setSendError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!invoice) return;
+    setSendError(null);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -40,6 +46,18 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer }: Props) {
   }, [invoice, onClose]);
 
   if (!invoice) return null;
+
+  const canSend = canEdit && invoice.status === "unsent";
+  const handleSend = () => {
+    if (!confirm("Flip status to \"sent\"? This will trigger Airtable's automation to actually issue the invoice.")) return;
+    setSendError(null);
+    startTransition(async () => {
+      const res = await markInvoiceSent(invoice.id);
+      if ("error" in res) setSendError(res.error);
+      else onClose();
+    });
+  };
+
 
   return (
     <>
@@ -87,14 +105,29 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer }: Props) {
         </div>
 
         <div className="px-5 py-3 border-b border-rule flex gap-2 flex-wrap">
+          {canSend && (
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={pending}
+              className="px-3 py-1.5 text-[12px] bg-emerald text-bg font-semibold rounded hover:bg-emerald/80 disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+              {pending ? "Sending…" : "Send invoice"}
+            </button>
+          )}
           <a
             href={invoice.airtableUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-3 py-1.5 text-[12px] bg-emerald text-bg font-medium rounded hover:bg-emerald/80 transition-colors"
+            className={`px-3 py-1.5 text-[12px] ${canSend ? "bg-bg-elevated border border-rule text-ink hover:border-ink-muted" : "bg-emerald text-bg font-medium hover:bg-emerald/80"} rounded transition-colors`}
           >
             Open in Airtable ↗
           </a>
+
           {invoice.stripeLink && (
             <a
               href={invoice.stripeLink}
@@ -123,6 +156,14 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer }: Props) {
             All from {invoice.payer.split(" ")[0]}
           </button>
         </div>
+
+        {sendError && (
+          <div className="mx-5 mt-3 text-[12px] text-red bg-red/10 border border-red/30 rounded-md px-3 py-2">
+            {sendError}
+          </div>
+        )}
+
+
 
         <div className="px-5 py-2">
           <Field label="Description">{invoice.description ?? "—"}</Field>

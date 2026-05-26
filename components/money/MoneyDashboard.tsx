@@ -2,17 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { MoneyInvoice } from "@/lib/money";
+import type { PayerOption } from "@/lib/people-light";
+import type { QuoteOption } from "@/lib/quotes-light";
 import { StatCard } from "@/components/ui/StatCard";
 import { FilterBar } from "./FilterBar";
 import { InvoiceTable } from "./InvoiceTable";
 import { InvoiceSheet } from "./InvoiceSheet";
 import { ArAgingChart } from "./ArAgingChart";
 import { MonthlyFocus } from "./MonthlyFocus";
+import { NewInvoiceModal } from "./NewInvoiceModal";
 import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, StatusBucket } from "./types";
 
 type Props = {
   invoices: MoneyInvoice[];
   initialFilter?: Partial<Filter>;
+  canEdit?: boolean;
+  payers?: PayerOption[];
+  quotes?: QuoteOption[];
 };
 
 const fmtCurrency = (n: number) =>
@@ -101,16 +107,25 @@ function arAgingBuckets(rows: MoneyInvoice[]) {
   return buckets;
 }
 
-export function MoneyDashboard({ invoices, initialFilter }: Props) {
+export function MoneyDashboard({
+  invoices,
+  initialFilter,
+  canEdit = false,
+  payers = [],
+  quotes = [],
+}: Props) {
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...initialFilter });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<MoneyInvoice | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [paidScope, setPaidScope] = useState<"mtd" | "ytd">("mtd");
 
-  const payers = useMemo(() => {
+  const payerNames = useMemo(() => {
     const set = new Set<string>();
     for (const r of invoices) set.add(r.payer);
     return Array.from(set).sort();
   }, [invoices]);
+
 
   // KPIs against unfiltered base
   const kpis = useMemo(() => {
@@ -203,11 +218,36 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
 
   return (
     <>
+      {/* Header action: New invoice */}
+      {canEdit && (
+        <div className="flex justify-end mb-3">
+          <button
+            type="button"
+            onClick={() => setShowNew(true)}
+            className="px-3 py-1.5 text-[12px] bg-emerald text-bg font-semibold rounded hover:bg-emerald/80 transition-colors inline-flex items-center gap-1.5"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New invoice
+          </button>
+        </div>
+      )}
+
+      {/* Hero strip — Outstanding AR + Paid (MTD/YTD) */}
+      <HeroStrip
+        kpis={kpis}
+        invoices={invoices}
+        paidScope={paidScope}
+        setPaidScope={setPaidScope}
+      />
+
       {/* Filter bar at top */}
       <FilterBar
         filter={filter}
         setFilter={setFilter}
-        payers={payers}
+        payers={payerNames}
         totalCount={invoices.length}
         filteredCount={filtered.length}
       />
@@ -218,6 +258,7 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
         mtdPaidCount={kpis.mtdPaidCount}
         mrr={kpis.mrr}
       />
+
 
       {/* All-time section header */}
       <div className="mb-3 flex items-baseline justify-between gap-4">
@@ -385,7 +426,128 @@ export function MoneyDashboard({ invoices, initialFilter }: Props) {
           setFilter({ ...EMPTY_FILTER, payer });
           setSelected(null);
         }}
+        canEdit={canEdit}
+      />
+
+      <NewInvoiceModal
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        payers={payers}
+        quotes={quotes}
       />
     </>
+
   );
 }
+
+// ─────────────────────────────────────────────────────────────
+// Hero strip — Outstanding AR + Paid (MTD/YTD), oversized cards
+// ─────────────────────────────────────────────────────────────
+type HeroKpis = {
+  unpaidCurrent: number;
+  unpaidCurrentCount: number;
+  lateAmount: number;
+  lateCount: number;
+  mtdRevenue: number;
+  mtdPaidCount: number;
+};
+
+function HeroStrip({
+  kpis,
+  invoices,
+  paidScope,
+  setPaidScope,
+}: {
+  kpis: HeroKpis;
+  invoices: MoneyInvoice[];
+  paidScope: "mtd" | "ytd";
+  setPaidScope: (s: "mtd" | "ytd") => void;
+}) {
+  const ytd = useMemo(() => {
+    const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+    let total = 0;
+    let count = 0;
+    for (const r of invoices) {
+      if (r.status !== "paid" || !r.date) continue;
+      if (new Date(r.date).getTime() >= yearStart) {
+        total += r.amount;
+        count += 1;
+      }
+    }
+    return { total, count };
+  }, [invoices]);
+
+  const outstandingTotal = kpis.unpaidCurrent + kpis.lateAmount;
+  const outstandingCount = kpis.unpaidCurrentCount + kpis.lateCount;
+  const paidValue = paidScope === "mtd" ? kpis.mtdRevenue : ytd.total;
+  const paidCount = paidScope === "mtd" ? kpis.mtdPaidCount : ytd.count;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-5">
+      {/* Outstanding */}
+      <div className="relative overflow-hidden bg-surface rounded-card border border-rule p-5">
+        <div
+          className="absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(to right, transparent, rgba(245, 158, 11, 0.55), transparent)" }}
+          aria-hidden="true"
+        />
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="eyebrow">Outstanding AR</div>
+          <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint tabnum">
+            {outstandingCount} invoices
+          </div>
+        </div>
+        <div className="text-[40px] font-semibold leading-none tabnum text-amber">
+          {fmtCurrency(outstandingTotal)}
+        </div>
+        <div className="mt-3 flex items-center gap-4 text-[12px]">
+          <span className="text-ink-muted">
+            <span className="text-ink-strong tabnum">{fmtCurrency(kpis.unpaidCurrent)}</span> current
+            <span className="text-ink-faint"> · {kpis.unpaidCurrentCount}</span>
+          </span>
+          <span className="text-ink-faint">·</span>
+          <span className="text-ink-muted">
+            <span className="text-red tabnum">{fmtCurrency(kpis.lateAmount)}</span> late
+            <span className="text-ink-faint"> · {kpis.lateCount}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* Paid */}
+      <div className="relative overflow-hidden bg-surface rounded-card border border-rule p-5">
+        <div
+          className="absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(to right, transparent, rgba(34, 211, 168, 0.55), transparent)" }}
+          aria-hidden="true"
+        />
+        <div className="flex items-baseline justify-between mb-3">
+          <div className="eyebrow">Paid</div>
+          <div className="inline-flex rounded-md border border-rule overflow-hidden text-[10px] font-mono uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={() => setPaidScope("mtd")}
+              className={`px-2 py-1 transition-colors ${paidScope === "mtd" ? "bg-emerald/15 text-emerald" : "text-ink-muted hover:text-ink-strong"}`}
+            >
+              MTD
+            </button>
+            <button
+              type="button"
+              onClick={() => setPaidScope("ytd")}
+              className={`px-2 py-1 transition-colors border-l border-rule ${paidScope === "ytd" ? "bg-emerald/15 text-emerald" : "text-ink-muted hover:text-ink-strong"}`}
+            >
+              YTD
+            </button>
+          </div>
+        </div>
+        <div className="text-[40px] font-semibold leading-none tabnum text-emerald">
+          {fmtCurrency(paidValue)}
+        </div>
+        <div className="mt-3 text-[12px] text-ink-muted">
+          <span className="text-ink-strong tabnum">{paidCount}</span> invoices collected
+          <span className="text-ink-faint"> · {paidScope === "mtd" ? "month to date" : "year to date"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

@@ -3,10 +3,13 @@
 // Accepts ?status= and ?type= so home KPI tiles can deep-link into filtered views.
 
 import { listAllInvoices } from "@/lib/money";
+import { listPayerOptions } from "@/lib/people-light";
+import { listQuoteOptions } from "@/lib/quotes-light";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { MoneyDashboard } from "@/components/money/MoneyDashboard";
 import type { Filter, StatusBucket } from "@/components/money/types";
 import { assertCanAccess } from "@/lib/page-guard";
+import { canMutate } from "@/lib/authz";
 
 type SearchParams = { status?: string; type?: string; source?: string; payer?: string };
 
@@ -34,12 +37,20 @@ export default async function MoneyPage({
   if (sp.payer) initialFilter.payer = sp.payer;
 
   let invoices: Awaited<ReturnType<typeof listAllInvoices>> = [];
+  let payers: Awaited<ReturnType<typeof listPayerOptions>> = [];
+  let quotes: Awaited<ReturnType<typeof listQuoteOptions>> = [];
   let error: string | null = null;
   try {
-    invoices = await listAllInvoices();
+    [invoices, payers, quotes] = await Promise.all([
+      listAllInvoices(),
+      listPayerOptions().catch(() => []),
+      listQuoteOptions().catch(() => []),
+    ]);
   } catch (e) {
     error = (e as Error).message;
   }
+
+  const canEdit = await canMutate();
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
@@ -63,7 +74,13 @@ export default async function MoneyPage({
           ⚠ Failed to load invoices: {error}
         </div>
       ) : (
-        <MoneyDashboard invoices={invoices} initialFilter={initialFilter} />
+        <MoneyDashboard
+          invoices={invoices}
+          initialFilter={initialFilter}
+          canEdit={canEdit}
+          payers={payers}
+          quotes={quotes}
+        />
       )}
     </main>
   );

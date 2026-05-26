@@ -4,7 +4,6 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { z } from "zod";
 import { createRecords, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
@@ -12,19 +11,31 @@ import { AuthzError, requireRole } from "../authz";
 export type CreateInvoiceResult = { ok: true; id: string } | { error: string };
 export type MutationResult = { ok: true } | { error: string };
 
-const CreateInvoiceSchema = z.object({
-  payerId: z.string().min(1, "Payer is required"),
-  quoteId: z.string().min(1).nullable().optional(),
-  amount: z.number().positive("Amount must be greater than 0").max(10_000_000),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-  type: z.enum(["One-time", "Recurring", "Payment Plan"]),
-  source: z.enum(["Stripe", "Fiverr", "Other"]),
-  description: z.string().trim().max(1000).optional().nullable(),
-});
+export type CreateInvoiceInput = {
+  payerId: string;
+  quoteId?: string | null;
+  amount: number;
+  date: string;
+  type: "One-time" | "Recurring" | "Payment Plan";
+  source: "Stripe" | "Fiverr" | "Other";
+  description?: string | null;
+};
 
-export type CreateInvoiceInput = z.infer<typeof CreateInvoiceSchema>;
+const TYPES = ["One-time", "Recurring", "Payment Plan"] as const;
+const SOURCES = ["Stripe", "Fiverr", "Other"] as const;
+
+function validate(input: CreateInvoiceInput): string | null {
+  if (!input.payerId || typeof input.payerId !== "string") return "Payer is required";
+  if (input.quoteId != null && typeof input.quoteId !== "string") return "Invalid quote id";
+  if (typeof input.amount !== "number" || !Number.isFinite(input.amount) || input.amount <= 0 || input.amount > 10_000_000)
+    return "Amount must be greater than 0";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) return "Date must be YYYY-MM-DD";
+  if (!TYPES.includes(input.type)) return "Invalid type";
+  if (!SOURCES.includes(input.source)) return "Invalid source";
+  if (input.description != null && (typeof input.description !== "string" || input.description.length > 1000))
+    return "Description too long";
+  return null;
+}
 
 function invalidate() {
   revalidateTag("airtable");
@@ -39,11 +50,10 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CreateIn
     throw e;
   }
 
-  const parsed = CreateInvoiceSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: parsed.error.issues.map((i) => i.message).join("; ") };
-  }
-  const data = parsed.data;
+  const err = validate(input);
+  if (err) return { error: err };
+  const data = input;
+
 
   const fields: Record<string, unknown> = {
     "Invoice Payer": [data.payerId],

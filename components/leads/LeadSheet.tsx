@@ -255,34 +255,81 @@ function Attachments({ lead, canEdit }: { lead: Lead; canEdit: boolean }) {
     }));
     setPending((p) => [...p, ...rows]);
 
+    // DIAGNOSTIC: monkey-patch fetch so we capture every request the @vercel/blob
+    // SDK makes, even if the Network tab filters hide it. Remove once upload works.
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+      // eslint-disable-next-line no-console
+      console.log("[blob-diag] fetch start", method, url);
+      try {
+        const res = await origFetch(input as RequestInfo, init);
+        // eslint-disable-next-line no-console
+        console.log("[blob-diag] fetch end", res.status, res.headers.get("content-type"), url);
+        // Clone + log small JSON bodies so we can see the token response shape.
+        if (url.includes("/api/leads/upload") || url.includes("/api/quotes/upload")) {
+          try {
+            const clone = res.clone();
+            const text = await clone.text();
+            // eslint-disable-next-line no-console
+            console.log("[blob-diag] upload-route body:", text.slice(0, 500));
+          } catch {
+            /* ignore */
+          }
+        }
+        return res;
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log("[blob-diag] fetch THREW", url, e);
+        throw e;
+      }
+    };
+
     // Upload each to Vercel Blob in parallel.
     const uploaded: { url: string; filename: string; rowKey: string }[] = [];
-    await Promise.all(
-      accepted.map(async (file, i) => {
-        const row = rows[i];
-        try {
-          const pathname = `leads/${lead.id}/${Date.now()}-${sanitizeUploadFilename(file.name)}`;
-          const blob = await upload(pathname, file, {
-            access: "public",
-            handleUploadUrl: "/api/leads/upload",
-            clientPayload: JSON.stringify({ leadId: lead.id }),
-            contentType: file.type || undefined,
-          });
-          uploaded.push({ url: blob.url, filename: file.name, rowKey: row.key });
-          setPending((p) =>
-            p.map((r) => (r.key === row.key ? { ...r, status: "saving" } : r)),
-          );
-        } catch (e) {
-          setPending((p) =>
-            p.map((r) =>
-              r.key === row.key
-                ? { ...r, status: "error", error: (e as Error).message }
-                : r,
-            ),
-          );
-        }
-      }),
-    );
+    try {
+      await Promise.all(
+        accepted.map(async (file, i) => {
+          const row = rows[i];
+          try {
+            const pathname = `leads/${lead.id}/${Date.now()}-${sanitizeUploadFilename(file.name)}`;
+            // eslint-disable-next-line no-console
+            console.log("[blob-diag] calling upload()", { pathname, leadId: lead.id, fileName: file.name, fileSize: file.size, fileType: file.type });
+            const blob = await upload(pathname, file, {
+              access: "public",
+              handleUploadUrl: "/api/leads/upload",
+              clientPayload: JSON.stringify({ leadId: lead.id }),
+              contentType: file.type || undefined,
+            });
+            // eslint-disable-next-line no-console
+            console.log("[blob-diag] upload() success", blob);
+            uploaded.push({ url: blob.url, filename: file.name, rowKey: row.key });
+            setPending((p) =>
+              p.map((r) => (r.key === row.key ? { ...r, status: "saving" } : r)),
+            );
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.log("[blob-diag] upload() FAILED", e);
+            setPending((p) =>
+              p.map((r) =>
+                r.key === row.key
+                  ? { ...r, status: "error", error: (e as Error).message }
+                  : r,
+              ),
+            );
+          }
+        }),
+      );
+    } finally {
+      window.fetch = origFetch;
+    }
+
 
     if (uploaded.length === 0) return;
 

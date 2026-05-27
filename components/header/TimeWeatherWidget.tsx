@@ -104,6 +104,11 @@ export function TimeWeatherWidget({ weather }: Props) {
           {weather.conditionEmoji ?? "·"}
         </span>
         <span className="font-mono tabnum text-ink-strong">{tempChip}</span>
+        {weather.city && (
+          <span className="hidden sm:inline text-ink-muted truncate max-w-[110px]">
+            {weather.city}
+          </span>
+        )}
       </button>
 
       {open && (

@@ -115,14 +115,24 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
       const value = transform ? transform(v) : (v as never);
       save(field, { [field]: value } as UpdateInvoiceInput);
     };
-    const Tag = multiline ? "textarea" : "input";
+    if (multiline) {
+      return (
+        <textarea
+          rows={3}
+          maxLength={maxLength}
+          className={`${inputCls} resize-y`}
+          value={v}
+          disabled={!canEdit || pending}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={commit}
+        />
+      );
+    }
     return (
-      <Tag
-        // @ts-expect-error textarea vs input type union
-        type={multiline ? undefined : "text"}
-        rows={multiline ? 3 : undefined}
+      <input
+        type="text"
         maxLength={maxLength}
-        className={`${inputCls} ${multiline ? "resize-y" : ""}`}
+        className={inputCls}
         value={v}
         disabled={!canEdit || pending}
         onChange={(e) => setV(e.target.value)}

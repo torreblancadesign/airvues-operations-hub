@@ -9,6 +9,8 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StationBoard } from "@/components/home/DeparturesBoard";
 import { TheStack } from "@/components/home/TheStack";
 import { YourDay } from "@/components/home/YourDay";
+import { ActivityFeed } from "@/components/home/ActivityFeed";
+import { getRecentActivity } from "@/lib/activity";
 import { FirmPulse } from "@/components/home/FirmPulse";
 import { canSeeFirmPulse } from "@/lib/permissions";
 
@@ -39,10 +41,11 @@ export default async function HomePage() {
   const personName =
     person && "firstName" in person ? person.firstName : firstName(sessionName, sessionEmail);
 
-  const [day, boards, pulse] = await Promise.all([
+  const [day, boards, pulse, activity] = await Promise.all([
     safe(() => getPersonalDay(personId)),
     safe(getLandingBoards),
     safe(getFirmPulse),
+    safe(() => getRecentActivity(12)),
   ]);
 
   const today = new Date();
@@ -125,6 +128,18 @@ export default async function HomePage() {
         ) : (
           <div className="bg-surface border border-red/30 rounded-card p-4 text-[12px] text-red">
             Failed to load personal data: {day.error}
+          </div>
+        )}
+      </div>
+
+      {/* ── Last 24 hours ────────────────────────────────────── */}
+      <div className="mb-10">
+        <SectionTitle title="Last 24 hours" aside="Firm-wide activity" />
+        {Array.isArray(activity) ? (
+          <ActivityFeed events={activity} />
+        ) : (
+          <div className="bg-surface border border-red/30 rounded-card p-4 text-[12px] text-red">
+            Failed to load activity: {activity.error}
           </div>
         )}
       </div>

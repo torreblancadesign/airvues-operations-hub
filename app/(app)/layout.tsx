@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { TopBar } from "@/components/header/TopBar";
+import { CommandPaletteProvider } from "@/components/search/CommandPaletteProvider";
 import { signOut } from "@/lib/auth";
 import { isSamlEnabled } from "@/lib/saml";
 import { SAML_COOKIE_NAME } from "@/lib/samlSession";
@@ -46,7 +47,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   return (
-    <>
+    <CommandPaletteProvider>
       <Sidebar />
       <MobileNav
         userEmail={session.user.email}
@@ -62,6 +63,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <TopBar />
         {children}
       </div>
-    </>
+    </CommandPaletteProvider>
   );
 }

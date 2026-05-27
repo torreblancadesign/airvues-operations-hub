@@ -87,6 +87,13 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
     const amt = parseFloat(amount);
     if (!payerId) return setError("Pick a payer");
     if (!Number.isFinite(amt) || amt <= 0) return setError("Enter a valid amount");
+
+    const planEnabled = type === "Payment Plan" || type === "Recurring";
+    const fiverrEnabled = source === "Fiverr";
+    const pctNum = discountPct === "" ? null : parseFloat(discountPct);
+    if (pctNum != null && (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100))
+      return setError("Discount % must be 0–100");
+
     startTransition(async () => {
       const res = await createInvoice({
         payerId,
@@ -96,6 +103,13 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
         type,
         source,
         description: description.trim() || null,
+        needsClientApproval: needsClientApproval || null,
+        paymentPlanCount:
+          planEnabled && planCount !== "" ? parseInt(planCount, 10) : null,
+        paymentPlanFrequency: planEnabled ? planFrequency || null : null,
+        discountPercent: pctNum != null ? pctNum / 100 : null,
+        discountLength: discountLength !== "" ? parseInt(discountLength, 10) : null,
+        fiverrStatus: fiverrEnabled ? fiverrStatus || null : null,
       });
       if ("error" in res) {
         setError(res.error);
@@ -104,6 +118,7 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
       }
     });
   };
+
 
   return (
     <>

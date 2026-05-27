@@ -373,7 +373,7 @@ export function MoneyDashboard({
                 return (
                   <tr
                     key={r.id}
-                    onClick={() => setSelectedId(r)}
+                    onClick={() => setSelectedId(r.id)}
                     className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
                   >
                     <td className="px-3 py-2 text-[12px] text-ink-strong max-w-[280px] truncate">{r.payer}</td>

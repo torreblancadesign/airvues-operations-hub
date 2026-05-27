@@ -116,7 +116,11 @@ export function MoneyDashboard({
 }: Props) {
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...initialFilter });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
-  const [selected, setSelected] = useState<MoneyInvoice | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = useMemo(
+    () => (selectedId ? invoices.find((i) => i.id === selectedId) ?? null : null),
+    [selectedId, invoices],
+  );
   const [showNew, setShowNew] = useState(false);
   const [paidScope, setPaidScope] = useState<"mtd" | "ytd">("mtd");
 

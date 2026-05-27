@@ -12,8 +12,10 @@ import { canAccessRoute, type Permission } from "@/lib/permissions";
 import type { AppRole } from "@/lib/auth";
 import { CalendarWidget } from "@/components/header/CalendarWidget";
 import { GmailWidget } from "@/components/header/GmailWidget";
+import { TimeWeatherWidget } from "@/components/header/TimeWeatherWidget";
 import type { CalendarResult } from "@/lib/calendar";
 import type { InboxResult } from "@/lib/gmail";
+import type { WeatherSnapshot } from "@/lib/weather";
 
 type SignOutHandler = () => Promise<void>;
 

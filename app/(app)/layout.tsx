@@ -55,6 +55,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         signOutAction={doSignOut}
         calendarResult={calendarResult}
         inboxResult={inboxResult}
+        weather={weather}
         permissions={session.user.permissions}
       />
       <div className="md:ml-[208px] min-h-screen page-enter">

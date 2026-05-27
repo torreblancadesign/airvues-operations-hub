@@ -1,72 +1,74 @@
-## Confirmed facts
+# Plan: Surface additional invoice fields on Money page
 
-- `BLOB_READ_WRITE_TOKEN` is set in Production (`hasToken: true, looksValid: true`).
-- `@vercel/blob` 2.4.0 is installed. Its default API URL really is `https://vercel.com/api/blob` — that part is **not** wrong.
-- Client code in `components/leads/LeadSheet.tsx` calls `upload(pathname, file, { handleUploadUrl: '/api/leads/upload', clientPayload: ..., access: 'public', contentType: ... })` — textbook correct.
-- The SDK's `upload()` always POSTs to `handleUploadUrl` first to retrieve a client token, then PUTs the file. No bypass path exists.
+Mirror the Airtable invoice form fields shown in the screenshot across the data layer, side panel (`InvoiceSheet`), and create modal (`NewInvoiceModal`). Editable fields become editable in the side panel; computed/automation fields render as view-only.
 
-## The actual symptom
+## Fields to add
 
-The PUT to `https://vercel.com/api/blob/?pathname=...` returns **400 Bad Request** with no CORS headers. The browser then surfaces it as a CORS error, but the underlying problem is the 400. A 400 from the Blob API on that endpoint almost always means **the Authorization header is missing or invalid** — i.e. the client never received a usable `clientToken` from `/api/leads/upload`.
+Classified from `lib/schema.ts` (table `Invoices`):
 
-You reported you don't see the POST to `/api/leads/upload` in DevTools. That's either (a) a filter/preserve-log issue, or (b) the POST is being blocked client-side before it leaves the browser. Either way, we need ground-truth instrumentation.
+**Editable** (write via PATCH/POST):
+- `Need Client Approval for Subscription Payment?` — singleSelect Yes/No
+- `Payment Plan - Number of Payments` — number
+- `Payment - Plan - Frequency` — singleSelect weekly/biweekly/monthly
+- `Discount %` — percent (stored 0–1)
+- `Discount Length (number of payments)` — number
+- `Fiverr Status` — singleSelect (Gig Pending Acceptance / Gig Accepted / Gig Funds Cleared)
 
-## Step 1 — Add client-side breadcrumbs to `LeadSheet.tsx`
+**View-only** (formula or set by Airtable automation after send):
+- `Client Stripe Status` — formula
+- `Invoice Stripe ID` — populated by automation
+- `Subscription Stripe ID` — populated by automation
+- (`Invoice Stripe Link` and `Subscription Stripe Link` already render as action buttons — keep as-is)
 
-Wrap the `upload()` call so we log:
-- Before the call: pathname, lead.id, file name/size.
-- The native `fetch` request and response status for `/api/leads/upload` — done by temporarily monkey-patching `window.fetch` for the duration of the upload, so we capture the SDK's internal POST that the Network tab is missing.
-- After: success URL or full error object.
+Already on the panel and untouched: Date, Description, Type, Amount, Payer, Source.
 
-Concretely, in the `onDrop` / upload handler:
+## Changes
 
-```ts
-const origFetch = window.fetch;
-window.fetch = async (input, init) => {
-  const url = typeof input === "string" ? input : input.toString();
-  console.log("[blob] fetch start", init?.method ?? "GET", url);
-  try {
-    const res = await origFetch(input, init);
-    console.log("[blob] fetch end", res.status, url);
-    return res;
-  } catch (e) {
-    console.log("[blob] fetch THREW", url, e);
-    throw e;
-  }
-};
-try {
-  const blob = await upload(pathname, file, { ... });
-  console.log("[blob] upload success", blob);
-} catch (e) {
-  console.log("[blob] upload FAILED", e);
-} finally {
-  window.fetch = origFetch;
-}
+### 1. `lib/money.ts`
+Extend `MoneyInvoice` with the new fields and pull them in `listAllInvoices`:
 ```
+needsClientApproval: "Yes" | "No" | null
+paymentPlanCount: number | null
+paymentPlanFrequency: "weekly" | "biweekly" | "monthly" | null
+discountPercent: number | null   // 0–1 from Airtable
+discountLength: number | null
+fiverrStatus: string | null
+clientStripeStatus: string | null
+subscriptionStripeId: string | null
+```
+Add their field IDs to the `fields` array of the cached read.
 
-This guarantees we see every fetch the SDK makes, in the browser console, regardless of Network tab filtering.
+### 2. `lib/mutations/invoice.ts`
+- Extend `CreateInvoiceInput` with the six editable extras (all optional). Validate types/ranges (e.g. discount 0–1, counts 1–60, frequency/approval against enum).
+- Map them into `fields` on `createInvoice` when present.
+- Add a new server action `updateInvoice(id, patch)` that accepts the same editable subset (plus Date, Description, Type, Amount, Payer, Source so the panel can edit any editable field), runs `requireRole("admin","lead","editor")`, calls `patchRecords`, then `revalidateTag("airtable")` + `revalidateTag("money:all-invoices")`. Validate with the same helpers.
 
-## Step 2 — Reproduce and capture
+### 3. `components/money/InvoiceSheet.tsx`
+- Replace the static `<Field>` rows for editable fields with inline edit controls (click-to-edit pattern: show value, "Edit" reveals input + Save/Cancel). Use `useTransition` to call `updateInvoice`. Show inline error on failure.
+- Editable inline: Date, Description, Type, Amount, Source, Fiverr Status, Need Client Approval, Payment Plan # of Payments, Payment Plan Frequency, Discount %, Discount Length.
+- View-only rows (new): Client Stripe Status, Invoice Stripe ID, Subscription Stripe ID. Keep existing read-only rows (Identifier, Created, Status Last Modified, Margin Profit, Initial, Approved, Stripe ID, Quotes, Record ID).
+- Gate all edit affordances behind `canEdit`. When `!canEdit`, render plain values.
+- Payer change is out of scope for inline edit (uses picker UI) — leave as display only for now; user can change it in Airtable. Note to user in plan.
 
-Push the change. After Vercel redeploys, repeat the file upload and copy the Console output. Three possible outcomes, each with a known fix:
+### 4. `components/money/NewInvoiceModal.tsx`
+Add optional inputs for the six editable extras, grouped sensibly:
+- "Need Client Approval" (Yes/No radio) — only relevant when Type ≠ One-time, but render always; default unset.
+- "Payment Plan – # of Payments" + "Payment Plan – Frequency" (only enable when Type is "Payment Plan" or "Recurring"; otherwise greyed).
+- "Discount %" + "Discount Length" (always available).
+- "Fiverr Status" (only enable when Source = "Fiverr").
+Wire through to `createInvoice`. Convert Discount % input (user enters 0–100) to 0–1 before sending.
 
-| Console output | Diagnosis | Fix |
-|---|---|---|
-| `fetch start POST /api/leads/upload` → `fetch end 200` then `fetch start PUT vercel.com/api/blob/` → `fetch end 400` | Token route returns 200 but with wrong shape | Inspect `/api/leads/upload` response body via `console.log` of the `res.json()` to confirm; usually means `handleUpload` wrapper failed silently |
-| `fetch start POST /api/leads/upload` → `fetch end 401/403/302` | Auth middleware or Vercel Deployment Protection is blocking the route | Allow the route in `middleware.ts` matcher and/or disable Vercel Authentication for Production |
-| `fetch start POST /api/leads/upload` → `fetch THREW ...` | CSP / network policy / service worker | Check Console for CSP report; check `next.config.js` `headers()`; unregister any leftover SW |
-| No `fetch start POST /api/leads/upload` at all | Something is intercepting before our code runs (browser extension, SW) | Test in Incognito with extensions off |
+### 5. No schema/Airtable mutation outside the wrapper
+All writes go through `patchRecords` / `createRecords` in `lib/airtable.ts` per project rules.
 
-## Step 3 — Ship the fix
+## Notes / decisions
+- Inline edit, not modal-edit, in the side panel — matches existing minimal aesthetic and keeps the panel scannable.
+- Payer edit deferred (separate UX). All other editable form fields covered.
+- Discount stored as fraction in Airtable; UI shows whole %.
+- Optimistic UI not added; rely on `revalidateTag` round-trip (consistent with rest of app).
 
-Based on Step 2's outcome, apply the corresponding fix in one focused edit and remove the diagnostic logging.
-
-## Technical notes
-
-- Monkey-patching `window.fetch` is safe here because it's scoped: we restore the original in `finally`, and the upload completes in a few seconds.
-- No need to touch `app/api/leads/upload/route.ts` or `lib/uploads.ts` yet — those look correct. We're proving the client is even reaching them first.
-- After fixing, also check `middleware.ts` to see if there's a matcher that includes `/api/*` and unintentionally redirects unauthenticated requests; that's a common Next.js gotcha when adding NextAuth middleware. Even if you're signed in, an auth-cookie SameSite issue can make the POST look unauthenticated.
-
-## What I need from you to proceed
-
-Just say "go" and I'll switch to build mode, add the diagnostic wrapper, and ship it. You then upload one file, paste the Console output, and I push the actual fix.
+## Files touched
+- `lib/money.ts`
+- `lib/mutations/invoice.ts`
+- `components/money/InvoiceSheet.tsx`
+- `components/money/NewInvoiceModal.tsx`

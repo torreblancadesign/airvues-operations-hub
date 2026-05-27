@@ -28,6 +28,15 @@ export type MoneyInvoice = {
   subscriptionLink: string | null;
   quoteRecordIds: string[];
   airtableUrl: string;
+  // Extended fields
+  needsClientApproval: "Yes" | "No" | null;
+  paymentPlanCount: number | null;
+  paymentPlanFrequency: "weekly" | "biweekly" | "monthly" | null;
+  discountPercent: number | null; // 0–1 from Airtable
+  discountLength: number | null;
+  fiverrStatus: string | null;
+  clientStripeStatus: string | null;
+  subscriptionStripeId: string | null;
 };
 
 // Extract payer name from the formula `Invoice Identifier` ("{ID}-{Payer Name} | ${Amount}")
@@ -36,6 +45,7 @@ function extractPayer(identifier: string): string {
   const name = m ? m[1].trim() : "";
   return name || "(unknown)";
 }
+
 
 export async function listAllInvoices(): Promise<MoneyInvoice[]> {
   const t = Tables.Invoices;

@@ -418,7 +418,7 @@ export function MoneyDashboard({
         rows={sorted}
         sort={sort}
         setSort={setSort}
-        onRowClick={setSelected}
+        onRowClick={(inv) => setSelectedId(inv.id)}
         selectedId={selected?.id ?? null}
       />
 

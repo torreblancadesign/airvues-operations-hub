@@ -26,13 +26,23 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     await signOut({ redirectTo: "/login" });
   }
 
-  const [calendarResult, inboxResult] = await Promise.all([
+  const [calendarResult, inboxResult, weather] = await Promise.all([
     getUpcomingEvents().catch(
       (err) => ({ kind: "error" as const, message: (err as Error).message }),
     ),
     getRecentInbox().catch(
       (err) => ({ kind: "error" as const, message: (err as Error).message }),
     ),
+    getWeatherSnapshot().catch(() => ({
+      city: null,
+      region: null,
+      country: null,
+      timezone: null,
+      temperatureF: null,
+      conditionLabel: null,
+      conditionEmoji: null,
+      isFallback: true,
+    })),
   ]);
 
   return (

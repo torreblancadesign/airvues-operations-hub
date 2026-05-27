@@ -91,6 +91,7 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
       if ("error" in res) setEditError(res.error);
       else {
         setSavedKey(key);
+        router.refresh();
         setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1500);
       }
     });

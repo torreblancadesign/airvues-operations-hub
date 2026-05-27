@@ -22,36 +22,26 @@ const fmtCurrency = (n: number) =>
 const fmtDateTime = (s: string | null) =>
   s ? new Date(s).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "—";
 
-const fmtDate = (s: string | null) =>
-  s ? new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
-
 const inputCls =
-  "w-full px-2 py-1 text-[13px] bg-bg border border-rule text-ink rounded focus:border-emerald focus:outline-none";
+  "w-full px-2 py-1 text-[13px] bg-bg border border-rule text-ink rounded focus:border-emerald focus:outline-none disabled:opacity-60";
 
-function Row({ label, children, action }: { label: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Row({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="py-2.5 border-b border-rule last:border-0">
       <div className="flex items-center justify-between mb-1">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{label}</div>
-        {action}
+        {hint && <div className="text-[10px] text-ink-faint">{hint}</div>}
       </div>
       <div className="text-[13px] text-ink">{children}</div>
     </div>
   );
 }
 
-type EditState =
-  | null
-  | {
-      field: keyof UpdateInvoiceInput;
-      value: string;
-    };
-
 export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = false }: Props) {
   const [pending, startTransition] = useTransition();
   const [sendError, setSendError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
-  const [edit, setEdit] = useState<EditState>(null);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -71,16 +61,13 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
     if (!invoice) return;
     setSendError(null);
     setEditError(null);
-    setEdit(null);
+    setSavedKey(null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (edit) setEdit(null);
-        else onClose();
-      }
+      if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [invoice, onClose, edit]);
+  }, [invoice, onClose]);
 
   if (!invoice || !mounted) return null;
 
@@ -95,52 +82,132 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
     });
   };
 
-  const save = (patch: UpdateInvoiceInput) => {
+  const save = (key: string, patch: UpdateInvoiceInput) => {
     setEditError(null);
     startTransition(async () => {
       const res = await updateInvoice(invoice.id, patch);
       if ("error" in res) setEditError(res.error);
-      else setEdit(null);
+      else {
+        setSavedKey(key);
+        setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1500);
+      }
     });
   };
 
-  const EditBtn = ({ field, current }: { field: keyof UpdateInvoiceInput; current: string }) =>
-    canEdit ? (
-      <button
-        type="button"
-        onClick={() => {
-          setEditError(null);
-          setEdit({ field, value: current });
-        }}
-        className="text-[10px] text-emerald hover:underline"
-      >
-        Edit
-      </button>
-    ) : null;
+  // Field-level editor primitives — always editable, save on blur/change.
+  const TextEditor = ({
+    field,
+    initial,
+    multiline,
+    maxLength,
+    transform,
+  }: {
+    field: keyof UpdateInvoiceInput;
+    initial: string;
+    multiline?: boolean;
+    maxLength?: number;
+    transform?: (v: string) => UpdateInvoiceInput[keyof UpdateInvoiceInput];
+  }) => {
+    const [v, setV] = useState(initial);
+    useEffect(() => setV(initial), [initial]);
+    const commit = () => {
+      if (v === initial) return;
+      const value = transform ? transform(v) : (v as never);
+      save(field, { [field]: value } as UpdateInvoiceInput);
+    };
+    if (multiline) {
+      return (
+        <textarea
+          rows={3}
+          maxLength={maxLength}
+          className={`${inputCls} resize-y`}
+          value={v}
+          disabled={!canEdit || pending}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={commit}
+        />
+      );
+    }
+    return (
+      <input
+        type="text"
+        maxLength={maxLength}
+        className={inputCls}
+        value={v}
+        disabled={!canEdit || pending}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={commit}
+      />
+    );
+  };
 
-  const CancelSave = ({ onSave }: { onSave: () => void }) => (
-    <div className="mt-2 flex gap-2">
-      <button
-        type="button"
-        onClick={onSave}
-        disabled={pending}
-        className="px-2 py-1 text-[11px] bg-emerald text-bg font-semibold rounded disabled:opacity-50"
-      >
-        {pending ? "Saving…" : "Save"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setEdit(null)}
-        disabled={pending}
-        className="px-2 py-1 text-[11px] border border-rule text-ink-muted rounded"
-      >
-        Cancel
-      </button>
-    </div>
+  const NumberEditor = ({
+    field,
+    initial,
+    min,
+    max,
+    step,
+    suffix,
+    transform,
+  }: {
+    field: keyof UpdateInvoiceInput;
+    initial: string;
+    min?: number;
+    max?: number;
+    step?: number;
+    suffix?: string;
+    transform: (v: string) => UpdateInvoiceInput[keyof UpdateInvoiceInput];
+  }) => {
+    const [v, setV] = useState(initial);
+    useEffect(() => setV(initial), [initial]);
+    const commit = () => {
+      if (v === initial) return;
+      save(field, { [field]: transform(v) } as UpdateInvoiceInput);
+    };
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min={min}
+          max={max}
+          step={step}
+          className={`${inputCls} font-mono tabnum`}
+          value={v}
+          disabled={!canEdit || pending}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={commit}
+        />
+        {suffix && <span className="text-[12px] text-ink-muted">{suffix}</span>}
+      </div>
+    );
+  };
+
+  const SelectEditor = ({
+    field,
+    initial,
+    options,
+    transform,
+  }: {
+    field: keyof UpdateInvoiceInput;
+    initial: string;
+    options: { value: string; label: string }[];
+    transform: (v: string) => UpdateInvoiceInput[keyof UpdateInvoiceInput];
+  }) => (
+    <select
+      className={inputCls}
+      value={initial}
+      disabled={!canEdit || pending}
+      onChange={(e) => save(field, { [field]: transform(e.target.value) } as UpdateInvoiceInput)}
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   );
 
-  const isEditing = (f: keyof UpdateInvoiceInput) => edit?.field === f;
-  const editVal = edit?.value ?? "";
+  const savedHint = (key: string) => (savedKey === key ? "✓ saved" : undefined);
 
   return createPortal(
     <>
@@ -246,321 +313,150 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
         )}
 
         <div className="px-5 py-2">
-          {/* Amount */}
-          <Row label="Amount" action={<EditBtn field="amount" current={String(invoice.amount)} />}>
-            {isEditing("amount") ? (
-              <>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className={`${inputCls} font-mono tabnum`}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "amount", value: e.target.value })}
-                  autoFocus
-                />
-                <CancelSave onSave={() => save({ amount: parseFloat(editVal) })} />
-              </>
-            ) : (
-              fmtCurrency(invoice.amount)
-            )}
+          <Row label="Amount" hint={savedHint("amount")}>
+            <NumberEditor
+              field="amount"
+              initial={String(invoice.amount)}
+              min={0}
+              step={0.01}
+              transform={(v) => parseFloat(v)}
+            />
           </Row>
 
-          {/* Date */}
-          <Row label="Date" action={<EditBtn field="date" current={invoice.date ?? ""} />}>
-            {isEditing("date") ? (
-              <>
-                <input
-                  type="date"
-                  className={`${inputCls} font-mono`}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "date", value: e.target.value })}
-                  autoFocus
-                />
-                <CancelSave onSave={() => save({ date: editVal })} />
-              </>
-            ) : (
-              fmtDate(invoice.date)
-            )}
+          <Row label="Date" hint={savedHint("date")}>
+            <input
+              type="date"
+              className={`${inputCls} font-mono`}
+              defaultValue={invoice.date ?? ""}
+              disabled={!canEdit || pending}
+              onBlur={(e) => {
+                if (e.target.value !== (invoice.date ?? "")) save("date", { date: e.target.value });
+              }}
+            />
           </Row>
 
-          {/* Description */}
-          <Row
-            label="Description"
-            action={<EditBtn field="description" current={invoice.description ?? ""} />}
-          >
-            {isEditing("description") ? (
-              <>
-                <textarea
-                  rows={3}
-                  maxLength={1000}
-                  className={`${inputCls} resize-y`}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "description", value: e.target.value })}
-                  autoFocus
-                />
-                <CancelSave onSave={() => save({ description: editVal.trim() || null })} />
-              </>
-            ) : (
-              invoice.description ?? "—"
-            )}
+          <Row label="Description" hint={savedHint("description")}>
+            <TextEditor
+              field="description"
+              initial={invoice.description ?? ""}
+              multiline
+              maxLength={1000}
+              transform={(v) => (v.trim() || null) as never}
+            />
           </Row>
 
-          {/* Type */}
-          <Row label="Type" action={<EditBtn field="type" current={invoice.type ?? "One-time"} />}>
-            {isEditing("type") ? (
-              <>
-                <select
-                  className={inputCls}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "type", value: e.target.value })}
-                  autoFocus
-                >
-                  <option value="One-time">One-time</option>
-                  <option value="Recurring">Recurring</option>
-                  <option value="Payment Plan">Payment Plan</option>
-                </select>
-                <CancelSave onSave={() => save({ type: editVal as "One-time" | "Recurring" | "Payment Plan" })} />
-              </>
-            ) : (
-              invoice.type ?? "—"
-            )}
+          <Row label="Type" hint={savedHint("type")}>
+            <SelectEditor
+              field="type"
+              initial={invoice.type ?? "One-time"}
+              options={[
+                { value: "One-time", label: "One-time" },
+                { value: "Recurring", label: "Recurring" },
+                { value: "Payment Plan", label: "Payment Plan" },
+              ]}
+              transform={(v) => v as "One-time" | "Recurring" | "Payment Plan"}
+            />
           </Row>
 
-          {/* Source */}
-          <Row label="Source" action={<EditBtn field="source" current={invoice.source ?? "Stripe"} />}>
-            {isEditing("source") ? (
-              <>
-                <select
-                  className={inputCls}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "source", value: e.target.value })}
-                  autoFocus
-                >
-                  <option value="Stripe">Stripe</option>
-                  <option value="Fiverr">Fiverr</option>
-                  <option value="Other">Other</option>
-                </select>
-                <CancelSave onSave={() => save({ source: editVal as "Stripe" | "Fiverr" | "Other" })} />
-              </>
-            ) : (
-              invoice.source ?? "—"
-            )}
+          <Row label="Source" hint={savedHint("source")}>
+            <SelectEditor
+              field="source"
+              initial={invoice.source ?? "Stripe"}
+              options={[
+                { value: "Stripe", label: "Stripe" },
+                { value: "Fiverr", label: "Fiverr" },
+                { value: "Other", label: "Other" },
+              ]}
+              transform={(v) => v as "Stripe" | "Fiverr" | "Other"}
+            />
           </Row>
 
-          {/* Need Client Approval */}
-          <Row
-            label="Need Client Approval for Subscription"
-            action={
-              <EditBtn
+          {invoice.type !== "One-time" && (
+            <Row label="Need Client Approval for Subscription" hint={savedHint("needsClientApproval")}>
+              <SelectEditor
                 field="needsClientApproval"
-                current={invoice.needsClientApproval ?? ""}
+                initial={invoice.needsClientApproval ?? ""}
+                options={[
+                  { value: "", label: "—" },
+                  { value: "Yes", label: "Yes" },
+                  { value: "No", label: "No" },
+                ]}
+                transform={(v) => (v || null) as "Yes" | "No" | null}
               />
-            }
-          >
-            {isEditing("needsClientApproval") ? (
-              <>
-                <select
-                  className={inputCls}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "needsClientApproval", value: e.target.value })}
-                  autoFocus
-                >
-                  <option value="">—</option>
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-                <CancelSave
-                  onSave={() =>
-                    save({ needsClientApproval: (editVal || null) as "Yes" | "No" | null })
-                  }
+            </Row>
+          )}
+
+          {invoice.type === "Payment Plan" && (
+            <>
+              <Row label="Payment Plan — # of Payments" hint={savedHint("paymentPlanCount")}>
+                <NumberEditor
+                  field="paymentPlanCount"
+                  initial={invoice.paymentPlanCount?.toString() ?? ""}
+                  min={1}
+                  max={120}
+                  transform={(v) => (v === "" ? null : parseInt(v, 10))}
                 />
-              </>
-            ) : (
-              invoice.needsClientApproval ?? "—"
-            )}
+              </Row>
+
+              <Row label="Payment Plan — Frequency" hint={savedHint("paymentPlanFrequency")}>
+                <SelectEditor
+                  field="paymentPlanFrequency"
+                  initial={invoice.paymentPlanFrequency ?? ""}
+                  options={[
+                    { value: "", label: "—" },
+                    { value: "weekly", label: "weekly" },
+                    { value: "biweekly", label: "biweekly" },
+                    { value: "monthly", label: "monthly" },
+                  ]}
+                  transform={(v) => (v || null) as "weekly" | "biweekly" | "monthly" | null}
+                />
+              </Row>
+            </>
+          )}
+
+          <Row label="Discount %" hint={savedHint("discountPercent")}>
+            <NumberEditor
+              field="discountPercent"
+              initial={invoice.discountPercent != null ? (invoice.discountPercent * 100).toString() : ""}
+              min={0}
+              max={100}
+              step={0.1}
+              suffix="%"
+              transform={(v) => (v === "" ? null : parseFloat(v) / 100)}
+            />
           </Row>
 
-          {/* Payment Plan - Number */}
-          <Row
-            label="Payment Plan — # of Payments"
-            action={
-              <EditBtn
-                field="paymentPlanCount"
-                current={invoice.paymentPlanCount?.toString() ?? ""}
-              />
-            }
-          >
-            {isEditing("paymentPlanCount") ? (
-              <>
-                <input
-                  type="number"
-                  min="1"
-                  max="120"
-                  className={`${inputCls} font-mono tabnum`}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "paymentPlanCount", value: e.target.value })}
-                  autoFocus
-                />
-                <CancelSave
-                  onSave={() =>
-                    save({ paymentPlanCount: editVal === "" ? null : parseInt(editVal, 10) })
-                  }
-                />
-              </>
-            ) : (
-              invoice.paymentPlanCount ?? "—"
-            )}
+          <Row label="Discount Length (# of payments)" hint={savedHint("discountLength")}>
+            <NumberEditor
+              field="discountLength"
+              initial={invoice.discountLength?.toString() ?? ""}
+              min={0}
+              max={120}
+              transform={(v) => (v === "" ? null : parseInt(v, 10))}
+            />
           </Row>
 
-          {/* Payment Plan - Frequency */}
-          <Row
-            label="Payment Plan — Frequency"
-            action={
-              <EditBtn
-                field="paymentPlanFrequency"
-                current={invoice.paymentPlanFrequency ?? ""}
-              />
-            }
-          >
-            {isEditing("paymentPlanFrequency") ? (
-              <>
-                <select
-                  className={inputCls}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "paymentPlanFrequency", value: e.target.value })}
-                  autoFocus
-                >
-                  <option value="">—</option>
-                  <option value="weekly">weekly</option>
-                  <option value="biweekly">biweekly</option>
-                  <option value="monthly">monthly</option>
-                </select>
-                <CancelSave
-                  onSave={() =>
-                    save({
-                      paymentPlanFrequency:
-                        (editVal || null) as "weekly" | "biweekly" | "monthly" | null,
-                    })
-                  }
-                />
-              </>
-            ) : (
-              invoice.paymentPlanFrequency ?? "—"
-            )}
-          </Row>
-
-          {/* Discount % */}
-          <Row
-            label="Discount %"
-            action={
-              <EditBtn
-                field="discountPercent"
-                current={
-                  invoice.discountPercent != null
-                    ? (invoice.discountPercent * 100).toString()
-                    : ""
+          {invoice.source === "Fiverr" && (
+            <Row label="Fiverr Status" hint={savedHint("fiverrStatus")}>
+              <SelectEditor
+                field="fiverrStatus"
+                initial={invoice.fiverrStatus ?? ""}
+                options={[
+                  { value: "", label: "—" },
+                  { value: "Gig Pending Acceptance", label: "Gig Pending Acceptance" },
+                  { value: "Gig Accepted", label: "Gig Accepted" },
+                  { value: "Gig Funds Cleared", label: "Gig Funds Cleared" },
+                ]}
+                transform={(v) =>
+                  (v || null) as
+                    | "Gig Pending Acceptance"
+                    | "Gig Accepted"
+                    | "Gig Funds Cleared"
+                    | null
                 }
               />
-            }
-          >
-            {isEditing("discountPercent") ? (
-              <>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    className={`${inputCls} font-mono tabnum`}
-                    value={editVal}
-                    onChange={(e) => setEdit({ field: "discountPercent", value: e.target.value })}
-                    autoFocus
-                  />
-                  <span className="text-[12px] text-ink-muted">%</span>
-                </div>
-                <CancelSave
-                  onSave={() =>
-                    save({
-                      discountPercent:
-                        editVal === "" ? null : parseFloat(editVal) / 100,
-                    })
-                  }
-                />
-              </>
-            ) : invoice.discountPercent != null ? (
-              `${(invoice.discountPercent * 100).toFixed(1)}%`
-            ) : (
-              "—"
-            )}
-          </Row>
-
-          {/* Discount Length */}
-          <Row
-            label="Discount Length (# of payments)"
-            action={
-              <EditBtn
-                field="discountLength"
-                current={invoice.discountLength?.toString() ?? ""}
-              />
-            }
-          >
-            {isEditing("discountLength") ? (
-              <>
-                <input
-                  type="number"
-                  min="0"
-                  max="120"
-                  className={`${inputCls} font-mono tabnum`}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "discountLength", value: e.target.value })}
-                  autoFocus
-                />
-                <CancelSave
-                  onSave={() =>
-                    save({ discountLength: editVal === "" ? null : parseInt(editVal, 10) })
-                  }
-                />
-              </>
-            ) : (
-              invoice.discountLength ?? "—"
-            )}
-          </Row>
-
-          {/* Fiverr Status */}
-          <Row
-            label="Fiverr Status"
-            action={<EditBtn field="fiverrStatus" current={invoice.fiverrStatus ?? ""} />}
-          >
-            {isEditing("fiverrStatus") ? (
-              <>
-                <select
-                  className={inputCls}
-                  value={editVal}
-                  onChange={(e) => setEdit({ field: "fiverrStatus", value: e.target.value })}
-                  autoFocus
-                >
-                  <option value="">—</option>
-                  <option value="Gig Pending Acceptance">Gig Pending Acceptance</option>
-                  <option value="Gig Accepted">Gig Accepted</option>
-                  <option value="Gig Funds Cleared">Gig Funds Cleared</option>
-                </select>
-                <CancelSave
-                  onSave={() =>
-                    save({
-                      fiverrStatus: (editVal || null) as
-                        | "Gig Pending Acceptance"
-                        | "Gig Accepted"
-                        | "Gig Funds Cleared"
-                        | null,
-                    })
-                  }
-                />
-              </>
-            ) : (
-              invoice.fiverrStatus ?? "—"
-            )}
-          </Row>
+            </Row>
+          )}
 
           {/* Read-only fields */}
           <Row label="Payer">{invoice.payer}</Row>

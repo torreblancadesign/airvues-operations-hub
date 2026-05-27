@@ -23,9 +23,9 @@ const ZONES: ZoneRow[] = [
 
 function formatTimeHM(date: Date, zone: string): string {
   return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
-    hour12: false,
+    hour12: true,
     timeZone: zone,
   }).format(date);
 }

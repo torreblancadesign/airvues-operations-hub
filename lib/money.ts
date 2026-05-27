@@ -68,7 +68,15 @@ export async function listAllInvoices(): Promise<MoneyInvoice[]> {
     "Invoice Stripe ID"?: string;
     "Invoice Stripe Link"?: string;
     "Subscription Stripe Link"?: string;
+    "Subscription Stripe ID"?: string;
     "Quotes"?: string[];
+    "Need Client Approval for Subscription Payment?"?: string;
+    "Payment Plan - Number of Payments"?: number;
+    "Payment - Plan - Frequency"?: string;
+    "Discount %"?: number;
+    "Discount Length (number of payments)"?: number;
+    "Fiverr Status"?: string;
+    "Client Stripe Status"?: string;
   }>(
     t.id,
     {
@@ -85,14 +93,20 @@ export async function listAllInvoices(): Promise<MoneyInvoice[]> {
         t.fields["Created"].id,
         t.fields["Invoice Status Last Modified"].id,
         t.fields["Invoice Payer"].id,
-        // Note: Primary Email (from Invoice Payer) doesn't exist directly on Invoices —
-        // it's a lookup but we'll use the Invoice Identifier name extraction instead.
         t.fields["Initial Invoice"].id,
         t.fields["Approved by Airvues Leadership"].id,
         t.fields["Invoice Stripe ID"].id,
         t.fields["Invoice Stripe Link"].id,
         t.fields["Subscription Stripe Link"].id,
+        t.fields["Subscription Stripe ID"].id,
         t.fields["Quotes"].id,
+        t.fields["Need Client Approval for Subscription Payment?"].id,
+        t.fields["Payment Plan - Number of Payments"].id,
+        t.fields["Payment - Plan - Frequency"].id,
+        t.fields["Discount %"].id,
+        t.fields["Discount Length (number of payments)"].id,
+        t.fields["Fiverr Status"].id,
+        t.fields["Client Stripe Status"].id,
       ],
     },
     ["money:all-invoices"],
@@ -110,7 +124,7 @@ export async function listAllInvoices(): Promise<MoneyInvoice[]> {
         Array.isArray(f["Invoice Payer"]) && f["Invoice Payer"][0]
           ? (f["Invoice Payer"][0] as string)
           : null,
-      payerEmail: null, // Filled in via separate lookup pass if needed
+      payerEmail: null,
       source: (f["Invoice Source"] as MoneyInvoice["source"]) ?? null,
       type: (f["Invoice Type"] as MoneyInvoice["type"]) ?? null,
       status: (f["Invoice Status"] as string) ?? null,
@@ -127,6 +141,17 @@ export async function listAllInvoices(): Promise<MoneyInvoice[]> {
       subscriptionLink: (f["Subscription Stripe Link"] as string) ?? null,
       quoteRecordIds: (f["Quotes"] as string[]) ?? [],
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
+      needsClientApproval:
+        (f["Need Client Approval for Subscription Payment?"] as "Yes" | "No" | undefined) ?? null,
+      paymentPlanCount: (f["Payment Plan - Number of Payments"] as number) ?? null,
+      paymentPlanFrequency:
+        (f["Payment - Plan - Frequency"] as MoneyInvoice["paymentPlanFrequency"]) ?? null,
+      discountPercent: (f["Discount %"] as number) ?? null,
+      discountLength: (f["Discount Length (number of payments)"] as number) ?? null,
+      fiverrStatus: (f["Fiverr Status"] as string) ?? null,
+      clientStripeStatus: (f["Client Stripe Status"] as string) ?? null,
+      subscriptionStripeId: (f["Subscription Stripe ID"] as string) ?? null,
     };
   });
 }
+

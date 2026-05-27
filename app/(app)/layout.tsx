@@ -10,6 +10,7 @@ import { isSamlEnabled } from "@/lib/saml";
 import { SAML_COOKIE_NAME } from "@/lib/samlSession";
 import { getUpcomingEvents } from "@/lib/calendar";
 import { getRecentInbox } from "@/lib/gmail";
+import { getWeatherSnapshot } from "@/lib/weather";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getAppSession();

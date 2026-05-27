@@ -113,7 +113,7 @@ export function TimeWeatherWidget({ weather }: Props) {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-[300px] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
+          className="absolute right-0 mt-2 w-[300px] max-w-[calc(100vw-1rem)] bg-surface border border-rule rounded-card shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-1 duration-200"
           role="dialog"
         >
           {/* Header — local big time */}
@@ -128,14 +128,18 @@ export function TimeWeatherWidget({ weather }: Props) {
             </div>
             <div className="mt-1 text-[28px] font-semibold text-ink-strong tabnum leading-none" suppressHydrationWarning>
               {new Intl.DateTimeFormat("en-US", {
-                hour: "2-digit",
+                hour: "numeric",
                 minute: "2-digit",
                 second: "2-digit",
-                hour12: false,
+                hour12: true,
                 timeZone: localZone,
               }).format(now)}
             </div>
-            <div className="mt-1 text-[10px] font-mono text-ink-faint">{localZone}</div>
+            <div className="mt-1 text-[10px] font-mono text-ink-faint">
+              {weather.city
+                ? `${weather.city}${weather.region ? `, ${weather.region}` : ""} · ${localZone}`
+                : localZone}
+            </div>
           </div>
 
           {/* Zones */}

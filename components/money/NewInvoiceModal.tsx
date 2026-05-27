@@ -287,6 +287,111 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
               />
             </div>
 
+            {/* Need Client Approval (subscriptions) */}
+            {type !== "One-time" && (
+              <div>
+                <label className={labelCls}>Need client approval for subscription payment?</label>
+                <select
+                  value={needsClientApproval}
+                  onChange={(e) => setNeedsClientApproval(e.target.value as "" | "Yes" | "No")}
+                  className={inputCls}
+                >
+                  <option value="">—</option>
+                  <option value="Yes">Yes — client approves first invoice</option>
+                  <option value="No">No — charge immediately</option>
+                </select>
+              </div>
+            )}
+
+            {/* Payment plan */}
+            {(type === "Payment Plan" || type === "Recurring") && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>Payment plan — # of payments</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={planCount}
+                    onChange={(e) => setPlanCount(e.target.value)}
+                    placeholder="e.g. 4"
+                    className={`${inputCls} font-mono tabnum`}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Payment plan — frequency</label>
+                  <select
+                    value={planFrequency}
+                    onChange={(e) =>
+                      setPlanFrequency(e.target.value as "" | "weekly" | "biweekly" | "monthly")
+                    }
+                    className={inputCls}
+                  >
+                    <option value="">—</option>
+                    <option value="weekly">weekly</option>
+                    <option value="biweekly">biweekly</option>
+                    <option value="monthly">monthly</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Discount */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Discount %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={discountPct}
+                  onChange={(e) => setDiscountPct(e.target.value)}
+                  placeholder="0"
+                  className={`${inputCls} font-mono tabnum`}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Discount length (# of payments)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={discountLength}
+                  onChange={(e) => setDiscountLength(e.target.value)}
+                  placeholder="0"
+                  className={`${inputCls} font-mono tabnum`}
+                />
+              </div>
+            </div>
+
+            {/* Fiverr status */}
+            {source === "Fiverr" && (
+              <div>
+                <label className={labelCls}>Fiverr status</label>
+                <select
+                  value={fiverrStatus}
+                  onChange={(e) =>
+                    setFiverrStatus(
+                      e.target.value as
+                        | ""
+                        | "Gig Pending Acceptance"
+                        | "Gig Accepted"
+                        | "Gig Funds Cleared",
+                    )
+                  }
+                  className={inputCls}
+                >
+                  <option value="">—</option>
+                  <option value="Gig Pending Acceptance">Gig Pending Acceptance</option>
+                  <option value="Gig Accepted">Gig Accepted</option>
+                  <option value="Gig Funds Cleared">Gig Funds Cleared</option>
+                </select>
+              </div>
+            )}
+
+
+
             <div className="text-[11px] text-ink-faint border border-rule rounded-md bg-bg-elevated px-3 py-2">
               Status will be set to <span className="font-mono text-ink-muted">unsent</span>. Use
               the <span className="text-ink-strong">Send invoice</span> button on the invoice row

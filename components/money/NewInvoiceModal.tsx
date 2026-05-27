@@ -304,7 +304,7 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
             )}
 
             {/* Payment plan */}
-            {(type === "Payment Plan" || type === "Recurring") && (
+            {type === "Payment Plan" && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Payment plan — # of payments</label>

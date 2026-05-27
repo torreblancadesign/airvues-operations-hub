@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { MoneyInvoice } from "@/lib/money";
 import {
   markInvoiceSent,
@@ -38,6 +39,7 @@ function Row({ label, children, hint }: { label: string; children: React.ReactNo
 }
 
 export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = false }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [sendError, setSendError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = fals
       if ("error" in res) setEditError(res.error);
       else {
         setSavedKey(key);
+        router.refresh();
         setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1500);
       }
     });

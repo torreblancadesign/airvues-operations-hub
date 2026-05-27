@@ -116,7 +116,11 @@ export function MoneyDashboard({
 }: Props) {
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...initialFilter });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
-  const [selected, setSelected] = useState<MoneyInvoice | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = useMemo(
+    () => (selectedId ? invoices.find((i) => i.id === selectedId) ?? null : null),
+    [selectedId, invoices],
+  );
   const [showNew, setShowNew] = useState(false);
   const [paidScope, setPaidScope] = useState<"mtd" | "ytd">("mtd");
 
@@ -369,7 +373,7 @@ export function MoneyDashboard({
                 return (
                   <tr
                     key={r.id}
-                    onClick={() => setSelected(r)}
+                    onClick={() => setSelectedId(r.id)}
                     className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
                   >
                     <td className="px-3 py-2 text-[12px] text-ink-strong max-w-[280px] truncate">{r.payer}</td>
@@ -414,17 +418,17 @@ export function MoneyDashboard({
         rows={sorted}
         sort={sort}
         setSort={setSort}
-        onRowClick={setSelected}
+        onRowClick={(inv) => setSelectedId(inv.id)}
         selectedId={selected?.id ?? null}
       />
 
       {/* Drill-in sheet */}
       <InvoiceSheet
         invoice={selected}
-        onClose={() => setSelected(null)}
+        onClose={() => setSelectedId(null)}
         onFilterByPayer={(payer) => {
           setFilter({ ...EMPTY_FILTER, payer });
-          setSelected(null);
+          setSelectedId(null);
         }}
         canEdit={canEdit}
       />

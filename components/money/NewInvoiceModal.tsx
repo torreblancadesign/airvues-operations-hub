@@ -30,6 +30,14 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
   const [type, setType] = useState<"One-time" | "Recurring" | "Payment Plan">("One-time");
   const [source, setSource] = useState<"Stripe" | "Fiverr" | "Other">("Stripe");
   const [description, setDescription] = useState("");
+  const [needsClientApproval, setNeedsClientApproval] = useState<"" | "Yes" | "No">("");
+  const [planCount, setPlanCount] = useState("");
+  const [planFrequency, setPlanFrequency] = useState<"" | "weekly" | "biweekly" | "monthly">("");
+  const [discountPct, setDiscountPct] = useState(""); // user enters 0-100
+  const [discountLength, setDiscountLength] = useState("");
+  const [fiverrStatus, setFiverrStatus] = useState<
+    "" | "Gig Pending Acceptance" | "Gig Accepted" | "Gig Funds Cleared"
+  >("");
 
   useEffect(() => {
     if (!open) return;
@@ -51,9 +59,16 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
       setType("One-time");
       setSource("Stripe");
       setDescription("");
+      setNeedsClientApproval("");
+      setPlanCount("");
+      setPlanFrequency("");
+      setDiscountPct("");
+      setDiscountLength("");
+      setFiverrStatus("");
       setError(null);
     }
   }, [open]);
+
 
   const filteredPayers = useMemo(() => {
     const q = payerSearch.trim().toLowerCase();

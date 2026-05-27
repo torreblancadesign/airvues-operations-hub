@@ -91,6 +91,7 @@ export function MobileNav({ userEmail, userRole, samlActive, signOutAction, cale
             </div>
           </Link>
           <div className="flex items-center gap-2">
+            {weather && <TimeWeatherWidget weather={weather} />}
             {calendarResult && (
               <CalendarWidget result={calendarResult} compact />
             )}

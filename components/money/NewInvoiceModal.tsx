@@ -88,7 +88,7 @@ export function NewInvoiceModal({ open, onClose, payers, quotes }: Props) {
     if (!payerId) return setError("Pick a payer");
     if (!Number.isFinite(amt) || amt <= 0) return setError("Enter a valid amount");
 
-    const planEnabled = type === "Payment Plan" || type === "Recurring";
+    const planEnabled = type === "Payment Plan";
     const fiverrEnabled = source === "Fiverr";
     const pctNum = discountPct === "" ? null : parseFloat(discountPct);
     if (pctNum != null && (!Number.isFinite(pctNum) || pctNum < 0 || pctNum > 100))

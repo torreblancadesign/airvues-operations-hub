@@ -47,10 +47,11 @@ type Props = {
   signOutAction: SignOutHandler;
   calendarResult?: CalendarResult;
   inboxResult?: InboxResult;
+  weather?: WeatherSnapshot;
   permissions: Permission[];
 };
 
-export function MobileNav({ userEmail, userRole, samlActive, signOutAction, calendarResult, inboxResult, permissions }: Props) {
+export function MobileNav({ userEmail, userRole, samlActive, signOutAction, calendarResult, inboxResult, weather, permissions }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 

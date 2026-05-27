@@ -39,6 +39,7 @@ function Row({ label, children, hint }: { label: string; children: React.ReactNo
 }
 
 export function InvoiceSheet({ invoice, onClose, onFilterByPayer, canEdit = false }: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [sendError, setSendError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);

@@ -299,12 +299,16 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     const status = (qf["Status"] as string) ?? null;
     if (status && LOST_QUOTE_STATUSES.has(status)) continue;
 
+    const projectStatus = (qf["Project Status"] as string) ?? null;
+    const earned = projectStatus === EARNED_PROJECT_STATUS;
+    const open = projectStatus != null && OPEN_PROJECT_STATUSES.has(projectStatus);
+    // Hide proposal-stage quotes — they don't count toward commission yet.
+    if (!earned && !open) continue;
+
     const totalCost = (qf["Total Cost"] as number) ?? 0;
     const blueprint = qf["Blueprint"] === true;
-    const projectStatus = (qf["Project Status"] as string) ?? null;
     const rate = commissionPct + (blueprint ? BLUEPRINT_BONUS : 0);
     const commission = totalCost * rate;
-    const earned = projectStatus === EARNED_PROJECT_STATUS;
     const bucketDate =
       (qf["Signed Date"] as string) ??
       (qf["Prepared Date"] as string) ??

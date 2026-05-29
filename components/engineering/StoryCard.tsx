@@ -31,6 +31,14 @@ function priorityDot(p: string | null): string {
   }
 }
 
+function payStatusTone(s: string): string {
+  const v = s.toLowerCase();
+  if (v.includes("paid") && !v.includes("partial") && !v.includes("unpaid")) return "bg-emerald/15 text-emerald border-emerald/30";
+  if (v.includes("partial") || v.includes("deposit")) return "bg-amber/15 text-amber border-amber/30";
+  if (v.includes("unpaid") || v.includes("overdue") || v.includes("past due")) return "bg-red/15 text-red border-red/30";
+  return "bg-bg-elevated text-ink-muted border-rule";
+}
+
 export function StoryCard({ story, onClick, selected = false }: Props) {
   const pct = story.hours && story.hours > 0
     ? Math.min(999, Math.round(((story.hoursWorked ?? 0) / story.hours) * 100))

@@ -35,6 +35,7 @@ type QuoteFields = {
   "Total Cost"?: number;
   "Total Hours"?: number;
   "Run AI Proposal Agent"?: boolean;
+  "Blueprint"?: boolean;
 };
 
 type StoryFields = {
@@ -152,6 +153,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     estimateCostRange: asStr(f["Estimate Cost Range"]),
 
     runAiProposalAgent: f["Run AI Proposal Agent"] === true,
+    blueprint: f["Blueprint"] === true,
     stories,
     totalCost: (f["Total Cost"] as number) ?? 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,

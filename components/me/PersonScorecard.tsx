@@ -31,7 +31,7 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false, canEditGoal = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource, salesCommission } = scorecard;
 
   const totalPotentialCost = totals.openCost + totals.earnedCost;
   const totalPotentialCommission = totalPotentialCost * commissionPct;
@@ -168,11 +168,106 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
         />
       </div>
 
+      {/* Sales commission — only shown for people who have prepared quotes */}
+      {salesCommission.quoteCount > 0 && (
+        <>
+          <SectionTitle
+            title="Sales Commission"
+            aside={`From quotes you prepared · ${pctLabel} base${salesCommission.blueprintCount > 0 ? " + 5% Blueprint bonus" : ""}`}
+          />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+            <StatCard
+              label="Lifetime earned"
+              tone="emerald"
+              value={fmtMoney(salesCommission.earned.lifetime)}
+              sub={`From quotes at "Completion Invoice Paid"`}
+            />
+            <StatCard
+              label={`YTD · ${currentYear}`}
+              tone="violet"
+              value={fmtMoney(salesCommission.earned.ytd)}
+              sub={`Since Jan 1`}
+            />
+            <StatCard
+              label="MTD"
+              tone="sky"
+              value={fmtMoney(salesCommission.earned.mtd)}
+              sub={`This ${now.toLocaleString("default", { month: "long" })}`}
+            />
+            <StatCard
+              label="Open pipeline"
+              tone="amber"
+              value={fmtMoney(salesCommission.open)}
+              sub={`Projected from live quotes`}
+            />
+          </div>
+          {salesCommission.blueprintCount > 0 && (
+            <div className="mb-4 text-[11px] text-ink-muted font-mono">
+              +{fmtMoney(salesCommission.blueprintBonus)} attributable to {salesCommission.blueprintCount} Blueprint quote{salesCommission.blueprintCount === 1 ? "" : "s"} (5% bonus)
+            </div>
+          )}
+          <div className="mb-8 bg-surface border border-rule rounded-card overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-rule bg-bg-elevated flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-ink-strong">
+                Prepared quotes
+              </span>
+              <span className="text-[11px] text-ink-muted font-mono tabnum">
+                {salesCommission.quoteCount} total
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead className="text-[10px] uppercase tracking-wider text-ink-faint">
+                  <tr className="border-b border-rule">
+                    <th className="text-left px-4 py-2 font-medium">Project</th>
+                    <th className="text-left px-3 py-2 font-medium">Client</th>
+                    <th className="text-left px-3 py-2 font-medium">Status</th>
+                    <th className="text-right px-3 py-2 font-medium">Total Cost</th>
+                    <th className="text-right px-3 py-2 font-medium">Rate</th>
+                    <th className="text-right px-4 py-2 font-medium">Commission</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {salesCommission.quotes.map((q) => (
+                    <tr key={q.id} className="border-b border-rule-soft last:border-0 hover:bg-bg-elevated/50">
+                      <td className="px-4 py-2 text-ink">
+                        <a href={q.airtableUrl} target="_blank" rel="noopener noreferrer" className="hover:text-emerald hover:underline">
+                          {q.projectName}
+                        </a>
+                        {q.blueprint && (
+                          <span className="ml-2 inline-flex items-center text-[9px] font-medium uppercase tracking-wider text-violet bg-violet/10 border border-violet/30 px-1.5 py-0.5 rounded">
+                            Blueprint
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-ink-muted">{q.client ?? "—"}</td>
+                      <td className="px-3 py-2 text-ink-muted">
+                        <span className={q.earned ? "text-emerald" : "text-amber"}>
+                          {q.projectStatus ?? q.status ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono tabnum text-ink">{fmtMoney(q.totalCost)}</td>
+                      <td className="px-3 py-2 text-right font-mono tabnum text-ink-muted">
+                        {(q.rate * 100).toFixed(q.rate * 100 % 1 === 0 ? 0 : 1)}%
+                      </td>
+                      <td className={`px-4 py-2 text-right font-mono tabnum font-semibold ${q.earned ? "text-emerald" : "text-ink"}`}>
+                        {fmtMoney(q.commission)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Stories shipped */}
       <SectionTitle
         title="Stories Shipped"
         aside={shippedIsApproximate ? "YTD/MTD approximated from sprint end dates" : undefined}
       />
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <StatCard
           label="Lifetime shipped"

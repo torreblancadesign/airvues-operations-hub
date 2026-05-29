@@ -8,9 +8,12 @@ import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { getEngineeringBoard } from "./engineering";
 import { COMMISSION_RATE } from "./engineering-types";
-import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, ScorecardPayment } from "./scorecard-types";
+import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, ScorecardPayment, SalesCommission, SalesQuoteRow } from "./scorecard-types";
 
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
+const BLUEPRINT_BONUS = 0.05;
+const EARNED_PROJECT_STATUS = "Completion Invoice Paid";
+const LOST_QUOTE_STATUSES = new Set(["Cancelled", "Rejected"]);
 
 function startOfYear(now: Date): Date {
   return new Date(now.getFullYear(), 0, 1);
@@ -22,8 +25,9 @@ function startOfMonth(now: Date): Date {
 export async function getScorecard(engineerId: string | null): Promise<ScorecardPayload> {
   const pT = Tables.People;
   const tT = Tables.TeamTaskPayments;
+  const qT = Tables.Quotes;
 
-  const [board, paymentRecords, peopleRecords] = await Promise.all([
+  const [board, paymentRecords, peopleRecords, quoteRecords] = await Promise.all([
     getEngineeringBoard(),
     listRecordsCached<{
       Amount?: number;
@@ -60,6 +64,36 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
         fields: ["Annual Earnings Goal", "Commission Percentage"],
       },
       ["scorecard:people-goals"],
+    ),
+    listRecordsCached<{
+      "Project Name"?: string;
+      "Client Name"?: string[];
+      "Prepared by"?: string[];
+      "Total Cost"?: number;
+      "Project Status"?: string;
+      "Status"?: string;
+      "Signed Date"?: string;
+      "Prepared Date"?: string;
+      "Created"?: string;
+      "Blueprint"?: boolean;
+    }>(
+      qT.id,
+      {
+        fields: [
+          qT.fields["Project Name"].id,
+          qT.fields["Client Name"].id,
+          qT.fields["Prepared by"].id,
+          qT.fields["Total Cost"].id,
+          qT.fields["Project Status"].id,
+          qT.fields["Status"].id,
+          qT.fields["Signed Date"].id,
+          qT.fields["Prepared Date"].id,
+          qT.fields["Created"].id,
+          // New field — not yet in schema.ts; pass by name.
+          "Blueprint",
+        ],
+      },
+      ["scorecard:sales-quotes"],
     ),
   ]);
 
@@ -242,6 +276,74 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   const annualEarningsGoal =
     (personRec?.fields["Annual Earnings Goal"] as number | undefined) ?? null;
 
+  // === Sales commission (Prepared by + Blueprint bonus) ===
+  const salesCommission: SalesCommission = {
+    earned: { lifetime: 0, ytd: 0, mtd: 0 },
+    open: 0,
+    blueprintBonus: 0,
+    quoteCount: 0,
+    blueprintCount: 0,
+    quotes: [],
+  };
+  for (const qr of quoteRecords) {
+    const qf = qr.fields;
+    const preparedBy = (qf["Prepared by"] as string[] | undefined) ?? [];
+    if (!preparedBy.includes(engineerId)) continue;
+
+    const status = (qf["Status"] as string) ?? null;
+    if (status && LOST_QUOTE_STATUSES.has(status)) continue;
+
+    const totalCost = (qf["Total Cost"] as number) ?? 0;
+    const blueprint = qf["Blueprint"] === true;
+    const projectStatus = (qf["Project Status"] as string) ?? null;
+    const rate = commissionPct + (blueprint ? BLUEPRINT_BONUS : 0);
+    const commission = totalCost * rate;
+    const earned = projectStatus === EARNED_PROJECT_STATUS;
+    const bucketDate =
+      (qf["Signed Date"] as string) ??
+      (qf["Prepared Date"] as string) ??
+      (qf["Created"] as string) ??
+      null;
+
+    salesCommission.quoteCount++;
+    if (blueprint) {
+      salesCommission.blueprintCount++;
+      salesCommission.blueprintBonus += totalCost * BLUEPRINT_BONUS;
+    }
+    if (earned) {
+      salesCommission.earned.lifetime += commission;
+      if (bucketDate) {
+        const d = new Date(bucketDate);
+        if (!isNaN(d.getTime())) {
+          if (d >= yearStart) salesCommission.earned.ytd += commission;
+          if (d >= monthStart) salesCommission.earned.mtd += commission;
+        }
+      }
+    } else {
+      salesCommission.open += commission;
+    }
+
+    salesCommission.quotes.push({
+      id: qr.id,
+      projectName: (qf["Project Name"] as string) ?? "(no name)",
+      client: ((qf["Client Name"] as string[] | undefined) ?? [])[0] ?? null,
+      projectStatus,
+      status,
+      totalCost,
+      blueprint,
+      rate,
+      commission,
+      earned,
+      bucketDate,
+      airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${qT.id}/${qr.id}`,
+    });
+  }
+  salesCommission.quotes.sort((a, b) => {
+    if ((a.bucketDate ?? "") < (b.bucketDate ?? "")) return 1;
+    if ((a.bucketDate ?? "") > (b.bucketDate ?? "")) return -1;
+    return 0;
+  });
+
   const scorecard: Scorecard = {
     engineer: {
       id: effectiveGroup.id,
@@ -261,6 +363,7 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     shippedIsApproximate: anyApproximate,
     commissionPct,
     commissionPctSource,
+    salesCommission,
   };
 
   return { scorecard, engineers };

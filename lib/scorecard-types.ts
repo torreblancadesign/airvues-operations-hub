@@ -33,6 +33,30 @@ export type ScorecardPayment = {
   airtableUrl: string;
 };
 
+export type SalesQuoteRow = {
+  id: string;
+  projectName: string;
+  client: string | null;
+  projectStatus: string | null;
+  status: string | null;
+  totalCost: number;
+  blueprint: boolean;
+  rate: number;
+  commission: number;
+  earned: boolean;
+  bucketDate: string | null;
+  airtableUrl: string;
+};
+
+export type SalesCommission = {
+  earned: { lifetime: number; ytd: number; mtd: number };
+  open: number;
+  blueprintBonus: number;
+  quoteCount: number;
+  blueprintCount: number;
+  quotes: SalesQuoteRow[];
+};
+
 export type Scorecard = {
   engineer: ScorecardEngineer;
   stories: Story[];
@@ -80,6 +104,12 @@ export type Scorecard = {
    */
   commissionPct: number;
   commissionPctSource: "person" | "default";
+  /**
+   * Sales commission earned by this person as the "Prepared by" on quotes.
+   * Always present; quoteCount === 0 means they prepared no quotes and the UI
+   * hides the section.
+   */
+  salesCommission: SalesCommission;
 };
 
 export type ScorecardPayload = {

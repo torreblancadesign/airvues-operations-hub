@@ -43,6 +43,9 @@ export type QuoteDetail = {
   estimateCostRange: string;
   // AI automation trigger (checkbox)
   runAiProposalAgent: boolean;
+  // Sales: marks this quote as a Blueprint engagement (+5% commission bonus
+  // to the Prepared by salesperson)
+  blueprint: boolean;
   // Stories + totals
   stories: QuoteStoryRow[];
   totalCost: number;
@@ -81,4 +84,5 @@ export type QuoteFieldPatch = Partial<{
   problemStatementSolution: string;
   estimateHoursRange: string;
   estimateCostRange: string;
+  blueprint: boolean;
 }>;

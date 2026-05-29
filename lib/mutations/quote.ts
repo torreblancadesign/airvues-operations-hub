@@ -31,6 +31,7 @@ async function gate(): Promise<{ error: string } | null> {
 function invalidateQuote(quoteId: string) {
   revalidateTag("airtable");
   revalidateTag("pipeline:all-quotes");
+  revalidateTag("scorecard:sales-quotes");
   revalidateTag(`quote:${quoteId}:stories`);
 }
 
@@ -69,6 +70,7 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   }
   if (patch.estimateHoursRange !== undefined) fields["Estimate Hours Range"] = patch.estimateHoursRange;
   if (patch.estimateCostRange !== undefined) fields["Estimate Cost Range"] = patch.estimateCostRange;
+  if (patch.blueprint !== undefined) fields["Blueprint"] = patch.blueprint;
   return fields;
 }
 

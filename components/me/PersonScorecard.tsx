@@ -169,13 +169,18 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
         />
       </div>
 
-      {/* Sales commission — only shown for people who have prepared quotes */}
-      {salesCommission.quoteCount > 0 && (
+      {/* Sales commission — shown for people on the Sales commission model */}
+      {isSales && (
         <>
           <SectionTitle
-            title="Sales Commission"
+            title="Commission Projections"
             aside={`From quotes you prepared · ${pctLabel} base${salesCommission.blueprintCount > 0 ? " + 5% Blueprint bonus" : ""}`}
           />
+          {salesCommission.quoteCount === 0 && (
+            <div className="mb-6 bg-surface border border-rule rounded-card p-4 text-[12px] text-ink-muted">
+              No commission-eligible quotes yet. Quotes start counting once their Project Status moves past the proposal stage (Commencement Invoice Paid or later).
+            </div>
+          )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
             <StatCard
               label="Lifetime earned"

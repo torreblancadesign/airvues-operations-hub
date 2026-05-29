@@ -11,6 +11,9 @@ import { COMMISSION_RATE } from "./engineering-types";
 import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, ScorecardPayment, SalesCommission, SalesQuoteRow } from "./scorecard-types";
 
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
+const BLUEPRINT_BONUS = 0.05;
+const EARNED_PROJECT_STATUS = "Completion Invoice Paid";
+const LOST_QUOTE_STATUSES = new Set(["Cancelled", "Rejected"]);
 
 function startOfYear(now: Date): Date {
   return new Date(now.getFullYear(), 0, 1);
@@ -22,6 +25,7 @@ function startOfMonth(now: Date): Date {
 export async function getScorecard(engineerId: string | null): Promise<ScorecardPayload> {
   const pT = Tables.People;
   const tT = Tables.TeamTaskPayments;
+  const qT = Tables.Quotes;
 
   const [board, paymentRecords, peopleRecords] = await Promise.all([
     getEngineeringBoard(),

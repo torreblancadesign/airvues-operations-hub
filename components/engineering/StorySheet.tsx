@@ -242,6 +242,21 @@ export function StorySheet({
               {current.clientNames.join(", ") || "—"}
             </div>
           </div>
+          {current.payStatus.length > 0 && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Pay Status</div>
+              <div className="flex flex-wrap gap-1">
+                {current.payStatus.map((p, i) => (
+                  <span
+                    key={`${p}-${i}`}
+                    className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(p)}`}
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {current.quoteIds.length > 0 && (
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Quote</div>

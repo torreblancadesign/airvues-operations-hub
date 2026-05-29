@@ -83,6 +83,17 @@ export function KanbanCard({ story, column, canEdit, onOpen, onAdvanced }: Props
         </span>
       </div>
 
+      {story.payStatus[0] && (
+        <div className="mb-1.5">
+          <span
+            className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(story.payStatus[0])}`}
+            title={story.payStatus.join(", ")}
+          >
+            {story.payStatus[0]}
+          </span>
+        </div>
+      )}
+
       <div className="text-[13px] text-ink-strong font-medium leading-snug mb-2 line-clamp-2 group-hover:text-emerald transition-colors">
         {story.name}
       </div>

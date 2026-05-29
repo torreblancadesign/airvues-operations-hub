@@ -49,6 +49,9 @@ function payStatusTone(s: string): string {
   if (v.includes("partial") || v.includes("deposit")) return "bg-amber/15 text-amber border-amber/30";
   if (v.includes("unpaid") || v.includes("overdue") || v.includes("past due")) return "bg-red/15 text-red border-red/30";
   return "bg-bg-elevated text-ink-muted border-rule";
+}
+
+
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (

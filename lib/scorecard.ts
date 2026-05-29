@@ -27,7 +27,7 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   const tT = Tables.TeamTaskPayments;
   const qT = Tables.Quotes;
 
-  const [board, paymentRecords, peopleRecords] = await Promise.all([
+  const [board, paymentRecords, peopleRecords, quoteRecords] = await Promise.all([
     getEngineeringBoard(),
     listRecordsCached<{
       Amount?: number;
@@ -64,6 +64,36 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
         fields: ["Annual Earnings Goal", "Commission Percentage"],
       },
       ["scorecard:people-goals"],
+    ),
+    listRecordsCached<{
+      "Project Name"?: string;
+      "Client Name"?: string[];
+      "Prepared by"?: string[];
+      "Total Cost"?: number;
+      "Project Status"?: string;
+      "Status"?: string;
+      "Signed Date"?: string;
+      "Prepared Date"?: string;
+      "Created"?: string;
+      "Blueprint"?: boolean;
+    }>(
+      qT.id,
+      {
+        fields: [
+          qT.fields["Project Name"].id,
+          qT.fields["Client Name"].id,
+          qT.fields["Prepared by"].id,
+          qT.fields["Total Cost"].id,
+          qT.fields["Project Status"].id,
+          qT.fields["Status"].id,
+          qT.fields["Signed Date"].id,
+          qT.fields["Prepared Date"].id,
+          qT.fields["Created"].id,
+          // New field — not yet in schema.ts; pass by name.
+          "Blueprint",
+        ],
+      },
+      ["scorecard:sales-quotes"],
     ),
   ]);
 

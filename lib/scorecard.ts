@@ -13,6 +13,11 @@ import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, Scorecard
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
 const BLUEPRINT_BONUS = 0.05;
 const EARNED_PROJECT_STATUS = "Completion Invoice Paid";
+const OPEN_PROJECT_STATUSES = new Set([
+  "Commencement Invoice Paid",
+  "First Draft Delivered",
+  "Project Accepted",
+]);
 const LOST_QUOTE_STATUSES = new Set(["Cancelled", "Rejected"]);
 
 function startOfYear(now: Date): Date {

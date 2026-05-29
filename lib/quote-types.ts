@@ -84,4 +84,5 @@ export type QuoteFieldPatch = Partial<{
   problemStatementSolution: string;
   estimateHoursRange: string;
   estimateCostRange: string;
+  blueprint: boolean;
 }>;

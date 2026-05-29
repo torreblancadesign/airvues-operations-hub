@@ -1,71 +1,61 @@
-# Sales-commission scorecard for non-engineers
+# Sales-mode scorecard
 
-Right now `/me` assumes the person earns by shipping Stories (Story.Cost × commission %). Shania doesn't ship stories — she earns a % of the **whole quote** she prepared, plus a +5% bonus when that quote is a Blueprint. This plan teaches the scorecard to compute and display that.
+Make the scorecard adapt to the person's commission model: engineers keep today's story-driven projections, sales people (like Shania) get a single quote-driven view with no stories sections.
 
-## What you need to do in Airtable
+## Airtable changes (you do this)
 
-1. **Quotes table → add field** `Blueprint`
-   - Type: **Checkbox**
-   - Default: unchecked
-   - Meaning: tick when this quote is a Blueprint engagement (triggers Shania's +5% bonus)
-2. **People table → Shania's record**
-   - Confirm `Commission Percentage` is set to her base sales rate (e.g. `0.10` for 10%). Airtable percent fields store as decimal.
-   - Confirm `Annual Earnings Goal` if you want pacing to work for her too.
-3. **Quotes → `Prepared by`** — already exists and links to People. Just make sure historical quotes Shania prepared are linked to her People record (the scorecard uses this link as the source of truth).
+1. **People table → add field `Commission Model`** (singleSelect)
+   - Options: `Stories` (default) and `Sales`
+   - Set Shania's value to `Sales`
+2. Anyone left blank or set to `Stories` keeps the current engineer layout. Anyone set to `Sales` gets the new layout.
 
-That's it on the Airtable side — no new tables, no formulas.
+## Logic changes
 
-## How the math will work
+**Quote eligibility (sales mode only).** Only quotes whose `Project Status` is past the proposal stage count toward commission. Mapping:
 
-For each quote where `Prepared by` includes the viewed person:
-- `rate = person.Commission Percentage + (Blueprint ? 0.05 : 0)`
-- `commission = Quote.Total Cost × rate`
-- Bucketing:
-  - **Earned** → `Project Status = "Completion Invoice Paid"` (uses `Signed Date` or `Created` as the bucket date for YTD/MTD)
-  - **Open / projected** → any other live status (Proposal Created → First Draft Delivered, etc.)
-  - **Lost** → excluded (`Status = "Closed Lost"` or equivalent)
+- Hidden entirely: `Proposal Created`, `Proposal Signed`
+- **Open** (sold, not finished): `Commencement Invoice Paid`, `First Draft Delivered`, `Project Accepted`
+- **Earned** (finalized): `Completion Invoice Paid`
 
-## What changes in code
+Commission per quote stays the same: `Total Cost × (base % + 5% if Blueprint)`.
 
-**`lib/schema.ts`** — add `Blueprint` field entry under `Quotes` (raw name access works too, but schema entry keeps it canonical).
+## UI changes (sales mode)
 
-**`lib/scorecard-types.ts`** — extend `Scorecard` with:
-```
-salesCommission: {
-  earned: { lifetime, ytd, mtd },
-  open: number,
-  blueprintBonus: number,   // portion attributable to +5%
-  quoteCount: number,
-  quotes: SalesQuoteRow[],  // table for drill-down
-}
+Render this single flow on `/me` when `Commission Model = Sales`:
+
+```text
+Earnings                       (unchanged — real payouts)
+Earnings Detail                (unchanged — monthly chart)
+YYYY Earnings Goal             (unchanged)
+
+Commission Projections         (REPLACES the current "Sales Commission" + "Commission Projections" stack)
+  ├─ Open commission           sum of Open quotes × rate
+  ├─ Earned commission         sum of Earned quotes × rate
+  ├─ Total pipeline potential  Open + Earned
+  └─ MTD / YTD earned          (kept as smaller stat row beneath, drives the goal)
+
+Prepared quotes table          only Open + Earned rows (proposal-stage quotes hidden)
+                               Blueprint badge + rate column preserved
 ```
 
-**`lib/scorecard.ts`** —
-- Fetch all Quotes (cached, tag `scorecard:sales`) with: `Prepared by`, `Total Cost`, `Project Status`, `Status`, `Signed Date`, `Created`, `Project Name`, `Client Name`, `Blueprint`.
-- Filter to quotes where `Prepared by` contains `engineerId`.
-- Compute per-quote commission using the rule above.
-- Sum into lifetime/YTD/MTD earned, open total, and blueprint-bonus subtotal.
-- Skip the whole section when the person has zero prepared quotes (engineers won't see it).
+**Hidden in sales mode:** "Stories Shipped", "Next to Ship", "All Your Stories", and the StorySheet drawer trigger. Assigned stories still exist in Airtable but don't surface here because they don't drive her commission.
 
-**`components/me/PersonScorecard.tsx`** —
-- New section **"Sales Commission"** rendered above "Stories Shipped" when `salesCommission.quoteCount > 0`.
-- 4 StatCards: Lifetime earned · YTD earned · MTD earned · Open pipeline.
-- Small caption noting blueprint bonus contribution (e.g. "+$X,XXX from 2 blueprint quotes").
-- Drill-down table listing prepared quotes (project name, client, status, total cost, rate, commission, blueprint badge) — links to `/pipeline` row.
+**Engineer mode (everyone else):** unchanged. The redundant "Sales Commission" section disappears for engineers too — quote-based commission only renders when `Commission Model = Sales`.
 
-**`components/pipeline/QuoteSheet.tsx` / `QuoteSheetEditor.tsx`** — add a Blueprint checkbox toggle (admin/lead-editable) so the field is reachable from the app, not just Airtable.
+## Files to change
 
-**`lib/mutations/quote.ts`** — extend the existing quote field patch to accept `blueprint: boolean`.
+- `lib/schema.ts` — register `Commission Model` field under People
+- `lib/scorecard-types.ts` — add `commissionModel: "stories" | "sales"`; rename `salesCommission.open/earned` semantics to match new buckets; drop unused fields
+- `lib/scorecard.ts` — read `Commission Model`; filter quotes by `Project Status` (drop Proposal Created/Signed); recompute Open vs Earned by status bucket; still compute story totals but skip them in sales mode
+- `components/me/PersonScorecard.tsx` — branch on `commissionModel`. Sales branch renders Earnings + Goal + unified Commission Projections + Prepared quotes table. Engineer branch unchanged minus the sales section.
 
-**`lib/quote-types.ts`** — add `blueprint: boolean` to `QuoteDetail` and `QuoteFieldPatch`.
+## Out of scope
 
-## Out of scope (call out before building)
-
-- Reassigning historical quotes to Shania's People record — manual cleanup on your end if any are missing.
-- Splitting commission across multiple `Prepared by` people — current rule gives full commission to every linked person. Flag if you want it split.
-- Showing Shania's commission inside the existing `/pipeline` quote drawer beyond the new checkbox (can add later).
-- Removing the Stories/Commission Projections section for non-engineers — it will just show zeros for her. Easy follow-up to hide when `totals.storyCount === 0`.
+- Editing the `Commission Model` value from the app (set in Airtable)
+- Splitting commission across multiple `Prepared by` people
+- Showing sales metrics anywhere outside `/me`
+- Reassigning historical quote statuses
 
 ## Verification
 
-`npx tsc --noEmit` + `npm run build`, then load `/me?as=<shania-id>` and confirm Sales Commission section appears with non-zero numbers; toggle Blueprint on a quote and confirm the YTD figure jumps by 5% × Total Cost.
+`npx tsc --noEmit` + `npm run build`, then load `/me?as=<shania-id>` and confirm: no Stories sections, Prepared quotes shows 4 rows (not 6 — the 2 Proposal Created rows drop), Open = Lampshade $1,200 + Contractor Billing $3,300 = $4,500, Earned = $0 until any quote moves to Completion Invoice Paid. Load `/me?as=<engineer-id>` and confirm the layout is identical to before.

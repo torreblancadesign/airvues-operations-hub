@@ -31,6 +31,7 @@ async function gate(): Promise<{ error: string } | null> {
 function invalidateQuote(quoteId: string) {
   revalidateTag("airtable");
   revalidateTag("pipeline:all-quotes");
+  revalidateTag("scorecard:sales-quotes");
   revalidateTag(`quote:${quoteId}:stories`);
 }
 

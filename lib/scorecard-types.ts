@@ -105,6 +105,12 @@ export type Scorecard = {
   commissionPct: number;
   commissionPctSource: "person" | "default";
   /**
+   * Commission model for this person. "sales" swaps the /me layout to a
+   * quote-driven view (no Stories Shipped / story projections).
+   * Source: People.Commission Model (singleSelect: Stories | Sales).
+   */
+  commissionModel: "stories" | "sales";
+  /**
    * Sales commission earned by this person as the "Prepared by" on quotes.
    * Always present; quoteCount === 0 means they prepared no quotes and the UI
    * hides the section.

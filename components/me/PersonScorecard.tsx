@@ -31,7 +31,8 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false, canEditGoal = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource, salesCommission } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource, commissionModel, salesCommission } = scorecard;
+  const isSales = commissionModel === "sales";
 
   const totalPotentialCost = totals.openCost + totals.earnedCost;
   const totalPotentialCommission = totalPotentialCost * commissionPct;
@@ -168,13 +169,18 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
         />
       </div>
 
-      {/* Sales commission — only shown for people who have prepared quotes */}
-      {salesCommission.quoteCount > 0 && (
+      {/* Sales commission — shown for people on the Sales commission model */}
+      {isSales && (
         <>
           <SectionTitle
-            title="Sales Commission"
+            title="Commission Projections"
             aside={`From quotes you prepared · ${pctLabel} base${salesCommission.blueprintCount > 0 ? " + 5% Blueprint bonus" : ""}`}
           />
+          {salesCommission.quoteCount === 0 && (
+            <div className="mb-6 bg-surface border border-rule rounded-card p-4 text-[12px] text-ink-muted">
+              No commission-eligible quotes yet. Quotes start counting once their Project Status moves past the proposal stage (Commencement Invoice Paid or later).
+            </div>
+          )}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
             <StatCard
               label="Lifetime earned"
@@ -262,115 +268,119 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
         </>
       )}
 
-      {/* Stories shipped */}
-      <SectionTitle
-        title="Stories Shipped"
-        aside={shippedIsApproximate ? "YTD/MTD approximated from sprint end dates" : undefined}
-      />
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <StatCard
-          label="Lifetime shipped"
-          tone="violet"
-          value={shipped.lifetime.toLocaleString()}
-          sub={`${fmtMoney(totals.earnedCost)} of scope delivered`}
-        />
-        <StatCard
-          label="YTD shipped"
-          tone="emerald"
-          value={shipped.ytd.toLocaleString()}
-          sub={`In ${currentYear}`}
-        />
-        <StatCard
-          label="MTD shipped"
-          tone="sky"
-          value={shipped.mtd.toLocaleString()}
-          sub={`This ${now.toLocaleString("default", { month: "long" })}`}
-        />
-        <StatCard
-          label="Active in flight"
-          value={totals.activeCount.toLocaleString()}
-          sub={`${totals.inProgressCount} in progress · ${totals.todoCount} todo · ${totals.qaCount} QA`}
-        />
-      </div>
-
-      {/* Commission projections (reframed) */}
-      <SectionTitle
-        title="Commission Projections"
-        aside={`${pctLabel} of story cost · projected, not yet paid`}
-      />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
-        <StatCard
-          label="Open commission"
-          tone="emerald"
-          value={fmtMoney(totals.openCommission)}
-          sub={`If you ship all ${totals.activeCount} active stories`}
-        />
-        <StatCard
-          label="Earned commission"
-          tone="violet"
-          value={fmtMoney(totals.earnedCommission)}
-          sub={`From ${totals.doneCount} completed stories`}
-        />
-        <StatCard
-          label="Total pipeline potential"
-          tone="sky"
-          value={fmtMoney(totalPotentialCommission)}
-          sub={`Across everything assigned to you`}
-        />
-      </div>
-
-      {/* Next 3 to ship */}
-      {nextToShip.length > 0 && (
-        <div className="mb-8">
+      {!isSales && (
+        <>
+          {/* Stories shipped */}
           <SectionTitle
-            title="Next to Ship"
-            aside={`Highest-value active stories · ship these to earn ${fmtMoney(nextToShip.reduce((s, n) => s + n.commission, 0))}`}
+            title="Stories Shipped"
+            aside={shippedIsApproximate ? "YTD/MTD approximated from sprint end dates" : undefined}
           />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {nextToShip.map((s) => (
-              <StoryCard key={s.id} story={s} onClick={setSelected} selected={selected?.id === s.id} />
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* All stories grouped by status */}
-      <SectionTitle
-        title="All Your Stories"
-        aside={`${totals.storyCount} total`}
-      />
-      <div className="space-y-6">
-        {groups.map((g) => {
-          if (g.stories.length === 0) return null;
-          const sectionTotal = g.stories.reduce((sum, s) => sum + s.commission, 0);
-          return (
-            <section key={g.label} className="bg-surface border border-rule rounded-card overflow-hidden">
-              <div className="px-5 py-3 border-b border-rule flex items-center justify-between bg-bg-elevated">
-                <div className="text-[13px] font-semibold text-ink-strong flex items-center gap-2">
-                  <span>{g.label}</span>
-                  <span className="text-[11px] text-ink-muted font-mono tabnum">
-                    ({g.stories.length})
-                  </span>
-                </div>
-                <span className="text-[12px] font-semibold text-emerald tabnum">
-                  {fmtMoney(sectionTotal)}
-                </span>
-              </div>
-              <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {g.stories.map((s) => (
-                  <StoryCard
-                    key={s.id}
-                    story={s}
-                    onClick={setSelected}
-                    selected={selected?.id === s.id}
-                  />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            <StatCard
+              label="Lifetime shipped"
+              tone="violet"
+              value={shipped.lifetime.toLocaleString()}
+              sub={`${fmtMoney(totals.earnedCost)} of scope delivered`}
+            />
+            <StatCard
+              label="YTD shipped"
+              tone="emerald"
+              value={shipped.ytd.toLocaleString()}
+              sub={`In ${currentYear}`}
+            />
+            <StatCard
+              label="MTD shipped"
+              tone="sky"
+              value={shipped.mtd.toLocaleString()}
+              sub={`This ${now.toLocaleString("default", { month: "long" })}`}
+            />
+            <StatCard
+              label="Active in flight"
+              value={totals.activeCount.toLocaleString()}
+              sub={`${totals.inProgressCount} in progress · ${totals.todoCount} todo · ${totals.qaCount} QA`}
+            />
+          </div>
+
+          {/* Commission projections (reframed) */}
+          <SectionTitle
+            title="Commission Projections"
+            aside={`${pctLabel} of story cost · projected, not yet paid`}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
+            <StatCard
+              label="Open commission"
+              tone="emerald"
+              value={fmtMoney(totals.openCommission)}
+              sub={`If you ship all ${totals.activeCount} active stories`}
+            />
+            <StatCard
+              label="Earned commission"
+              tone="violet"
+              value={fmtMoney(totals.earnedCommission)}
+              sub={`From ${totals.doneCount} completed stories`}
+            />
+            <StatCard
+              label="Total pipeline potential"
+              tone="sky"
+              value={fmtMoney(totalPotentialCommission)}
+              sub={`Across everything assigned to you`}
+            />
+          </div>
+
+          {/* Next 3 to ship */}
+          {nextToShip.length > 0 && (
+            <div className="mb-8">
+              <SectionTitle
+                title="Next to Ship"
+                aside={`Highest-value active stories · ship these to earn ${fmtMoney(nextToShip.reduce((s, n) => s + n.commission, 0))}`}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {nextToShip.map((s) => (
+                  <StoryCard key={s.id} story={s} onClick={setSelected} selected={selected?.id === s.id} />
                 ))}
               </div>
-            </section>
-          );
-        })}
-      </div>
+            </div>
+          )}
+
+          {/* All stories grouped by status */}
+          <SectionTitle
+            title="All Your Stories"
+            aside={`${totals.storyCount} total`}
+          />
+          <div className="space-y-6">
+            {groups.map((g) => {
+              if (g.stories.length === 0) return null;
+              const sectionTotal = g.stories.reduce((sum, s) => sum + s.commission, 0);
+              return (
+                <section key={g.label} className="bg-surface border border-rule rounded-card overflow-hidden">
+                  <div className="px-5 py-3 border-b border-rule flex items-center justify-between bg-bg-elevated">
+                    <div className="text-[13px] font-semibold text-ink-strong flex items-center gap-2">
+                      <span>{g.label}</span>
+                      <span className="text-[11px] text-ink-muted font-mono tabnum">
+                        ({g.stories.length})
+                      </span>
+                    </div>
+                    <span className="text-[12px] font-semibold text-emerald tabnum">
+                      {fmtMoney(sectionTotal)}
+                    </span>
+                  </div>
+                  <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {g.stories.map((s) => (
+                      <StoryCard
+                        key={s.id}
+                        story={s}
+                        onClick={setSelected}
+                        selected={selected?.id === s.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <StorySheet
         story={selected}

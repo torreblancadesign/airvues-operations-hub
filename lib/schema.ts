@@ -701,7 +701,6 @@ export const Tables = {
       "Country Code": { id: "fld1kDGvy8nhCzzE1", type: "multipleLookupValues" },
       "\ud83d\udd35 Time Entries": { id: "fldF0nB5dcbZRlIra", type: "multipleRecordLinks" },
       "Internal Type": { id: "fldsUsm12jA9Ww2j8", type: "singleSelect", options: { choices: [{"name": "Employee"}, {"name": "Contractor"}] } },
-      "Commission Model": { id: "fldCommissionModel", type: "singleSelect", options: { choices: [{"name": "Stories"}, {"name": "Sales"}] } },
       "Home Address": { id: "fldRxyfFHyo7RPvCC", type: "multilineText" },
       "Start Date": { id: "fldoUlU64IWJcRxNj", type: "date" },
       "Offer Date": { id: "fldY7udBJEkcSJzY2", type: "date" },

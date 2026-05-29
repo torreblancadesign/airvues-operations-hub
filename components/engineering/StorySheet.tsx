@@ -43,6 +43,16 @@ function statusToneText(status: string | null): string {
   }
 }
 
+function payStatusTone(s: string): string {
+  const v = s.toLowerCase();
+  if (v.includes("paid") && !v.includes("partial") && !v.includes("unpaid")) return "bg-emerald/15 text-emerald border-emerald/30";
+  if (v.includes("partial") || v.includes("deposit")) return "bg-amber/15 text-amber border-amber/30";
+  if (v.includes("unpaid") || v.includes("overdue") || v.includes("past due")) return "bg-red/15 text-red border-red/30";
+  return "bg-bg-elevated text-ink-muted border-rule";
+}
+
+
+
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="py-2.5 border-b border-rule last:border-0">
@@ -232,6 +242,21 @@ export function StorySheet({
               {current.clientNames.join(", ") || "—"}
             </div>
           </div>
+          {current.payStatus.length > 0 && (
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Pay Status</div>
+              <div className="flex flex-wrap gap-1">
+                {current.payStatus.map((p, i) => (
+                  <span
+                    key={`${p}-${i}`}
+                    className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(p)}`}
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           {current.quoteIds.length > 0 && (
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Quote</div>

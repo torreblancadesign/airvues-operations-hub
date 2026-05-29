@@ -31,6 +31,14 @@ function priorityDot(p: string | null): string {
   }
 }
 
+function payStatusTone(s: string): string {
+  const v = s.toLowerCase();
+  if (v.includes("paid") && !v.includes("partial") && !v.includes("unpaid")) return "bg-emerald/15 text-emerald border-emerald/30";
+  if (v.includes("partial") || v.includes("deposit")) return "bg-amber/15 text-amber border-amber/30";
+  if (v.includes("unpaid") || v.includes("overdue") || v.includes("past due")) return "bg-red/15 text-red border-red/30";
+  return "bg-bg-elevated text-ink-muted border-rule";
+}
+
 export function StoryCard({ story, onClick, selected = false }: Props) {
   const pct = story.hours && story.hours > 0
     ? Math.min(999, Math.round(((story.hoursWorked ?? 0) / story.hours) * 100))
@@ -80,6 +88,17 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         <div className="text-[11px] text-ink-muted mb-1.5 truncate" title={quoteLabel}>
           <span className="text-ink-faint font-mono uppercase tracking-wider text-[10px] mr-1">Quote</span>
           {quoteLabel}
+        </div>
+      )}
+
+      {story.payStatus[0] && (
+        <div className="mb-1.5">
+          <span
+            className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(story.payStatus[0])}`}
+            title={story.payStatus.join(", ")}
+          >
+            Pay · {story.payStatus[0]}
+          </span>
         </div>
       )}
 

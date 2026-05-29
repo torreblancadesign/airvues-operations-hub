@@ -91,6 +91,17 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         </div>
       )}
 
+      {story.payStatus[0] && (
+        <div className="mb-1.5">
+          <span
+            className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(story.payStatus[0])}`}
+            title={story.payStatus.join(", ")}
+          >
+            Pay · {story.payStatus[0]}
+          </span>
+        </div>
+      )}
+
       {sprintNum != null && (
         <div className="flex items-center gap-1.5 text-[11px] text-ink-muted mb-2 flex-wrap">
           <span className="font-mono">Sprint {sprintNum}</span>

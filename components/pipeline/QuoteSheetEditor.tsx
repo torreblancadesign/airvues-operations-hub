@@ -843,6 +843,26 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
             ))}
           </select>
         </FieldRow>
+
+        <FieldRow
+          label="Blueprint engagement"
+          hint="Tick when this quote is a Blueprint. Grants the salesperson on 'Prepared by' a +5% commission bonus in their personal scorecard."
+          chip={<InternalChip />}
+          state={stateFor("blueprint")}
+        >
+          <label className="inline-flex items-center gap-2 text-[12px] text-ink cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={quote.blueprint}
+              disabled={!canEdit}
+              onChange={(e) =>
+                void patchAndRefresh("blueprint", { blueprint: e.target.checked })
+              }
+              className="h-4 w-4 accent-emerald cursor-pointer"
+            />
+            <span>{quote.blueprint ? "Yes — +5% commission bonus" : "No"}</span>
+          </label>
+        </FieldRow>
       </Section>
 
       {/* SECTION 2: Client input — collapsible, internal-only */}

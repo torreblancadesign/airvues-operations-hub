@@ -373,6 +373,10 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     shippedIsApproximate: anyApproximate,
     commissionPct,
     commissionPctSource,
+    commissionModel:
+      ((personRec?.fields["Commission Model"] as string | undefined) ?? "").toLowerCase() === "sales"
+        ? "sales"
+        : "stories",
     salesCommission,
   };
 

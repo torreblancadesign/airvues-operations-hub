@@ -1,70 +1,40 @@
+## Problem
 
-# Loops: sidebar icon, list tags + filters, edit links on detail
+When you toggle "Show my face" on, the webcam LED briefly turns green then goes dark. The browser granted permission — the app is stopping its own stream.
 
-Four changes, no schema work (Airtable already has `Linked Client` / `Linked Quote`).
+## Root cause
 
-## 1. Sidebar icon
+In `components/loops/LoopRecorder.tsx`:
 
-`components/Sidebar.tsx` — add an `IconLoop` SVG (play triangle inside a rounded square, matching the existing 14px stroke-2 set) and register `"/loops": <IconLoop />` in `ICONS`. Do the same in `components/MobileNav.tsx` (uses inline `I(...)` SVG factory).
+```tsx
+const stopCamPreview = useCallback(() => {
+  camPreviewStream?.getTracks().forEach((t) => t.stop());
+  setCamPreviewStream(null);
+}, [camPreviewStream]);
 
-## 2. Surface BOTH tags on Loop
+useEffect(() => () => stopCamPreview(), [stopCamPreview]);
+```
 
-Today `lib/loops.ts` collapses everything into one `linkKind` and only the client wins when both are set. Update so each loop carries both tags independently (keep `linkKind` for back-compat).
+The "unmount cleanup" effect actually re-runs on every render where `stopCamPreview`'s identity changes — which is every render where `camPreviewStream` changes. The first state change after enabling the bubble triggers the previous render's cleanup, which calls the stale `stopCamPreview` and sets the stream to null. The next render's cleanup then calls the version closed over the real stream and stops every track. Camera dies. The chip's `<video>` shows black forever after.
 
-- `lib/loops-types.ts`: add `linkedClientId`, `linkedClientName`, `linkedQuoteId`, `linkedQuoteName` (all nullable). Leave existing `linkKind` / `linkedId` / `linkedLabel` untouched.
-- `lib/loops.ts` `toLoop()`: populate the four new fields from `Linked Client` / `Linked Client Name` / `Linked Quote` / `Linked Quote Name`.
+## Fix
 
-## 3. Loops list — display + filter
+Rewrite the lifecycle so:
 
-`app/(app)/loops/page.tsx` becomes a server shell that fetches loops and renders a new client component `components/loops/LoopsBrowser.tsx`.
+1. `stopCamPreview` no longer reads `camPreviewStream` from closure. Track the live preview stream in a ref (`camPreviewStreamRef`) that's kept in sync via a tiny effect, and have `stopCamPreview` read from the ref. This makes the callback stable (`useCallback(..., [])`).
+2. Remove the bogus `useEffect(() => () => stopCamPreview(), [stopCamPreview])` and replace it with a true unmount-only effect: `useEffect(() => () => { /* stop tracks via ref */ }, [])`.
+3. The existing `disableFace` button and the `start()` re-use path continue to work because they still call `stopCamPreview` / read `camPreviewStream` directly.
 
-**LoopsBrowser** (client):
-- Top filter bar (sticky inside the card grid container):
-  - Search input (matches title + owner)
-  - Client `<select>` populated from the distinct `(linkedClientId, linkedClientName)` pairs present in the loaded loops, plus an "Any client" default and an "Untagged" option
-  - Quote `<select>` same pattern
-  - "Clear filters" link when any filter is active
-- Result count line: "Showing N of M recordings"
-- Each card gets two small chips beneath the title:
-  - `Client · {name}` (emerald-tinted) when present
-  - `Quote · {name}` (sky-tinted) when present
-  - Nothing if both empty (keeps current visual density)
-- Empty-state for "no matches" distinct from "no recordings yet"
+Also keep the `srcObject` attach effect (`camPreviewRef.current.srcObject = camPreviewStream`) — that part is correct.
 
-Filtering happens client-side over the already-fetched list — pagination is out of scope; this is fine for current data volumes and matches how other lists in the app work.
+## File touched
 
-## 4. Edit links on the detail page
+- `components/loops/LoopRecorder.tsx` — refactor `stopCamPreview` + cleanup effects only. No UI/markup changes, no changes to the recording pipeline, canvas compositor, or upload flow.
 
-Add a "Tags" card to `app/(app)/loops/[id]/page.tsx` showing current Client + Quote with an inline editor. Available to admins and to the loop owner (same rule as delete).
+## Verification
 
-- New server action in `lib/mutations/loop.ts`:
-  ```
-  updateLoopLinks(id, { linkedClientId, linkedQuoteId }): LoopMutationResult
-  ```
-  - Gate: `requireRole("admin","lead","editor","engineer")` AND owner check (load the record, compare `Owner[0]` to caller's People id; admin/lead skip the owner check).
-  - Patches `Linked Client` / `Linked Quote`. Empty string → clear field (`[]`).
-  - Revalidates `loops` + `loops:id:{id}`.
-- New client component `components/loops/LoopTagsEditor.tsx`:
-  - Two `<select>`s prefilled with the loop's current values
-  - "Save" button that calls the action; shows inline error / "Saved" confirmation
-  - Compact, matches the existing share-link card styling
-- Detail page server-fetches `listAllClients()` + `listQuoteOptions()` once and passes both to the editor.
-
-## Out of scope
-
-- Story / Lead linking (already deferred per earlier turn)
-- Server-side pagination or Airtable-side filtering (client-side filter is enough for current scale)
-- Public share page (`/r/[token]`) styling changes
-- Bulk-edit tagging on the list page
-
-## Files touched
-
-- `components/Sidebar.tsx` — IconLoop + ICONS entry
-- `components/MobileNav.tsx` — loop SVG + entry
-- `lib/loops-types.ts` — add 4 fields to `Loop`
-- `lib/loops.ts` — populate new fields in `toLoop()`
-- `app/(app)/loops/page.tsx` — thin server shell
-- `components/loops/LoopsBrowser.tsx` — NEW client component (filter + grid + chips)
-- `lib/mutations/loop.ts` — `updateLoopLinks` action
-- `components/loops/LoopTagsEditor.tsx` — NEW client editor
-- `app/(app)/loops/[id]/page.tsx` — fetch client/quote options + render editor
+- Enable "Show my face" → webcam LED stays on, preview chip shows live feed.
+- Toggle face off → LED turns off, chip disappears.
+- Toggle on, start recording, stop → preview kept alive between sessions (existing behavior preserved).
+- Navigate away from the page → tracks stopped (no orphan camera light).
+- `npx tsc --noEmit` and `npm run build` clean.

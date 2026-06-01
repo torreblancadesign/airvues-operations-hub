@@ -14,9 +14,15 @@ export type Loop = {
   sizeMb: number | null;
   shareToken: string;
   viewCount: number;
+  // Legacy single-link surface (first non-empty link wins).
   linkKind: LoopLinkKind;
   linkedId: string | null;
   linkedLabel: string | null;
+  // Independent client + quote tags (both can be set).
+  linkedClientId: string | null;
+  linkedClientName: string | null;
+  linkedQuoteId: string | null;
+  linkedQuoteName: string | null;
 };
 
 export type LoopCreateInput = {

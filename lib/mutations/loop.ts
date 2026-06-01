@@ -9,7 +9,7 @@ import { AuthzError, requireRole } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
-import type { LoopCreateInput, LoopLinkKind } from "../loops-types";
+import type { LoopCreateInput } from "../loops-types";
 
 export type LoopMutationResult<T = unknown> =
   | ({ ok: true } & T)

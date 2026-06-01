@@ -1,16 +1,16 @@
 "use client";
 
-// Browser-native screen + mic recorder.
-// Captures via getDisplayMedia + getUserMedia, encodes via MediaRecorder,
-// uploads direct-to-Vercel-Blob (bypassing the 4.5 MB serverless body cap),
-// then calls the createLoop server action to persist metadata.
+// Browser-native screen + mic recorder with optional Airvues face-bubble overlay.
+// Captures via getDisplayMedia + getUserMedia, optionally composites a webcam
+// "presence bubble" via a canvas pipeline so the face is BURNED INTO the file,
+// encodes via MediaRecorder, uploads direct-to-Vercel-Blob, then persists
+// metadata via the createLoop server action.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { createLoop } from "@/lib/mutations/loop";
 import { sanitizeUploadFilename } from "@/lib/uploads";
-import type { LoopLinkKind } from "@/lib/loops-types";
 
 type Status =
   | "idle"
@@ -22,6 +22,8 @@ type Status =
   | "done"
   | "error";
 
+type Corner = "br" | "bl" | "tr" | "tl";
+
 function fmtTime(s: number): string {
   const m = Math.floor(s / 60);
   const sec = Math.floor(s % 60);
@@ -29,10 +31,30 @@ function fmtTime(s: number): string {
 }
 
 function newSessionId(): string {
-  // 16 lowercase hex chars — matches the upload route's regex
   const arr = new Uint8Array(8);
   crypto.getRandomValues(arr);
   return Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Squircle-ish rounded rect clip path for the bubble.
+function squirclePath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+) {
+  const r = size * 0.32;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + size - r, y);
+  ctx.quadraticCurveTo(x + size, y, x + size, y + r);
+  ctx.lineTo(x + size, y + size - r);
+  ctx.quadraticCurveTo(x + size, y + size, x + size - r, y + size);
+  ctx.lineTo(x + r, y + size);
+  ctx.quadraticCurveTo(x, y + size, x, y + size - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
 }
 
 // Generate a 1-frame poster JPEG from the recorded blob.
@@ -47,7 +69,6 @@ async function makePoster(videoBlob: Blob): Promise<Blob | null> {
       video.onloadeddata = () => resolve();
       video.onerror = () => reject(new Error("video load failed"));
     });
-    // Seek a touch in so we don't get a black frame
     await new Promise<void>((resolve) => {
       const onSeeked = () => {
         video.removeEventListener("seeked", onSeeked);
@@ -78,11 +99,17 @@ async function makePoster(videoBlob: Blob): Promise<Blob | null> {
 
 type Props = {
   title: string;
-  linkKind: LoopLinkKind;
-  linkedId: string | null;
+  linkedClientId: string | null;
+  linkedQuoteId: string | null;
+  ownerFirstName: string | null;
 };
 
-export function LoopRecorder({ title, linkKind, linkedId }: Props) {
+export function LoopRecorder({
+  title,
+  linkedClientId,
+  linkedQuoteId,
+  ownerFirstName,
+}: Props) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -90,14 +117,25 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
   const [uploadPct, setUploadPct] = useState(0);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Face-bubble controls
+  const [faceOn, setFaceOn] = useState(false);
+  const [corner, setCorner] = useState<Corner>("br");
+  const [camPreviewStream, setCamPreviewStream] = useState<MediaStream | null>(null);
+  const camPreviewRef = useRef<HTMLVideoElement | null>(null);
+
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
+  const camStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const startTsRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
   const blobRef = useRef<Blob | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const displayVideoRef = useRef<HTMLVideoElement | null>(null);
+  const camVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Browser support gate
   const [supported, setSupported] = useState<boolean | null>(null);
@@ -120,11 +158,45 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
     return () => window.removeEventListener("beforeunload", h);
   }, [status]);
 
+  // Attach the camera preview stream to its <video> element whenever the
+  // user toggles the face bubble on. (Effect avoids ref-vs-stream race.)
+  useEffect(() => {
+    if (camPreviewRef.current && camPreviewStream) {
+      camPreviewRef.current.srcObject = camPreviewStream;
+    }
+  }, [camPreviewStream]);
+
+  const stopCamPreview = useCallback(() => {
+    camPreviewStream?.getTracks().forEach((t) => t.stop());
+    setCamPreviewStream(null);
+  }, [camPreviewStream]);
+
+  const enableFace = useCallback(async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 480 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      setCamPreviewStream(s);
+      setFaceOn(true);
+    } catch (e) {
+      setError("Camera access denied — face bubble disabled.");
+      setFaceOn(false);
+    }
+  }, []);
+
+  const disableFace = useCallback(() => {
+    setFaceOn(false);
+    stopCamPreview();
+  }, [stopCamPreview]);
+
   const cleanupStreams = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
+    camStreamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     micStreamRef.current = null;
+    camStreamRef.current = null;
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
@@ -133,6 +205,10 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
   }, []);
 
   const start = useCallback(async () => {
@@ -140,15 +216,12 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
     setStatus("requesting");
     try {
       const display = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          // Browsers ignore unknown constraints, so this is safe.
-          frameRate: { ideal: 30 },
-        } as MediaTrackConstraints,
+        video: { frameRate: { ideal: 30 } } as MediaTrackConstraints,
         audio: true,
       });
       streamRef.current = display;
 
-      // Mic (optional — skip silently if denied)
+      // Mic (optional)
       let mic: MediaStream | null = null;
       try {
         mic = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -157,9 +230,151 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
         mic = null;
       }
 
-      // Build a combined stream: display video + mixed audio (display + mic).
-      const combinedTracks: MediaStreamTrack[] = [];
-      combinedTracks.push(...display.getVideoTracks());
+      // Webcam (only if face bubble is on)
+      let cam: MediaStream | null = null;
+      if (faceOn) {
+        // Reuse the preview stream if alive, otherwise request a fresh one.
+        if (camPreviewStream && camPreviewStream.getVideoTracks()[0]?.readyState === "live") {
+          cam = camPreviewStream;
+        } else {
+          try {
+            cam = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 480 }, height: { ideal: 480 } },
+              audio: false,
+            });
+          } catch {
+            cam = null;
+          }
+        }
+        camStreamRef.current = cam;
+      }
+
+      // ── Build the video source for the recorder ─────────────────────────
+      const displaySettings = display.getVideoTracks()[0]?.getSettings();
+      const dispW = displaySettings?.width ?? 1920;
+      const dispH = displaySettings?.height ?? 1080;
+
+      let videoTrackForRecorder: MediaStreamTrack;
+
+      if (cam) {
+        // Compositor path: draw display + webcam bubble onto a canvas every frame.
+        const canvas = document.createElement("canvas");
+        canvas.width = dispW;
+        canvas.height = dispH;
+        canvasRef.current = canvas;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+        const dispVid = document.createElement("video");
+        dispVid.srcObject = display;
+        dispVid.muted = true;
+        dispVid.playsInline = true;
+        await dispVid.play();
+        displayVideoRef.current = dispVid;
+
+        const camVid = document.createElement("video");
+        camVid.srcObject = cam;
+        camVid.muted = true;
+        camVid.playsInline = true;
+        await camVid.play();
+        camVideoRef.current = camVid;
+
+        const drawStart = performance.now();
+        const bubbleSize = Math.min(Math.floor(Math.min(dispW, dispH) * 0.18), 240);
+        const margin = Math.floor(bubbleSize * 0.22);
+        const captionText = (ownerFirstName ?? "").toUpperCase().slice(0, 12);
+        const cornerForFrame = corner;
+
+        const drawFrame = () => {
+          // Background = full screen
+          try {
+            ctx.drawImage(dispVid, 0, 0, canvas.width, canvas.height);
+          } catch {
+            /* video not ready */
+          }
+
+          // Fade-in alpha over first 400ms
+          const t = (performance.now() - drawStart) / 400;
+          const alpha = Math.min(1, Math.max(0, t));
+
+          // Bubble corner
+          let bx = canvas.width - bubbleSize - margin;
+          let by = canvas.height - bubbleSize - margin;
+          if (cornerForFrame === "bl") bx = margin;
+          if (cornerForFrame === "tr") by = margin;
+          if (cornerForFrame === "tl") {
+            bx = margin;
+            by = margin;
+          }
+
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          // Outer emerald glow
+          ctx.shadowColor = "rgba(34, 211, 168, 0.35)";
+          ctx.shadowBlur = 18;
+          ctx.fillStyle = "rgba(11, 15, 23, 0.6)";
+          squirclePath(ctx, bx, by, bubbleSize);
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Clip to squircle and draw webcam (cover-fit, mirrored)
+          ctx.save();
+          squirclePath(ctx, bx, by, bubbleSize);
+          ctx.clip();
+          const cw = camVid.videoWidth || 1;
+          const ch = camVid.videoHeight || 1;
+          const scale = Math.max(bubbleSize / cw, bubbleSize / ch);
+          const dw = cw * scale;
+          const dh = ch * scale;
+          const dx = bx + (bubbleSize - dw) / 2;
+          const dy = by + (bubbleSize - dh) / 2;
+          // Mirror horizontally for a natural selfie feel
+          ctx.translate(dx + dw, dy);
+          ctx.scale(-1, 1);
+          try {
+            ctx.drawImage(camVid, 0, 0, dw, dh);
+          } catch {
+            /* not ready */
+          }
+          ctx.restore();
+
+          // Emerald ring
+          ctx.lineWidth = Math.max(2, bubbleSize * 0.018);
+          ctx.strokeStyle = "rgba(34, 211, 168, 0.75)";
+          squirclePath(ctx, bx, by, bubbleSize);
+          ctx.stroke();
+
+          // Caption (first name) beneath the bubble
+          if (captionText) {
+            const fontSize = Math.max(11, Math.floor(bubbleSize * 0.085));
+            ctx.font = `600 ${fontSize}px ui-monospace, "JetBrains Mono", monospace`;
+            ctx.fillStyle = "rgba(232, 236, 242, 0.85)";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "top";
+            const captionY =
+              cornerForFrame === "tl" || cornerForFrame === "tr"
+                ? by + bubbleSize + fontSize * 0.4
+                : by + bubbleSize + fontSize * 0.4;
+            // letter-spaced manually
+            const spaced = captionText.split("").join(" ");
+            ctx.fillText(spaced, bx + bubbleSize / 2, captionY);
+          }
+
+          ctx.restore();
+
+          rafRef.current = requestAnimationFrame(drawFrame);
+        };
+        rafRef.current = requestAnimationFrame(drawFrame);
+
+        const canvasStream = canvas.captureStream(30);
+        videoTrackForRecorder = canvasStream.getVideoTracks()[0];
+      } else {
+        videoTrackForRecorder = display.getVideoTracks()[0];
+      }
+
+      // ── Audio mix (display audio + mic) ─────────────────────────────────
+      const combinedTracks: MediaStreamTrack[] = [videoTrackForRecorder];
 
       const displayAudio = display.getAudioTracks();
       if (mic || displayAudio.length > 0) {
@@ -167,9 +382,7 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
         audioCtxRef.current = ctx;
         const dest = ctx.createMediaStreamDestination();
         if (displayAudio.length > 0) {
-          const src = ctx.createMediaStreamSource(
-            new MediaStream(displayAudio),
-          );
+          const src = ctx.createMediaStreamSource(new MediaStream(displayAudio));
           src.connect(dest);
         }
         if (mic) {
@@ -181,7 +394,6 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
 
       const combined = new MediaStream(combinedTracks);
 
-      // Pick a supported mime type
       const candidates = [
         "video/webm;codecs=vp9,opus",
         "video/webm;codecs=vp8,opus",
@@ -209,7 +421,6 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
         setStatus("stopped");
       };
 
-      // If the user clicks "Stop sharing" in the browser bar, end the recording too.
       display.getVideoTracks()[0]?.addEventListener("ended", () => {
         if (recorder.state === "recording") recorder.stop();
       });
@@ -226,7 +437,7 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
       setStatus("error");
       setError((e as Error).message || "Failed to start recording");
     }
-  }, [cleanupStreams]);
+  }, [cleanupStreams, faceOn, camPreviewStream, corner, ownerFirstName]);
 
   const stop = useCallback(() => {
     if (recorderRef.current && recorderRef.current.state !== "inactive") {
@@ -250,9 +461,9 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
     setError(null);
     try {
       const sessionId = newSessionId();
-      const baseName = sanitizeUploadFilename(title || "recording").slice(0, 64) || "recording";
+      const baseName =
+        sanitizeUploadFilename(title || "recording").slice(0, 64) || "recording";
 
-      // Upload video
       setUploadPct(5);
       const videoPath = `loops/${sessionId}/${baseName}.webm`;
       const videoBlob = await upload(videoPath, blob, {
@@ -261,12 +472,10 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
         clientPayload: JSON.stringify({ sessionId }),
         contentType: (blob.type || "video/webm").split(";")[0].trim(),
         onUploadProgress: (p) => {
-          // Reserve last 15% for the poster + Airtable write
           setUploadPct(Math.round(5 + p.percentage * 0.8));
         },
       });
 
-      // Optional poster
       let posterUrl: string | null = null;
       try {
         const poster = await makePoster(blob);
@@ -285,7 +494,7 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
           posterUrl = posterRes.url;
         }
       } catch {
-        // ignore — poster is best-effort
+        /* poster best-effort */
       }
 
       setUploadPct(94);
@@ -296,8 +505,8 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
         posterUrl,
         durationSec: elapsed,
         sizeMb: blob.size / (1024 * 1024),
-        linkKind,
-        linkedId,
+        linkedClientId,
+        linkedQuoteId,
       });
       if ("error" in res) throw new Error(res.error);
       setUploadPct(100);
@@ -308,9 +517,11 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
       setStatus("error");
       setError((e as Error).message || "Upload failed");
     }
-  }, [title, elapsed, linkKind, linkedId, router]);
+  }, [title, elapsed, linkedClientId, linkedQuoteId, router]);
 
   useEffect(() => () => cleanupStreams(), [cleanupStreams]);
+  // Stop preview cam on unmount
+  useEffect(() => () => stopCamPreview(), [stopCamPreview]);
 
   if (supported === false) {
     return (
@@ -321,8 +532,70 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
     );
   }
 
+  const canConfigure = status === "idle";
+
   return (
     <div className="bg-surface border border-rule rounded-card p-5 space-y-4">
+      {/* Face bubble controls */}
+      <div className="flex items-start justify-between gap-4 flex-wrap pb-4 border-b border-rule/60">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={faceOn ? disableFace : enableFace}
+            disabled={!canConfigure}
+            className={`relative inline-flex items-center h-6 w-11 rounded-full transition border ${
+              faceOn
+                ? "bg-emerald/25 border-emerald/50"
+                : "bg-surface/60 border-rule"
+            } ${!canConfigure ? "opacity-50 cursor-not-allowed" : ""}`}
+            aria-pressed={faceOn}
+          >
+            <span
+              className={`inline-block w-4 h-4 rounded-full bg-ink-strong shadow transition-transform ${
+                faceOn ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <div>
+            <div className="text-[12px] font-semibold text-ink-strong leading-none">
+              Show my face
+            </div>
+            <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint mt-1">
+              Burned into the recording
+            </div>
+          </div>
+        </div>
+
+        {faceOn && (
+          <div className="flex items-center gap-3">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
+              Corner
+            </label>
+            <select
+              value={corner}
+              onChange={(e) => setCorner(e.target.value as Corner)}
+              disabled={!canConfigure}
+              className="bg-surface/40 border border-rule rounded-md px-2 py-1 text-[12px] text-ink-strong"
+            >
+              <option value="br">Bottom right</option>
+              <option value="bl">Bottom left</option>
+              <option value="tr">Top right</option>
+              <option value="tl">Top left</option>
+            </select>
+            <div className="relative w-14 h-14 rounded-[14px] overflow-hidden border border-emerald/50 bg-black/60 shadow-[0_0_18px_rgba(34,211,168,0.25)]">
+              <video
+                ref={camPreviewRef}
+                autoPlay
+                muted
+                playsInline
+                className="w-full h-full object-cover scale-x-[-1]"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recorder header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="font-mono text-[12px] uppercase tracking-wider text-ink-faint">
           {status === "recording" ? (

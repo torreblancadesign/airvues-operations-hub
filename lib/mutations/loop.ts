@@ -9,7 +9,7 @@ import { AuthzError, requireRole } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
-import type { LoopCreateInput, LoopLinkKind } from "../loops-types";
+import type { LoopCreateInput } from "../loops-types";
 
 export type LoopMutationResult<T = unknown> =
   | ({ ok: true } & T)
@@ -36,20 +36,6 @@ function newShareToken(): string {
   return randomBytes(24).toString("base64url"); // 32 chars
 }
 
-function linkFieldFor(kind: LoopLinkKind): string | null {
-  switch (kind) {
-    case "client":
-      return "Linked Client";
-    case "quote":
-      return "Linked Quote";
-    case "story":
-      return "Linked Story";
-    case "lead":
-      return "Linked Lead";
-    default:
-      return null;
-  }
-}
 
 const TITLE_MAX = 200;
 
@@ -90,10 +76,8 @@ export async function createLoop(
   if (input.posterUrl) fields["Poster URL"] = input.posterUrl;
   if (ownerId) fields.Owner = [ownerId];
 
-  const linkField = linkFieldFor(input.linkKind);
-  if (linkField && input.linkedId) {
-    fields[linkField] = [input.linkedId];
-  }
+  if (input.linkedClientId) fields["Linked Client"] = [input.linkedClientId];
+  if (input.linkedQuoteId) fields["Linked Quote"] = [input.linkedQuoteId];
 
   try {
     const [created] = await createRecords(RECORDINGS_TABLE, [{ fields }]);

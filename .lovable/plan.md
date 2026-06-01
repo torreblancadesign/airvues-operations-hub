@@ -1,46 +1,70 @@
 
-# Fix face bubble: live preview, placement, smoothness
+# Loops: sidebar icon, list tags + filters, edit links on detail
 
-Three targeted fixes to `components/loops/LoopRecorder.tsx`. No other files change.
+Four changes, no schema work (Airtable already has `Linked Client` / `Linked Quote`).
 
-## 1. Live preview while recording
+## 1. Sidebar icon
 
-Today the webcam only renders into the off-screen `<canvas>` that feeds the recorder, so the user sees nothing until playback. Fix:
+`components/Sidebar.tsx` — add an `IconLoop` SVG (play triangle inside a rounded square, matching the existing 14px stroke-2 set) and register `"/loops": <IconLoop />` in `ICONS`. Do the same in `components/MobileNav.tsx` (uses inline `I(...)` SVG factory).
 
-- Keep the existing camera preview `<video>` element visible **during** the `recording` state, not just while idle.
-- Render it as a small floating "presence chip" pinned in the **bottom-left of the recorder card** (not over the shared screen — the browser doesn't let us overlay the OS share surface anyway). It mirrors what's being burned in: same squircle mask, emerald ring, soft glow, corner label ("BR / BL / TR / TL"), and live caption.
-- Keep the same `MediaStream` alive across idle → recording (today it tears down and the cam track in `start()` is a separate request). Reuse `camPreviewStream` as the single source for both the preview `<video>` and the canvas compositor, so there's only one webcam stream and the preview never blanks.
+## 2. Surface BOTH tags on Loop
 
-## 2. Placement above the browser share bar
+Today `lib/loops.ts` collapses everything into one `linkKind` and only the client wins when both are set. Update so each loop carries both tags independently (keep `linkKind` for back-compat).
 
-Chrome/Edge overlay a "Stop sharing" bar at the bottom-center that visually clips a bottom-right bubble. Fix:
+- `lib/loops-types.ts`: add `linkedClientId`, `linkedClientName`, `linkedQuoteId`, `linkedQuoteName` (all nullable). Leave existing `linkKind` / `linkedId` / `linkedLabel` untouched.
+- `lib/loops.ts` `toLoop()`: populate the four new fields from `Linked Client` / `Linked Client Name` / `Linked Quote` / `Linked Quote Name`.
 
-- Increase the bottom margin for `br` / `bl` corners from `bubbleSize * 0.22` to a **fixed safe-area offset** (`max(bubbleSize * 0.22, 96px)`) so the bubble always sits above the share bar.
-- Rename the corner labels in the picker to make this explicit: "Bottom right (above share bar)" / "Bottom left (above share bar)".
-- Top corners keep the small margin.
+## 3. Loops list — display + filter
 
-## 3. Smoother face video
+`app/(app)/loops/page.tsx` becomes a server shell that fetches loops and renders a new client component `components/loops/LoopsBrowser.tsx`.
 
-Current pipeline draws every RAF tick at the full display resolution (often 2560×1440 or 3840×2160), which can starve the encoder and produce the choppy/slow feel. Fix:
+**LoopsBrowser** (client):
+- Top filter bar (sticky inside the card grid container):
+  - Search input (matches title + owner)
+  - Client `<select>` populated from the distinct `(linkedClientId, linkedClientName)` pairs present in the loaded loops, plus an "Any client" default and an "Untagged" option
+  - Quote `<select>` same pattern
+  - "Clear filters" link when any filter is active
+- Result count line: "Showing N of M recordings"
+- Each card gets two small chips beneath the title:
+  - `Client · {name}` (emerald-tinted) when present
+  - `Quote · {name}` (sky-tinted) when present
+  - Nothing if both empty (keeps current visual density)
+- Empty-state for "no matches" distinct from "no recordings yet"
 
-- **Cap compositor canvas to 1920×1080** (preserve aspect ratio of the actual display track). Most share sources are larger than needed for a 2.5 Mbps recording; downscaling once per frame is far cheaper than encoding 4K.
-- **Drive the draw loop from the display video**, not RAF, using `HTMLVideoElement.requestVideoFrameCallback` when available (Chrome/Edge/Safari). This produces one composite per real source frame, eliminating duplicated/missed frames. Fall back to RAF on Firefox.
-- **Lower webcam capture resolution** to `320×320` (we only render at ~240px max). Big reduction in per-frame `drawImage` cost.
-- **Bump recorder framerate hint** to match: `canvas.captureStream(24)` and align the `videoBitsPerSecond` to `3_000_000` so motion has enough headroom.
-- Add a one-time warning toast if the resulting recorder framerate drops below ~15fps (using `recorder.requestData` interval as a proxy is unreliable; we'll skip the toast if it adds complexity — primary fix is the resolution cap + rVFC).
+Filtering happens client-side over the already-fetched list — pagination is out of scope; this is fine for current data volumes and matches how other lists in the app work.
 
-If after these changes the face still feels choppy on the user's machine, the toggle remains — they can record without the bubble.
+## 4. Edit links on the detail page
+
+Add a "Tags" card to `app/(app)/loops/[id]/page.tsx` showing current Client + Quote with an inline editor. Available to admins and to the loop owner (same rule as delete).
+
+- New server action in `lib/mutations/loop.ts`:
+  ```
+  updateLoopLinks(id, { linkedClientId, linkedQuoteId }): LoopMutationResult
+  ```
+  - Gate: `requireRole("admin","lead","editor","engineer")` AND owner check (load the record, compare `Owner[0]` to caller's People id; admin/lead skip the owner check).
+  - Patches `Linked Client` / `Linked Quote`. Empty string → clear field (`[]`).
+  - Revalidates `loops` + `loops:id:{id}`.
+- New client component `components/loops/LoopTagsEditor.tsx`:
+  - Two `<select>`s prefilled with the loop's current values
+  - "Save" button that calls the action; shows inline error / "Saved" confirmation
+  - Compact, matches the existing share-link card styling
+- Detail page server-fetches `listAllClients()` + `listQuoteOptions()` once and passes both to the editor.
 
 ## Out of scope
 
-- Public share page, upload route, Airtable schema, tagging logic — all untouched.
-- No new dependencies.
+- Story / Lead linking (already deferred per earlier turn)
+- Server-side pagination or Airtable-side filtering (client-side filter is enough for current scale)
+- Public share page (`/r/[token]`) styling changes
+- Bulk-edit tagging on the list page
 
-## Technical summary
+## Files touched
 
-File: `components/loops/LoopRecorder.tsx`
-- Hoist `camPreviewStream` to be the single webcam source; don't re-request `getUserMedia` inside `start()`.
-- Render the preview `<video>` whenever `faceOn` is true, regardless of `status`. Move it into a small floating chip (`absolute bottom-3 left-3`) with the same squircle / ring / caption styling.
-- Compositor: clamp canvas to `min(displayW, 1920) × min(displayH, 1080)` preserving aspect; use `requestVideoFrameCallback` on the display video element with RAF fallback; request webcam at 320×320.
-- Bubble position math: `bottomMargin = Math.max(bubbleSize * 0.22, 96)` for `br`/`bl`.
-- `canvas.captureStream(24)`, `videoBitsPerSecond: 3_000_000`.
+- `components/Sidebar.tsx` — IconLoop + ICONS entry
+- `components/MobileNav.tsx` — loop SVG + entry
+- `lib/loops-types.ts` — add 4 fields to `Loop`
+- `lib/loops.ts` — populate new fields in `toLoop()`
+- `app/(app)/loops/page.tsx` — thin server shell
+- `components/loops/LoopsBrowser.tsx` — NEW client component (filter + grid + chips)
+- `lib/mutations/loop.ts` — `updateLoopLinks` action
+- `components/loops/LoopTagsEditor.tsx` — NEW client editor
+- `app/(app)/loops/[id]/page.tsx` — fetch client/quote options + render editor

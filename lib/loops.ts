@@ -89,6 +89,10 @@ function toLoop(rec: { id: string; createdTime: string; fields: RecordingRow }):
     linkKind,
     linkedId,
     linkedLabel,
+    linkedClientId: f["Linked Client"]?.[0] ?? null,
+    linkedClientName: f["Linked Client Name"]?.[0] ?? null,
+    linkedQuoteId: f["Linked Quote"]?.[0] ?? null,
+    linkedQuoteName: f["Linked Quote Name"]?.[0] ?? null,
   };
 }
 

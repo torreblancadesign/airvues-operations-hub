@@ -126,9 +126,19 @@ function IconTarget() {
   );
 }
 
+function IconLoop() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="14" rx="3" ry="3" />
+      <polygon points="10 9 16 12 10 15 10 9" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, React.ReactNode> = {
   "/": <IconHome />,
   "/me": <IconUser />,
+  "/loops": <IconLoop />,
   "/leads": <IconLeads />,
   "/money": <IconDollar />,
   "/pipeline": <IconChart />,

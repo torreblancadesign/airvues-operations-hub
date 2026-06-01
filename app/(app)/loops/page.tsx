@@ -1,18 +1,13 @@
 // /loops — list page. Shows your own recordings (admins/leads see all).
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { LoopsBrowser } from "@/components/loops/LoopsBrowser";
 import { getAppSession } from "@/lib/session";
 import { resolvePersonByEmail } from "@/lib/people";
 import { canMutate } from "@/lib/authz";
 import { listAllLoops, listLoopsForOwner } from "@/lib/loops";
 
 export const revalidate = 60;
-
-function fmtDuration(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${sec.toString().padStart(2, "0")}`;
-}
 
 export default async function LoopsPage() {
   const session = await getAppSession();
@@ -67,49 +62,7 @@ export default async function LoopsPage() {
         </div>
       )}
 
-      {loops.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {loops.map((loop) => (
-            <Link
-              key={loop.id}
-              href={`/loops/${loop.id}`}
-              className="group bg-surface border border-rule rounded-card overflow-hidden hover:border-emerald/40 transition"
-            >
-              <div className="aspect-video bg-black/40 relative">
-                {loop.posterUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={loop.posterUrl}
-                    alt={loop.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-ink-faint text-[12px] font-mono">
-                    No preview
-                  </div>
-                )}
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                  {fmtDuration(loop.durationSec)}
-                </div>
-              </div>
-              <div className="p-3 space-y-1">
-                <div className="text-[13px] font-medium text-ink-strong group-hover:text-emerald line-clamp-2">
-                  {loop.title}
-                </div>
-                <div className="text-[11px] font-mono text-ink-faint flex items-center justify-between">
-                  <span>{loop.ownerName ?? "—"}</span>
-                  <span>{new Date(loop.createdAt).toLocaleDateString()}</span>
-                </div>
-                {loop.viewCount > 0 && (
-                  <div className="text-[10px] font-mono text-ink-faint">
-                    {loop.viewCount} view{loop.viewCount === 1 ? "" : "s"}
-                  </div>
-                )}
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
+      {loops.length > 0 && <LoopsBrowser loops={loops} />}
     </main>
   );
 }

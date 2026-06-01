@@ -622,9 +622,9 @@ export function LoopRecorder({
     faceOn && (status === "idle" || status === "recording" || status === "requesting");
 
   return (
-    <div className="bg-surface border border-rule rounded-card p-5 space-y-4 relative">
+    <div className="bg-gradient-to-b from-surface to-surface/60 border border-rule rounded-card p-5 sm:p-6 space-y-5 shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
       {/* Face bubble controls */}
-      <div className="flex items-start justify-between gap-4 flex-wrap pb-4 border-b border-rule/60">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -662,7 +662,7 @@ export function LoopRecorder({
               value={corner}
               onChange={(e) => setCorner(e.target.value as Corner)}
               disabled={!canConfigure}
-              className="bg-surface/40 border border-rule rounded-md px-2 py-1 text-[12px] text-ink-strong"
+              className="bg-surface/40 border border-rule rounded-md px-2.5 py-1.5 text-[12px] text-ink-strong focus:outline-none focus:border-emerald/50"
             >
               <option value="br">Bottom right (above share bar)</option>
               <option value="bl">Bottom left (above share bar)</option>
@@ -673,9 +673,44 @@ export function LoopRecorder({
         )}
       </div>
 
+      {/* Inline live preview — mirrors what's burned into the recording.
+          Lives in-flow (not floating) so it never overlaps the tip or buttons. */}
+      {showPresenceChip && (
+        <div className="flex items-center gap-4 pt-4 border-t border-rule/60">
+          <div className="relative w-[72px] h-[72px] rounded-[22px] overflow-hidden border-2 border-emerald/60 bg-black/70 shadow-[0_0_20px_rgba(34,211,168,0.30)] shrink-0">
+            <video
+              ref={camPreviewRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            {status === "recording" && (
+              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-emerald/80 flex items-center gap-2">
+              <span>Preview</span>
+              <span className="text-ink-faint">·</span>
+              <span className="text-ink-muted">{CORNER_LABEL[corner]}</span>
+              {ownerFirstName && (
+                <>
+                  <span className="text-ink-faint">·</span>
+                  <span className="text-ink-muted">{ownerFirstName}</span>
+                </>
+              )}
+            </div>
+            <div className="text-[11px] text-ink-faint mt-1 leading-snug">
+              Live mirror of the face bubble that will be burned into your recording.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Recorder header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="font-mono text-[12px] uppercase tracking-wider text-ink-faint">
+      <div className="flex items-center justify-between gap-4 flex-wrap pt-4 border-t border-rule/60">
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full border border-rule bg-surface/50 font-mono text-[11px] uppercase tracking-wider text-ink-faint">
           {status === "recording" ? (
             <span className="text-red flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-red animate-pulse" />
@@ -690,14 +725,17 @@ export function LoopRecorder({
           ) : status === "requesting" ? (
             "Waiting for browser…"
           ) : (
-            "Ready"
+            <>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald/70" />
+              Ready
+            </>
           )}
         </div>
         <div className="flex gap-2">
           {status === "idle" && (
             <button
               onClick={start}
-              className="px-4 py-2 rounded-md bg-emerald/15 border border-emerald/30 text-emerald hover:bg-emerald/20 text-[13px] font-medium transition"
+              className="px-5 py-2 rounded-md bg-emerald/15 border border-emerald/40 text-emerald hover:bg-emerald/25 text-[13px] font-semibold transition shadow-[0_0_18px_rgba(34,211,168,0.18)]"
             >
               Start recording
             </button>
@@ -705,7 +743,7 @@ export function LoopRecorder({
           {status === "recording" && (
             <button
               onClick={stop}
-              className="px-4 py-2 rounded-md bg-red/15 border border-red/30 text-red hover:bg-red/20 text-[13px] font-medium transition"
+              className="px-5 py-2 rounded-md bg-red/15 border border-red/40 text-red hover:bg-red/25 text-[13px] font-semibold transition"
             >
               Stop
             </button>
@@ -720,7 +758,7 @@ export function LoopRecorder({
               </button>
               <button
                 onClick={saveAndUpload}
-                className="px-4 py-2 rounded-md bg-emerald/15 border border-emerald/30 text-emerald hover:bg-emerald/20 text-[13px] font-medium transition"
+                className="px-5 py-2 rounded-md bg-emerald/15 border border-emerald/40 text-emerald hover:bg-emerald/25 text-[13px] font-semibold transition shadow-[0_0_18px_rgba(34,211,168,0.18)]"
               >
                 Save &amp; upload
               </button>
@@ -752,36 +790,12 @@ export function LoopRecorder({
         </div>
       )}
 
-      <p className="text-[11px] text-ink-faint leading-snug font-mono">
+      <p className="text-[11px] text-ink-faint leading-snug font-mono pt-4 border-t border-rule/60">
         Tip: pick &quot;Entire screen&quot; in the browser picker to capture your
         whole desktop. System audio is captured on Chrome/Edge when you tick
         &quot;Share system audio.&quot; Safari can&apos;t capture system audio
         (mic still works).
       </p>
-
-      {/* Live presence chip — mirrors what's burned into the recording.
-          Floats inside the recorder card so it's visible while idle AND
-          while recording (the browser hides DOM overlays from the shared
-          screen surface, so this lives in-app, not on the capture). */}
-      {showPresenceChip && (
-        <div className="pointer-events-none absolute bottom-4 left-4 flex flex-col items-center gap-1.5">
-          <div className="relative w-[88px] h-[88px] rounded-[26px] overflow-hidden border-2 border-emerald/60 bg-black/70 shadow-[0_0_24px_rgba(34,211,168,0.35)]">
-            <video
-              ref={camPreviewRef}
-              autoPlay
-              muted
-              playsInline
-              className="w-full h-full object-cover scale-x-[-1]"
-            />
-            {status === "recording" && (
-              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-            )}
-          </div>
-          <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald/80">
-            {ownerFirstName ? `${ownerFirstName} · ${CORNER_LABEL[corner]}` : `LIVE · ${CORNER_LABEL[corner]}`}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -36,20 +36,6 @@ function newShareToken(): string {
   return randomBytes(24).toString("base64url"); // 32 chars
 }
 
-function linkFieldFor(kind: LoopLinkKind): string | null {
-  switch (kind) {
-    case "client":
-      return "Linked Client";
-    case "quote":
-      return "Linked Quote";
-    case "story":
-      return "Linked Story";
-    case "lead":
-      return "Linked Lead";
-    default:
-      return null;
-  }
-}
 
 const TITLE_MAX = 200;
 

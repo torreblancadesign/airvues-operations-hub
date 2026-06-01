@@ -6,7 +6,8 @@ export function sanitizeUploadFilename(name: string): string {
     .slice(0, 200);
 }
 
-export const UPLOAD_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+export const UPLOAD_MAX_BYTES = 25 * 1024 * 1024; // 25 MB (lead/quote attachments)
+export const LOOP_UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB (screen recordings)
 export const UPLOAD_MAX_BATCH = 10;
 
 export const UPLOAD_ALLOWED_MIME = [

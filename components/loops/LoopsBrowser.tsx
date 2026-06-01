@@ -147,35 +147,52 @@ export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((loop) => (
-            <Link
-              key={loop.id}
-              href={`/loops/${loop.id}`}
-              className="group bg-surface border border-rule rounded-card overflow-hidden hover:border-emerald/40 transition"
-            >
-              <div className="aspect-video bg-black/40 relative">
-                {loop.posterUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={loop.posterUrl}
-                    alt={loop.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-ink-faint text-[12px] font-mono">
-                    No preview
+          {filtered.map((loop) => {
+            const isMine = !!viewerOwnerId && loop.ownerId === viewerOwnerId;
+            return (
+              <Link
+                key={loop.id}
+                href={`/loops/${loop.id}`}
+                className={`group bg-surface border rounded-card overflow-hidden transition ${
+                  isMine
+                    ? "border-emerald/40 shadow-[0_0_0_1px_rgba(34,211,168,0.15)] hover:border-emerald/60"
+                    : "border-rule hover:border-emerald/40"
+                }`}
+              >
+                <div className="aspect-video bg-black/40 relative">
+                  {loop.posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={loop.posterUrl}
+                      alt={loop.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-ink-faint text-[12px] font-mono">
+                      No preview
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                    {fmtDuration(loop.durationSec)}
                   </div>
-                )}
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                  {fmtDuration(loop.durationSec)}
                 </div>
-              </div>
-              <div className="p-3 space-y-2">
-                <div className="text-[13px] font-medium text-ink-strong group-hover:text-emerald line-clamp-2">
-                  {loop.title}
-                </div>
-                {(loop.linkedClientId || loop.linkedQuoteId) && (
+                <div className="p-3 space-y-2">
+                  <div className="text-[13px] font-medium text-ink-strong group-hover:text-emerald line-clamp-2">
+                    {loop.title}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded max-w-full ${
+                        isMine
+                          ? "bg-emerald/15 border border-emerald/35 text-emerald"
+                          : "bg-surface/60 border border-rule text-ink-muted"
+                      }`}
+                    >
+                      <span className="opacity-60">By</span>
+                      <span className="truncate normal-case tracking-normal">
+                        {isMine ? "You" : loop.ownerName ?? "Unknown"}
+                      </span>
+                    </span>
                     {loop.linkedClientId && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald/10 border border-emerald/25 text-emerald max-w-full">
                         <span className="opacity-60">Client</span>
@@ -193,19 +210,18 @@ export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
                       </span>
                     )}
                   </div>
-                )}
-                <div className="text-[11px] font-mono text-ink-faint flex items-center justify-between">
-                  <span>{loop.ownerName ?? "—"}</span>
-                  <span>{new Date(loop.createdAt).toLocaleDateString()}</span>
-                </div>
-                {loop.viewCount > 0 && (
-                  <div className="text-[10px] font-mono text-ink-faint">
-                    {loop.viewCount} view{loop.viewCount === 1 ? "" : "s"}
+                  <div className="text-[11px] font-mono text-ink-faint flex items-center justify-between">
+                    <span>{new Date(loop.createdAt).toLocaleDateString()}</span>
+                    {loop.viewCount > 0 && (
+                      <span>
+                        {loop.viewCount} view{loop.viewCount === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-            </Link>
-          ))}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

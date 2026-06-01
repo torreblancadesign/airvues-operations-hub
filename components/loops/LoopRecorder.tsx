@@ -172,6 +172,7 @@ export function LoopRecorder({
   // Attach the camera preview stream to its <video> element whenever the
   // user toggles the face bubble on OR transitions between recording states.
   useEffect(() => {
+    camPreviewStreamRef.current = camPreviewStream;
     if (camPreviewRef.current && camPreviewStream) {
       camPreviewRef.current.srcObject = camPreviewStream;
       camPreviewRef.current.play?.().catch(() => {});
@@ -179,9 +180,10 @@ export function LoopRecorder({
   }, [camPreviewStream, faceOn, status]);
 
   const stopCamPreview = useCallback(() => {
-    camPreviewStream?.getTracks().forEach((t) => t.stop());
+    camPreviewStreamRef.current?.getTracks().forEach((t) => t.stop());
+    camPreviewStreamRef.current = null;
     setCamPreviewStream(null);
-  }, [camPreviewStream]);
+  }, []);
 
   const enableFace = useCallback(async () => {
     try {

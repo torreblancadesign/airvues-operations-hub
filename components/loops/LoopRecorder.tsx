@@ -517,7 +517,7 @@ export function LoopRecorder({
         if (recorder.state === "recording") recorder.stop();
       });
 
-      recorder.start(1000);
+      recorder.start(250);
       startTsRef.current = Date.now();
       setElapsed(0);
       timerRef.current = window.setInterval(() => {

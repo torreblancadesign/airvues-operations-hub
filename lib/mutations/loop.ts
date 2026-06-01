@@ -11,7 +11,7 @@ import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
 import type { LoopCreateInput, LoopLinkKind } from "../loops-types";
 
-export type LoopMutationResult<T = Record<string, never>> =
+export type LoopMutationResult<T = unknown> =
   | ({ ok: true } & T)
   | { error: string };
 

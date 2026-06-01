@@ -24,15 +24,27 @@ function distinct(loops: Loop[], kind: "client" | "quote"): Option[] {
   );
 }
 
-type Props = { loops: Loop[] };
+type Props = { loops: Loop[]; viewerOwnerId?: string | null };
 
-export function LoopsBrowser({ loops }: Props) {
+export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
   const [q, setQ] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("any");
   const [quoteFilter, setQuoteFilter] = useState<string>("any");
+  const [ownerFilter, setOwnerFilter] = useState<string>("any");
 
   const clientOptions = useMemo(() => distinct(loops, "client"), [loops]);
   const quoteOptions = useMemo(() => distinct(loops, "quote"), [loops]);
+  const ownerOptions = useMemo<Option[]>(() => {
+    const seen = new Map<string, string>();
+    for (const l of loops) {
+      if (l.ownerId && !seen.has(l.ownerId)) {
+        seen.set(l.ownerId, l.ownerName ?? "(unnamed)");
+      }
+    }
+    return Array.from(seen, ([id, label]) => ({ id, label })).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    );
+  }, [loops]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();

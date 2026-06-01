@@ -1,29 +1,31 @@
-// /loops — list page. Shows your own recordings (admins/leads see all).
+// /loops — list page. Everyone signed in sees every recording.
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LoopsBrowser } from "@/components/loops/LoopsBrowser";
 import { getAppSession } from "@/lib/session";
 import { resolvePersonByEmail } from "@/lib/people";
-import { canMutate } from "@/lib/authz";
-import { listAllLoops, listLoopsForOwner } from "@/lib/loops";
+import { listAllLoops } from "@/lib/loops";
 
 export const revalidate = 60;
 
 export default async function LoopsPage() {
-  const session = await getAppSession();
-  const isAdmin = await canMutate();
-
   let loops: Awaited<ReturnType<typeof listAllLoops>> = [];
   let loadError: string | null = null;
   try {
-    if (isAdmin) {
-      loops = await listAllLoops();
-    } else {
-      const person = await resolvePersonByEmail(session?.user?.email);
-      loops = person ? await listLoopsForOwner(person.id) : [];
-    }
+    loops = await listAllLoops();
   } catch (e) {
     loadError = (e as Error).message;
+  }
+
+  // Resolve the viewer's People recId so we can highlight their own cards.
+  // Best-effort: failures just disable the highlight.
+  let viewerOwnerId: string | null = null;
+  try {
+    const session = await getAppSession();
+    const me = await resolvePersonByEmail(session?.user?.email);
+    viewerOwnerId = me?.id ?? null;
+  } catch {
+    viewerOwnerId = null;
   }
 
   return (
@@ -62,7 +64,9 @@ export default async function LoopsPage() {
         </div>
       )}
 
-      {loops.length > 0 && <LoopsBrowser loops={loops} />}
+      {loops.length > 0 && (
+        <LoopsBrowser loops={loops} viewerOwnerId={viewerOwnerId} />
+      )}
     </main>
   );
 }

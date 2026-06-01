@@ -1,41 +1,49 @@
-## Problem
+## Decision
 
-Audio drifts behind video in recorded loops — lips don't match voice.
+All Airvues users see all recordings. Owner stays tagged on each row; a Creator filter helps people scope the list.
 
-## Root cause (in `components/loops/LoopRecorder.tsx`)
+## Changes
 
-1. `canvas.captureStream(24)` runs a 24fps auto-capture timer decoupled from when we actually draw frames. Video frames get timestamped by the canvas capture clock, audio by its real clock. They walk apart.
-2. Even when there's only one audio source (just mic OR just display audio), we route it through an `AudioContext` + `MediaStreamDestination`. That graph adds buffering latency that pushes audio behind video.
+### 1. `app/(app)/loops/page.tsx` — drop the role split
 
-## Fix (in `components/loops/LoopRecorder.tsx`, `start()` only)
+- Remove the `canMutate()` branch.
+- Always call `listAllLoops()`.
+- Drop the now-unused imports (`getAppSession`, `resolvePersonByEmail`, `canMutate`, `listLoopsForOwner`).
 
-### 1. Drive canvas frames manually
+Engineers/contractors will now see everyone's recordings, same as admins.
 
-- Change `canvas.captureStream(24)` → `canvas.captureStream(0)` (no auto-capture).
-- After `drawFrame()` inside the rVFC and rAF tick, call `requestFrame()` on the canvas stream's video track (cast to `CanvasCaptureMediaStreamTrack`).
-- Every emitted video frame is now timestamped at draw time, so the muxer aligns video against matching audio timestamps. Lip-sync is preserved.
+### 2. `components/loops/LoopsBrowser.tsx` — add Creator filter
 
-### 2. Skip the audio mixer when nothing to mix
+- Derive `ownerOptions` from loaded loops (distinct `{ id: ownerId, label: ownerName }` pairs), sorted by label.
+- Add `ownerFilter` state: `"any" | "untagged" | <ownerId>`.
+- Render the `<select>` unconditionally (everyone sees all recordings now, so it's always useful).
+- Extend the filter predicate to honor `ownerFilter`.
+- Include `ownerFilter` in `hasFilter` and the "Clear" reset.
 
-- If both `displayAudio.length > 0` AND `mic` exist → keep the AudioContext mixing path (genuinely need to combine two sources).
-- Otherwise pass the single source's audio track directly into the combined `MediaStream` and do NOT create an `AudioContext`. Eliminates the mixer's buffering latency in the common case.
+### 3. Promote owner visibility on each card
 
-### 3. Belt-and-suspenders
+Replace the plain-text owner in the card footer with a small "BY {name}" mono-caps chip, matching the existing Client/Quote chip family, so the creator is obvious at a glance.
 
-- Lower `recorder.start(1000)` → `recorder.start(250)` so the muxer flushes smaller chunks.
-- Pass `{ latencyHint: "interactive" }` to the `AudioContext` constructor in the path where mixing IS required.
+### 4. Subtle ownership cue
 
-## File touched
+Add a faint emerald accent ring on cards owned by the signed-in viewer (resolve viewer's personId server-side in `page.tsx` and pass to `LoopsBrowser` as `viewerOwnerId`). Purely visual — helps you spot your own recordings in a shared feed without forcing a filter.
 
-- `components/loops/LoopRecorder.tsx` — `start()` only. No UI changes, no data/API changes, no changes to the face-bubble draw logic itself.
+## Files touched
 
-## Verification
-
-- Record a 30s clip; confirm lip/voice alignment at start, middle, and end.
-- Face bubble still renders correctly (manual `requestFrame` after every draw).
-- `npx tsc --noEmit` + `npm run build` clean.
+- `app/(app)/loops/page.tsx` — universal `listAllLoops()`, pass `viewerOwnerId` down.
+- `components/loops/LoopsBrowser.tsx` — Creator filter, by-chip, viewer-owned ring.
 
 ## Out of scope
 
-- Switching encoder/container/codecs.
-- Changing the capture architecture (still canvas-composite when face is on, still passthrough display track when face is off).
+- Server-side filtering / pagination.
+- Reassigning ownership.
+- The share-by-link `/r/[token]` flow (already public, untouched).
+- The mutation gate in `lib/mutations/loop.ts` (still requires admin/lead/editor/engineer to record/edit — viewing is now open to all signed-in users, creating still gated).
+
+## Verification
+
+- Any signed-in user → sees the full grid.
+- Creator dropdown lists every distinct owner; selecting one narrows the grid.
+- Cards owned by the viewer show a subtle emerald edge.
+- "Clear" resets all four filters.
+- `npx tsc --noEmit` + `npm run build` clean.

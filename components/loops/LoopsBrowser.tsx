@@ -24,15 +24,27 @@ function distinct(loops: Loop[], kind: "client" | "quote"): Option[] {
   );
 }
 
-type Props = { loops: Loop[] };
+type Props = { loops: Loop[]; viewerOwnerId?: string | null };
 
-export function LoopsBrowser({ loops }: Props) {
+export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
   const [q, setQ] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("any");
   const [quoteFilter, setQuoteFilter] = useState<string>("any");
+  const [ownerFilter, setOwnerFilter] = useState<string>("any");
 
   const clientOptions = useMemo(() => distinct(loops, "client"), [loops]);
   const quoteOptions = useMemo(() => distinct(loops, "quote"), [loops]);
+  const ownerOptions = useMemo<Option[]>(() => {
+    const seen = new Map<string, string>();
+    for (const l of loops) {
+      if (l.ownerId && !seen.has(l.ownerId)) {
+        seen.set(l.ownerId, l.ownerName ?? "(unnamed)");
+      }
+    }
+    return Array.from(seen, ([id, label]) => ({ id, label })).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    );
+  }, [loops]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -47,11 +59,18 @@ export function LoopsBrowser({ loops }: Props) {
       if (quoteFilter === "untagged" && l.linkedQuoteId) return false;
       if (quoteFilter !== "any" && quoteFilter !== "untagged" && l.linkedQuoteId !== quoteFilter)
         return false;
+      if (ownerFilter === "untagged" && l.ownerId) return false;
+      if (ownerFilter !== "any" && ownerFilter !== "untagged" && l.ownerId !== ownerFilter)
+        return false;
       return true;
     });
-  }, [loops, q, clientFilter, quoteFilter]);
+  }, [loops, q, clientFilter, quoteFilter, ownerFilter]);
 
-  const hasFilter = q.length > 0 || clientFilter !== "any" || quoteFilter !== "any";
+  const hasFilter =
+    q.length > 0 ||
+    clientFilter !== "any" ||
+    quoteFilter !== "any" ||
+    ownerFilter !== "any";
 
   return (
     <div className="space-y-4">
@@ -88,12 +107,29 @@ export function LoopsBrowser({ loops }: Props) {
             </option>
           ))}
         </select>
+        <select
+          value={ownerFilter}
+          onChange={(e) => setOwnerFilter(e.target.value)}
+          className="bg-surface/40 border border-rule rounded-md px-2 py-1.5 text-[12px] text-ink-strong"
+        >
+          <option value="any">All creators</option>
+          <option value="untagged">— Unknown —</option>
+          {viewerOwnerId && ownerOptions.some((o) => o.id === viewerOwnerId) && (
+            <option value={viewerOwnerId}>Just mine</option>
+          )}
+          {ownerOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         {hasFilter && (
           <button
             onClick={() => {
               setQ("");
               setClientFilter("any");
               setQuoteFilter("any");
+              setOwnerFilter("any");
             }}
             className="text-[11px] font-mono uppercase tracking-wider text-ink-faint hover:text-emerald transition px-2"
           >
@@ -111,35 +147,52 @@ export function LoopsBrowser({ loops }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((loop) => (
-            <Link
-              key={loop.id}
-              href={`/loops/${loop.id}`}
-              className="group bg-surface border border-rule rounded-card overflow-hidden hover:border-emerald/40 transition"
-            >
-              <div className="aspect-video bg-black/40 relative">
-                {loop.posterUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={loop.posterUrl}
-                    alt={loop.title}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-ink-faint text-[12px] font-mono">
-                    No preview
+          {filtered.map((loop) => {
+            const isMine = !!viewerOwnerId && loop.ownerId === viewerOwnerId;
+            return (
+              <Link
+                key={loop.id}
+                href={`/loops/${loop.id}`}
+                className={`group bg-surface border rounded-card overflow-hidden transition ${
+                  isMine
+                    ? "border-emerald/40 shadow-[0_0_0_1px_rgba(34,211,168,0.15)] hover:border-emerald/60"
+                    : "border-rule hover:border-emerald/40"
+                }`}
+              >
+                <div className="aspect-video bg-black/40 relative">
+                  {loop.posterUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={loop.posterUrl}
+                      alt={loop.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-ink-faint text-[12px] font-mono">
+                      No preview
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                    {fmtDuration(loop.durationSec)}
                   </div>
-                )}
-                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                  {fmtDuration(loop.durationSec)}
                 </div>
-              </div>
-              <div className="p-3 space-y-2">
-                <div className="text-[13px] font-medium text-ink-strong group-hover:text-emerald line-clamp-2">
-                  {loop.title}
-                </div>
-                {(loop.linkedClientId || loop.linkedQuoteId) && (
+                <div className="p-3 space-y-2">
+                  <div className="text-[13px] font-medium text-ink-strong group-hover:text-emerald line-clamp-2">
+                    {loop.title}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded max-w-full ${
+                        isMine
+                          ? "bg-emerald/15 border border-emerald/35 text-emerald"
+                          : "bg-surface/60 border border-rule text-ink-muted"
+                      }`}
+                    >
+                      <span className="opacity-60">By</span>
+                      <span className="truncate normal-case tracking-normal">
+                        {isMine ? "You" : loop.ownerName ?? "Unknown"}
+                      </span>
+                    </span>
                     {loop.linkedClientId && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald/10 border border-emerald/25 text-emerald max-w-full">
                         <span className="opacity-60">Client</span>
@@ -157,19 +210,18 @@ export function LoopsBrowser({ loops }: Props) {
                       </span>
                     )}
                   </div>
-                )}
-                <div className="text-[11px] font-mono text-ink-faint flex items-center justify-between">
-                  <span>{loop.ownerName ?? "—"}</span>
-                  <span>{new Date(loop.createdAt).toLocaleDateString()}</span>
-                </div>
-                {loop.viewCount > 0 && (
-                  <div className="text-[10px] font-mono text-ink-faint">
-                    {loop.viewCount} view{loop.viewCount === 1 ? "" : "s"}
+                  <div className="text-[11px] font-mono text-ink-faint flex items-center justify-between">
+                    <span>{new Date(loop.createdAt).toLocaleDateString()}</span>
+                    {loop.viewCount > 0 && (
+                      <span>
+                        {loop.viewCount} view{loop.viewCount === 1 ? "" : "s"}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-            </Link>
-          ))}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

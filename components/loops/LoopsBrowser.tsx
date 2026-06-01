@@ -59,11 +59,18 @@ export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
       if (quoteFilter === "untagged" && l.linkedQuoteId) return false;
       if (quoteFilter !== "any" && quoteFilter !== "untagged" && l.linkedQuoteId !== quoteFilter)
         return false;
+      if (ownerFilter === "untagged" && l.ownerId) return false;
+      if (ownerFilter !== "any" && ownerFilter !== "untagged" && l.ownerId !== ownerFilter)
+        return false;
       return true;
     });
-  }, [loops, q, clientFilter, quoteFilter]);
+  }, [loops, q, clientFilter, quoteFilter, ownerFilter]);
 
-  const hasFilter = q.length > 0 || clientFilter !== "any" || quoteFilter !== "any";
+  const hasFilter =
+    q.length > 0 ||
+    clientFilter !== "any" ||
+    quoteFilter !== "any" ||
+    ownerFilter !== "any";
 
   return (
     <div className="space-y-4">

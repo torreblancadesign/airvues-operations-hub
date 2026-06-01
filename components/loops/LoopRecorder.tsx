@@ -130,6 +130,7 @@ export function LoopRecorder({
   const [camPreviewStream, setCamPreviewStream] = useState<MediaStream | null>(
     null,
   );
+  const camPreviewStreamRef = useRef<MediaStream | null>(null);
   const camPreviewRef = useRef<HTMLVideoElement | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);

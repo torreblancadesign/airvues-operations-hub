@@ -259,7 +259,7 @@ export function LoopRecorder({ title, linkKind, linkedId }: Props) {
         access: "public",
         handleUploadUrl: "/api/loops/upload",
         clientPayload: JSON.stringify({ sessionId }),
-        contentType: blob.type || "video/webm",
+        contentType: (blob.type || "video/webm").split(";")[0].trim(),
         onUploadProgress: (p) => {
           // Reserve last 15% for the poster + Airtable write
           setUploadPct(Math.round(5 + p.percentage * 0.8));

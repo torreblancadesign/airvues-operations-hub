@@ -104,6 +104,13 @@ type Props = {
   ownerFirstName: string | null;
 };
 
+const CORNER_LABEL: Record<Corner, string> = {
+  br: "BR",
+  bl: "BL",
+  tr: "TR",
+  tl: "TL",
+};
+
 export function LoopRecorder({
   title,
   linkedClientId,
@@ -120,19 +127,22 @@ export function LoopRecorder({
   // Face-bubble controls
   const [faceOn, setFaceOn] = useState(false);
   const [corner, setCorner] = useState<Corner>("br");
-  const [camPreviewStream, setCamPreviewStream] = useState<MediaStream | null>(null);
+  const [camPreviewStream, setCamPreviewStream] = useState<MediaStream | null>(
+    null,
+  );
   const camPreviewRef = useRef<HTMLVideoElement | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
-  const camStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const startTsRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
   const blobRef = useRef<Blob | null>(null);
   const rafRef = useRef<number | null>(null);
+  const rvfcRef = useRef<number | null>(null);
+  const stopDrawRef = useRef<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const displayVideoRef = useRef<HTMLVideoElement | null>(null);
   const camVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -159,12 +169,13 @@ export function LoopRecorder({
   }, [status]);
 
   // Attach the camera preview stream to its <video> element whenever the
-  // user toggles the face bubble on. (Effect avoids ref-vs-stream race.)
+  // user toggles the face bubble on OR transitions between recording states.
   useEffect(() => {
     if (camPreviewRef.current && camPreviewStream) {
       camPreviewRef.current.srcObject = camPreviewStream;
+      camPreviewRef.current.play?.().catch(() => {});
     }
-  }, [camPreviewStream]);
+  }, [camPreviewStream, faceOn, status]);
 
   const stopCamPreview = useCallback(() => {
     camPreviewStream?.getTracks().forEach((t) => t.stop());
@@ -174,12 +185,17 @@ export function LoopRecorder({
   const enableFace = useCallback(async () => {
     try {
       const s = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 480 }, height: { ideal: 480 } },
+        // Small capture — bubble renders at <=240px so 320 is plenty
+        video: {
+          width: { ideal: 320 },
+          height: { ideal: 320 },
+          frameRate: { ideal: 30 },
+        },
         audio: false,
       });
       setCamPreviewStream(s);
       setFaceOn(true);
-    } catch (e) {
+    } catch {
       setError("Camera access denied — face bubble disabled.");
       setFaceOn(false);
     }
@@ -193,10 +209,11 @@ export function LoopRecorder({
   const cleanupStreams = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
-    camStreamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     micStreamRef.current = null;
-    camStreamRef.current = null;
+    // NOTE: we deliberately keep camPreviewStream alive so the user can
+    // re-record without re-granting camera permission. stopCamPreview()
+    // is called explicitly on toggle-off or unmount.
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {});
       audioCtxRef.current = null;
@@ -205,10 +222,12 @@ export function LoopRecorder({
       window.clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    stopDrawRef.current = true;
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     }
+    rvfcRef.current = null;
   }, []);
 
   const start = useCallback(async () => {
@@ -230,23 +249,30 @@ export function LoopRecorder({
         mic = null;
       }
 
-      // Webcam (only if face bubble is on)
+      // Webcam: REUSE the already-live preview stream (single source of truth).
+      // If face is on but for some reason the preview stream died, re-request.
       let cam: MediaStream | null = null;
       if (faceOn) {
-        // Reuse the preview stream if alive, otherwise request a fresh one.
-        if (camPreviewStream && camPreviewStream.getVideoTracks()[0]?.readyState === "live") {
+        if (
+          camPreviewStream &&
+          camPreviewStream.getVideoTracks()[0]?.readyState === "live"
+        ) {
           cam = camPreviewStream;
         } else {
           try {
             cam = await navigator.mediaDevices.getUserMedia({
-              video: { width: { ideal: 480 }, height: { ideal: 480 } },
+              video: {
+                width: { ideal: 320 },
+                height: { ideal: 320 },
+                frameRate: { ideal: 30 },
+              },
               audio: false,
             });
+            setCamPreviewStream(cam);
           } catch {
             cam = null;
           }
         }
-        camStreamRef.current = cam;
       }
 
       // ── Build the video source for the recorder ─────────────────────────
@@ -257,12 +283,19 @@ export function LoopRecorder({
       let videoTrackForRecorder: MediaStreamTrack;
 
       if (cam) {
-        // Compositor path: draw display + webcam bubble onto a canvas every frame.
+        // Cap canvas to 1080p max, preserving aspect ratio. Drawing &
+        // encoding 4K every frame is what made the bubble feel choppy.
+        const MAX_W = 1920;
+        const MAX_H = 1080;
+        const scaleDown = Math.min(1, MAX_W / dispW, MAX_H / dispH);
+        const canvasW = Math.round(dispW * scaleDown);
+        const canvasH = Math.round(dispH * scaleDown);
+
         const canvas = document.createElement("canvas");
-        canvas.width = dispW;
-        canvas.height = dispH;
+        canvas.width = canvasW;
+        canvas.height = canvasH;
         canvasRef.current = canvas;
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) throw new Error("Canvas 2D context unavailable");
 
         const dispVid = document.createElement("video");
@@ -280,15 +313,25 @@ export function LoopRecorder({
         camVideoRef.current = camVid;
 
         const drawStart = performance.now();
-        const bubbleSize = Math.min(Math.floor(Math.min(dispW, dispH) * 0.18), 240);
-        const margin = Math.floor(bubbleSize * 0.22);
+        const bubbleSize = Math.min(
+          Math.floor(Math.min(canvasW, canvasH) * 0.18),
+          240,
+        );
+        const sideMargin = Math.floor(bubbleSize * 0.22);
+        // Bottom margin must clear the browser's "Stop sharing" bar
+        // (Chrome/Edge overlay it bottom-center, ~80px tall).
+        const bottomMargin = Math.max(sideMargin, 110);
         const captionText = (ownerFirstName ?? "").toUpperCase().slice(0, 12);
         const cornerForFrame = corner;
 
+        stopDrawRef.current = false;
+
         const drawFrame = () => {
-          // Background = full screen
+          if (stopDrawRef.current) return;
+
+          // Background = full screen (downscaled into canvas)
           try {
-            ctx.drawImage(dispVid, 0, 0, canvas.width, canvas.height);
+            ctx.drawImage(dispVid, 0, 0, canvasW, canvasH);
           } catch {
             /* video not ready */
           }
@@ -298,19 +341,25 @@ export function LoopRecorder({
           const alpha = Math.min(1, Math.max(0, t));
 
           // Bubble corner
-          let bx = canvas.width - bubbleSize - margin;
-          let by = canvas.height - bubbleSize - margin;
-          if (cornerForFrame === "bl") bx = margin;
-          if (cornerForFrame === "tr") by = margin;
+          let bx = canvasW - bubbleSize - sideMargin;
+          let by = canvasH - bubbleSize - bottomMargin;
+          if (cornerForFrame === "bl") {
+            bx = sideMargin;
+            by = canvasH - bubbleSize - bottomMargin;
+          }
+          if (cornerForFrame === "tr") {
+            bx = canvasW - bubbleSize - sideMargin;
+            by = sideMargin;
+          }
           if (cornerForFrame === "tl") {
-            bx = margin;
-            by = margin;
+            bx = sideMargin;
+            by = sideMargin;
           }
 
           ctx.save();
           ctx.globalAlpha = alpha;
 
-          // Outer emerald glow
+          // Outer emerald glow + dark backplate
           ctx.shadowColor = "rgba(34, 211, 168, 0.35)";
           ctx.shadowBlur = 18;
           ctx.fillStyle = "rgba(11, 15, 23, 0.6)";
@@ -329,7 +378,6 @@ export function LoopRecorder({
           const dh = ch * scale;
           const dx = bx + (bubbleSize - dw) / 2;
           const dy = by + (bubbleSize - dh) / 2;
-          // Mirror horizontally for a natural selfie feel
           ctx.translate(dx + dw, dy);
           ctx.scale(-1, 1);
           try {
@@ -356,18 +404,45 @@ export function LoopRecorder({
               cornerForFrame === "tl" || cornerForFrame === "tr"
                 ? by + bubbleSize + fontSize * 0.4
                 : by + bubbleSize + fontSize * 0.4;
-            // letter-spaced manually
             const spaced = captionText.split("").join(" ");
             ctx.fillText(spaced, bx + bubbleSize / 2, captionY);
           }
 
           ctx.restore();
-
-          rafRef.current = requestAnimationFrame(drawFrame);
         };
-        rafRef.current = requestAnimationFrame(drawFrame);
 
-        const canvasStream = canvas.captureStream(30);
+        // Prefer requestVideoFrameCallback (Chrome/Edge/Safari) — fires once
+        // per real source frame, eliminating duplicated/dropped frames the
+        // rAF-driven loop produced. Fall back to rAF on Firefox.
+        const hasRVFC =
+          typeof (dispVid as unknown as { requestVideoFrameCallback?: unknown })
+            .requestVideoFrameCallback === "function";
+
+        if (hasRVFC) {
+          const tick = () => {
+            if (stopDrawRef.current) return;
+            drawFrame();
+            rvfcRef.current = (
+              dispVid as unknown as {
+                requestVideoFrameCallback: (cb: () => void) => number;
+              }
+            ).requestVideoFrameCallback(tick);
+          };
+          rvfcRef.current = (
+            dispVid as unknown as {
+              requestVideoFrameCallback: (cb: () => void) => number;
+            }
+          ).requestVideoFrameCallback(tick);
+        } else {
+          const tick = () => {
+            if (stopDrawRef.current) return;
+            drawFrame();
+            rafRef.current = requestAnimationFrame(tick);
+          };
+          rafRef.current = requestAnimationFrame(tick);
+        }
+
+        const canvasStream = canvas.captureStream(24);
         videoTrackForRecorder = canvasStream.getVideoTracks()[0];
       } else {
         videoTrackForRecorder = display.getVideoTracks()[0];
@@ -404,7 +479,7 @@ export function LoopRecorder({
 
       const recorder = new MediaRecorder(combined, {
         mimeType,
-        videoBitsPerSecond: 2_500_000,
+        videoBitsPerSecond: cam ? 3_000_000 : 2_500_000,
       });
       recorderRef.current = recorder;
       chunksRef.current = [];
@@ -520,7 +595,6 @@ export function LoopRecorder({
   }, [title, elapsed, linkedClientId, linkedQuoteId, router]);
 
   useEffect(() => () => cleanupStreams(), [cleanupStreams]);
-  // Stop preview cam on unmount
   useEffect(() => () => stopCamPreview(), [stopCamPreview]);
 
   if (supported === false) {
@@ -533,9 +607,11 @@ export function LoopRecorder({
   }
 
   const canConfigure = status === "idle";
+  const showPresenceChip =
+    faceOn && (status === "idle" || status === "recording" || status === "requesting");
 
   return (
-    <div className="bg-surface border border-rule rounded-card p-5 space-y-4">
+    <div className="bg-surface border border-rule rounded-card p-5 space-y-4 relative">
       {/* Face bubble controls */}
       <div className="flex items-start justify-between gap-4 flex-wrap pb-4 border-b border-rule/60">
         <div className="flex items-center gap-3">
@@ -577,20 +653,11 @@ export function LoopRecorder({
               disabled={!canConfigure}
               className="bg-surface/40 border border-rule rounded-md px-2 py-1 text-[12px] text-ink-strong"
             >
-              <option value="br">Bottom right</option>
-              <option value="bl">Bottom left</option>
+              <option value="br">Bottom right (above share bar)</option>
+              <option value="bl">Bottom left (above share bar)</option>
               <option value="tr">Top right</option>
               <option value="tl">Top left</option>
             </select>
-            <div className="relative w-14 h-14 rounded-[14px] overflow-hidden border border-emerald/50 bg-black/60 shadow-[0_0_18px_rgba(34,211,168,0.25)]">
-              <video
-                ref={camPreviewRef}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover scale-x-[-1]"
-              />
-            </div>
           </div>
         )}
       </div>
@@ -680,6 +747,30 @@ export function LoopRecorder({
         &quot;Share system audio.&quot; Safari can&apos;t capture system audio
         (mic still works).
       </p>
+
+      {/* Live presence chip — mirrors what's burned into the recording.
+          Floats inside the recorder card so it's visible while idle AND
+          while recording (the browser hides DOM overlays from the shared
+          screen surface, so this lives in-app, not on the capture). */}
+      {showPresenceChip && (
+        <div className="pointer-events-none absolute bottom-4 left-4 flex flex-col items-center gap-1.5">
+          <div className="relative w-[88px] h-[88px] rounded-[26px] overflow-hidden border-2 border-emerald/60 bg-black/70 shadow-[0_0_24px_rgba(34,211,168,0.35)]">
+            <video
+              ref={camPreviewRef}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+            {status === "recording" && (
+              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
+            )}
+          </div>
+          <div className="text-[9px] font-mono uppercase tracking-[0.2em] text-emerald/80">
+            {ownerFirstName ? `${ownerFirstName} · ${CORNER_LABEL[corner]}` : `LIVE · ${CORNER_LABEL[corner]}`}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

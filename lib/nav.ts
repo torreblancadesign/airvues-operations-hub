@@ -39,6 +39,14 @@ export const NAV_ITEMS: NavItem[] = [
     showOnHome: true,
   },
   {
+    href: "/loops",
+    label: "Loops",
+    desc: "Record your screen + mic · share a link · no Loom seats",
+    group: "overview",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+  {
     href: "/leads",
     label: "Leads",
     desc: "Inbound demand · intro meetings · funnel · YTD/MTD",

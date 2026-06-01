@@ -1,46 +1,41 @@
-## Issue
+## Problem
 
-The face preview chip is absolutely positioned at `bottom-4 left-4` inside the recorder card, so it overlaps the tip paragraph and crowds the "Start recording" button. The rest of the New Loop screen is functional but unrefined.
+Audio drifts behind video in recorded loops — lips don't match voice.
 
-## Fix (presentation only — no logic changes)
+## Root cause (in `components/loops/LoopRecorder.tsx`)
 
-### 1. Move the live preview out of the way
+1. `canvas.captureStream(24)` runs a 24fps auto-capture timer decoupled from when we actually draw frames. Video frames get timestamped by the canvas capture clock, audio by its real clock. They walk apart.
+2. Even when there's only one audio source (just mic OR just display audio), we route it through an `AudioContext` + `MediaStreamDestination`. That graph adds buffering latency that pushes audio behind video.
 
-In `components/loops/LoopRecorder.tsx`:
+## Fix (in `components/loops/LoopRecorder.tsx`, `start()` only)
 
-- Remove the `absolute bottom-4 left-4` floating chip.
-- Insert a dedicated **"Preview · what gets burned in"** panel directly under the face-bubble controls (only rendered when `showPresenceChip` is true). It's an inline row containing:
-  - The squircle webcam tile (slightly smaller, ~72px)
-  - A short caption stack: name · corner label, plus a faint "Live mirror of bottom-right bubble" helper line and the pulsing red dot when recording.
-- The recorder card becomes vertically stacked sections separated by hairline rules: **controls → preview (when on) → status + actions → upload progress → recorded preview → tip**. No more overlap with the tip or buttons.
+### 1. Drive canvas frames manually
 
-### 2. Polish the recorder card
+- Change `canvas.captureStream(24)` → `canvas.captureStream(0)` (no auto-capture).
+- After `drawFrame()` inside the rVFC and rAF tick, call `requestFrame()` on the canvas stream's video track (cast to `CanvasCaptureMediaStreamTrack`).
+- Every emitted video frame is now timestamped at draw time, so the muxer aligns video against matching audio timestamps. Lip-sync is preserved.
 
-- Tighten section spacing (`space-y-5`), use hairline `border-rule/60` dividers between sections instead of relying on `pb-4` hacks.
-- Promote the status line ("Ready" / "Recording · 0:12") to a small pill on the left, with a steady mono caps treatment; right side keeps the action buttons.
-- Larger, more deliberate primary button styling (still emerald), secondary buttons quieter.
-- Add a subtle inner gradient + ring to the card so it feels like a "recorder console" instead of a flat box.
+### 2. Skip the audio mixer when nothing to mix
 
-### 3. Polish the surrounding form
+- If both `displayAudio.length > 0` AND `mic` exist → keep the AudioContext mixing path (genuinely need to combine two sources).
+- Otherwise pass the single source's audio track directly into the combined `MediaStream` and do NOT create an `AudioContext`. Eliminates the mixer's buffering latency in the common case.
 
-In `components/loops/NewLoopForm.tsx`:
+### 3. Belt-and-suspenders
 
-- Wrap the Title / Client / Quote block in its own surface card (matching the recorder card) so the screen reads as two clean modules: **Details** and **Recorder**.
-- Add small section labels ("Details" / "Capture") above each card in the same mono caps style used elsewhere in the app.
-- Inputs/selects: increase vertical padding slightly, add a focus glow consistent with the rest of the app (emerald ring at 30% opacity).
+- Lower `recorder.start(1000)` → `recorder.start(250)` so the muxer flushes smaller chunks.
+- Pass `{ latencyHint: "interactive" }` to the `AudioContext` constructor in the path where mixing IS required.
 
-### 4. Page header
+## File touched
 
-In `app/(app)/loops/new/page.tsx` (light touch):
-- Keep "New Loop" + tagline, but use the shared `PageHeader` component if already used elsewhere on the loops pages so it matches. If the page uses bespoke markup, leave it but tighten the bottom rule spacing.
+- `components/loops/LoopRecorder.tsx` — `start()` only. No UI changes, no data/API changes, no changes to the face-bubble draw logic itself.
 
-## Files touched
+## Verification
 
-- `components/loops/LoopRecorder.tsx` — restructure card sections; move presence chip inline; restyle buttons/status.
-- `components/loops/NewLoopForm.tsx` — wrap fields in a surface card, add section labels.
-- `app/(app)/loops/new/page.tsx` — verify header matches loops index styling; minor spacing only.
+- Record a 30s clip; confirm lip/voice alignment at start, middle, and end.
+- Face bubble still renders correctly (manual `requestFrame` after every draw).
+- `npx tsc --noEmit` + `npm run build` clean.
 
 ## Out of scope
 
-- No changes to the recording pipeline, canvas compositor, upload flow, server actions, or data model.
-- No changes to the face-bubble's burned-in position inside the recording (that's still controlled by the Corner select).
+- Switching encoder/container/codecs.
+- Changing the capture architecture (still canvas-composite when face is on, still passthrough display track when face is off).

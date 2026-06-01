@@ -598,7 +598,15 @@ export function LoopRecorder({
   }, [title, elapsed, linkedClientId, linkedQuoteId, router]);
 
   useEffect(() => () => cleanupStreams(), [cleanupStreams]);
-  useEffect(() => () => stopCamPreview(), [stopCamPreview]);
+  // Unmount-only: stop the live camera preview when the component goes away.
+  // Do NOT depend on stopCamPreview here — its identity churn used to fire this
+  // cleanup mid-session and kill the webcam track.
+  useEffect(() => {
+    return () => {
+      camPreviewStreamRef.current?.getTracks().forEach((t) => t.stop());
+      camPreviewStreamRef.current = null;
+    };
+  }, []);
 
   if (supported === false) {
     return (

@@ -107,12 +107,29 @@ export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
             </option>
           ))}
         </select>
+        <select
+          value={ownerFilter}
+          onChange={(e) => setOwnerFilter(e.target.value)}
+          className="bg-surface/40 border border-rule rounded-md px-2 py-1.5 text-[12px] text-ink-strong"
+        >
+          <option value="any">All creators</option>
+          <option value="untagged">— Unknown —</option>
+          {viewerOwnerId && ownerOptions.some((o) => o.id === viewerOwnerId) && (
+            <option value={viewerOwnerId}>Just mine</option>
+          )}
+          {ownerOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
         {hasFilter && (
           <button
             onClick={() => {
               setQ("");
               setClientFilter("any");
               setQuoteFilter("any");
+              setOwnerFilter("any");
             }}
             className="text-[11px] font-mono uppercase tracking-wider text-ink-faint hover:text-emerald transition px-2"
           >

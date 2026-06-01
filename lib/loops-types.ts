@@ -25,6 +25,7 @@ export type LoopCreateInput = {
   posterUrl: string | null;
   durationSec: number;
   sizeMb: number;
-  linkKind: LoopLinkKind;
-  linkedId: string | null;
+  // Independent links — either, both, or neither.
+  linkedClientId: string | null;
+  linkedQuoteId: string | null;
 };

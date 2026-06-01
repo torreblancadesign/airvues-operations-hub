@@ -11,7 +11,9 @@ import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
 import type { LoopCreateInput, LoopLinkKind } from "../loops-types";
 
-export type LoopMutationResult<T = void> = ({ ok: true } & T) | { error: string };
+export type LoopMutationResult<T = Record<string, never>> =
+  | ({ ok: true } & T)
+  | { error: string };
 
 async function gate(): Promise<{ error: string } | null> {
   try {

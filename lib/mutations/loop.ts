@@ -76,10 +76,8 @@ export async function createLoop(
   if (input.posterUrl) fields["Poster URL"] = input.posterUrl;
   if (ownerId) fields.Owner = [ownerId];
 
-  const linkField = linkFieldFor(input.linkKind);
-  if (linkField && input.linkedId) {
-    fields[linkField] = [input.linkedId];
-  }
+  if (input.linkedClientId) fields["Linked Client"] = [input.linkedClientId];
+  if (input.linkedQuoteId) fields["Linked Quote"] = [input.linkedQuoteId];
 
   try {
     const [created] = await createRecords(RECORDINGS_TABLE, [{ fields }]);

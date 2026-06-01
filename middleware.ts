@@ -62,6 +62,7 @@ export default async function middleware(req: NextRequest) {
     nextUrl.pathname === "/login" ||
     nextUrl.pathname.startsWith("/api/auth") ||
     nextUrl.pathname.startsWith("/_next") ||
+    nextUrl.pathname.startsWith("/r/") || // public Loops share pages
     nextUrl.pathname === "/favicon.ico" ||
     isStaticAsset;
 

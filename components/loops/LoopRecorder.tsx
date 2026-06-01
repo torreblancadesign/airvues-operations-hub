@@ -414,6 +414,13 @@ export function LoopRecorder({
           ctx.restore();
         };
 
+        // Manually-driven canvas capture: emit a frame ONLY after we draw,
+        // so each emitted video frame is timestamped at draw time and the
+        // muxer keeps audio/video locked together (no progressive A/V drift).
+        const canvasStream = canvas.captureStream(0);
+        const canvasVideoTrack = canvasStream.getVideoTracks()[0] as
+          | (MediaStreamTrack & { requestFrame?: () => void });
+
         // Prefer requestVideoFrameCallback (Chrome/Edge/Safari) — fires once
         // per real source frame, eliminating duplicated/dropped frames the
         // rAF-driven loop produced. Fall back to rAF on Firefox.
@@ -425,6 +432,7 @@ export function LoopRecorder({
           const tick = () => {
             if (stopDrawRef.current) return;
             drawFrame();
+            canvasVideoTrack.requestFrame?.();
             rvfcRef.current = (
               dispVid as unknown as {
                 requestVideoFrameCallback: (cb: () => void) => number;
@@ -440,34 +448,40 @@ export function LoopRecorder({
           const tick = () => {
             if (stopDrawRef.current) return;
             drawFrame();
+            canvasVideoTrack.requestFrame?.();
             rafRef.current = requestAnimationFrame(tick);
           };
           rafRef.current = requestAnimationFrame(tick);
         }
 
-        const canvasStream = canvas.captureStream(24);
-        videoTrackForRecorder = canvasStream.getVideoTracks()[0];
+        videoTrackForRecorder = canvasVideoTrack;
       } else {
         videoTrackForRecorder = display.getVideoTracks()[0];
       }
 
-      // ── Audio mix (display audio + mic) ─────────────────────────────────
+      // ── Audio routing ───────────────────────────────────────────────────
+      // Only spin up an AudioContext when we genuinely need to MIX two
+      // sources (display audio + mic). A single source passes through its
+      // own track unmodified — avoids the mixer's buffering latency that
+      // was pushing audio behind video.
       const combinedTracks: MediaStreamTrack[] = [videoTrackForRecorder];
-
       const displayAudio = display.getAudioTracks();
-      if (mic || displayAudio.length > 0) {
-        const ctx = new AudioContext();
+
+      if (mic && displayAudio.length > 0) {
+        const ctx = new AudioContext({ latencyHint: "interactive" });
         audioCtxRef.current = ctx;
         const dest = ctx.createMediaStreamDestination();
-        if (displayAudio.length > 0) {
-          const src = ctx.createMediaStreamSource(new MediaStream(displayAudio));
-          src.connect(dest);
-        }
-        if (mic) {
-          const src = ctx.createMediaStreamSource(mic);
-          src.connect(dest);
-        }
+        const dispSrc = ctx.createMediaStreamSource(
+          new MediaStream(displayAudio),
+        );
+        dispSrc.connect(dest);
+        const micSrc = ctx.createMediaStreamSource(mic);
+        micSrc.connect(dest);
         combinedTracks.push(...dest.stream.getAudioTracks());
+      } else if (mic) {
+        combinedTracks.push(...mic.getAudioTracks());
+      } else if (displayAudio.length > 0) {
+        combinedTracks.push(...displayAudio);
       }
 
       const combined = new MediaStream(combinedTracks);

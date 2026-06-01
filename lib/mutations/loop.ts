@@ -88,6 +88,42 @@ export async function createLoop(
   }
 }
 
+export async function updateLoopLinks(
+  id: string,
+  input: { linkedClientId: string | null; linkedQuoteId: string | null },
+): Promise<LoopMutationResult> {
+  const g = await gate();
+  if (g) return g;
+
+  // Owner check: anyone with admin/lead can edit anyone's loop, otherwise must be the owner.
+  try {
+    const session = await getAppSession();
+    const role = session?.user?.role;
+    const isAdminLike = role === "admin" || role === "lead" || role === "editor";
+    if (!isAdminLike) {
+      const me = await resolvePersonByEmail(session?.user?.email);
+      const rec = await getRecord<{ Owner?: string[] }>(RECORDINGS_TABLE, id);
+      const ownerId = rec.fields.Owner?.[0] ?? null;
+      if (!me || me.id !== ownerId) {
+        return { error: "Only the recording's owner can change its tags." };
+      }
+    }
+    await patchRecords(RECORDINGS_TABLE, [
+      {
+        id,
+        fields: {
+          "Linked Client": input.linkedClientId ? [input.linkedClientId] : [],
+          "Linked Quote": input.linkedQuoteId ? [input.linkedQuoteId] : [],
+        },
+      },
+    ]);
+    invalidate(id);
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 export async function deleteLoop(id: string): Promise<LoopMutationResult> {
   const g = await gate();
   if (g) return g;

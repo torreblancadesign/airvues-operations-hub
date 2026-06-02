@@ -5,6 +5,7 @@ import { getLoopByToken } from "@/lib/loops";
 import { incrementLoopViewCount } from "@/lib/mutations/loop";
 import { AuroraBackdrop } from "@/components/login/AuroraBackdrop";
 import { LiveClock } from "@/components/login/LiveClock";
+import { AiSummaryPanel } from "@/components/loops/AiSummaryPanel";
 
 export const revalidate = 0;
 
@@ -97,6 +98,14 @@ export default async function PublicLoopPage({
               <span className="tabnum">{recordedAt}</span>
             </div>
           </div>
+
+          <AiSummaryPanel
+            summary={loop.summary}
+            keyNotes={loop.keyNotes}
+            actionItems={loop.actionItems}
+            questions={loop.questions}
+            variant="public"
+          />
         </div>
       </div>
 

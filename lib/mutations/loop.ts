@@ -9,6 +9,7 @@ import { AuthzError, requireRole } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
+import { analyzeLoop } from "../transcribe";
 import type { LoopCreateInput } from "../loops-types";
 
 export type LoopMutationResult<T = unknown> =
@@ -82,7 +83,62 @@ export async function createLoop(
   try {
     const [created] = await createRecords(RECORDINGS_TABLE, [{ fields }]);
     invalidate(created.id);
+    // Fire-and-forget AI analysis. Best-effort; never blocks the upload.
+    void analyzeLoopInBackground(created.id, input.videoUrl);
     return { ok: true, id: created.id, shareToken };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+async function analyzeLoopInBackground(id: string, videoUrl: string): Promise<void> {
+  try {
+    const a = await analyzeLoop(videoUrl);
+    // Skip the write entirely if nothing came back — keeps placeholder UI honest.
+    if (!a.transcript && !a.summary && !a.keyNotes && !a.actionItems && !a.questions) {
+      console.warn(`[loops] analysis returned empty for ${id}`);
+      return;
+    }
+    await patchRecords(RECORDINGS_TABLE, [
+      {
+        id,
+        fields: {
+          Transcript: a.transcript,
+          Summary: a.summary,
+          "Key Notes": a.keyNotes,
+          "Action Items": a.actionItems,
+          "Client Questions": a.questions,
+        },
+      },
+    ]);
+    invalidate(id);
+  } catch (err) {
+    console.warn(`[loops] analyze failed for ${id}:`, (err as Error).message);
+  }
+}
+
+export async function regenerateLoopAnalysis(id: string): Promise<LoopMutationResult> {
+  const g = await gate();
+  if (g) return g;
+  try {
+    const rec = await getRecord<{ "Video URL"?: string }>(RECORDINGS_TABLE, id);
+    const videoUrl = rec.fields["Video URL"];
+    if (!videoUrl) return { error: "Recording has no video URL." };
+    const a = await analyzeLoop(videoUrl);
+    await patchRecords(RECORDINGS_TABLE, [
+      {
+        id,
+        fields: {
+          Transcript: a.transcript,
+          Summary: a.summary,
+          "Key Notes": a.keyNotes,
+          "Action Items": a.actionItems,
+          "Client Questions": a.questions,
+        },
+      },
+    ]);
+    invalidate(id);
+    return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }

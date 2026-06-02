@@ -7,6 +7,7 @@ import { Lead, LeadAttachment, LeadStatus } from "@/lib/leads";
 import { STATUS_PILL } from "./types";
 import { attachLeadFiles, updateLeadStatus, updateLeadTranscript } from "@/lib/mutations/lead";
 import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BATCH, UPLOAD_MAX_BYTES, sanitizeUploadFilename } from "@/lib/uploads";
+import { JoinAndRecordButton } from "@/components/meetings/JoinAndRecordButton";
 
 type Props = {
   lead: Lead | null;
@@ -490,18 +491,12 @@ export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
         {/* Action buttons */}
         <div className="px-5 py-3 border-b border-rule flex gap-2 flex-wrap">
           {lead.meetingLink && (
-            <a
-              href={lead.meetingLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`px-3 py-1.5 text-[12px] font-medium rounded transition-colors ${
-                isJoinable
-                  ? "bg-emerald text-bg hover:bg-emerald/80"
-                  : "bg-bg-elevated border border-rule text-ink hover:border-ink-muted"
-              }`}
-            >
-              {isJoinable ? "Join Meet now ↗" : "Meet link ↗"}
-            </a>
+            <JoinAndRecordButton
+              meetingUrl={lead.meetingLink}
+              leadId={lead.id}
+              isJoinable={isJoinable}
+              label={isJoinable ? "Join + record ↗" : "Open meeting link ↗"}
+            />
           )}
           {lead.email && (
             <a href={`mailto:${lead.email}`} className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted">Email ↗</a>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Lead } from "@/lib/leads";
 import { STATUS_PILL } from "./types";
+import { JoinAndRecordButton } from "@/components/meetings/JoinAndRecordButton";
 
 type Props = {
   leads: Lead[];
@@ -119,18 +120,17 @@ export function UpcomingMeetings({ leads, onSelect }: Props) {
                             )}
                           </div>
                           {l.meetingLink && (
-                            <a
-                              href={l.meetingLink}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <JoinAndRecordButton
+                              meetingUrl={l.meetingLink}
+                              leadId={l.id}
+                              isJoinable={isJoinable}
+                              label={isJoinable ? "Join + record ↗" : "Meet ↗"}
                               className={`shrink-0 px-2.5 py-1.5 text-[11px] font-medium rounded transition-colors ${
                                 isJoinable
                                   ? "bg-emerald text-bg hover:bg-emerald/80"
                                   : "bg-surface border border-rule text-ink-muted hover:text-ink hover:border-ink-muted"
                               }`}
-                            >
-                              {isJoinable ? "Join ↗" : "Meet ↗"}
-                            </a>
+                            />
                           )}
                         </div>
                       </div>

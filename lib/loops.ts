@@ -28,6 +28,11 @@ type RecordingRow = {
   "Linked Quote Name"?: string[];
   "Linked Story Name"?: string[];
   "Linked Lead Name"?: string[];
+  Transcript?: string;
+  Summary?: string;
+  "Key Notes"?: string;
+  "Action Items"?: string;
+  "Client Questions"?: string;
   Deleted?: boolean;
 };
 
@@ -49,6 +54,11 @@ const FIELDS = [
   "Linked Quote Name",
   "Linked Story Name",
   "Linked Lead Name",
+  "Transcript",
+  "Summary",
+  "Key Notes",
+  "Action Items",
+  "Client Questions",
   "Deleted",
 ];
 

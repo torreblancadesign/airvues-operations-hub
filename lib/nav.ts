@@ -47,6 +47,14 @@ export const NAV_ITEMS: NavItem[] = [
     showOnHome: true,
   },
   {
+    href: "/meetings",
+    label: "Meetings",
+    desc: "Recorded calls · AI transcripts · decisions · action items",
+    group: "overview",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+  {
     href: "/leads",
     label: "Leads",
     desc: "Inbound demand · intro meetings · funnel · YTD/MTD",

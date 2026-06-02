@@ -50,7 +50,7 @@ export function LoopsBrowser({ loops, viewerOwnerId = null }: Props) {
     const needle = q.trim().toLowerCase();
     return loops.filter((l) => {
       if (needle) {
-        const hay = `${l.title} ${l.ownerName ?? ""}`.toLowerCase();
+        const hay = `${l.title} ${l.ownerName ?? ""} ${l.summary ?? ""} ${l.keyNotes ?? ""} ${l.actionItems ?? ""} ${l.questions ?? ""} ${l.transcript ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       if (clientFilter === "untagged" && l.linkedClientId) return false;

@@ -23,6 +23,12 @@ export type Loop = {
   linkedClientName: string | null;
   linkedQuoteId: string | null;
   linkedQuoteName: string | null;
+  // AI analysis (populated asynchronously after upload).
+  transcript: string | null;
+  summary: string | null;
+  keyNotes: string | null;
+  actionItems: string | null;
+  questions: string | null;
 };
 
 export type LoopCreateInput = {

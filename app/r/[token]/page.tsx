@@ -98,6 +98,14 @@ export default async function PublicLoopPage({
               <span className="tabnum">{recordedAt}</span>
             </div>
           </div>
+
+          <AiSummaryPanel
+            summary={loop.summary}
+            keyNotes={loop.keyNotes}
+            actionItems={loop.actionItems}
+            questions={loop.questions}
+            variant="public"
+          />
         </div>
       </div>
 

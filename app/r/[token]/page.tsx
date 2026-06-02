@@ -5,6 +5,7 @@ import { getLoopByToken } from "@/lib/loops";
 import { incrementLoopViewCount } from "@/lib/mutations/loop";
 import { AuroraBackdrop } from "@/components/login/AuroraBackdrop";
 import { LiveClock } from "@/components/login/LiveClock";
+import { AiSummaryPanel } from "@/components/loops/AiSummaryPanel";
 
 export const revalidate = 0;
 

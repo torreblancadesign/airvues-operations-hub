@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { CopyShareLink } from "@/components/loops/CopyShareLink";
 import { DeleteLoopButton } from "@/components/loops/DeleteLoopButton";
 import { LoopTagsEditor } from "@/components/loops/LoopTagsEditor";
+import { AiSummaryPanel } from "@/components/loops/AiSummaryPanel";
+import { RegenerateAnalysisButton } from "@/components/loops/RegenerateAnalysisButton";
 import { getLoopById } from "@/lib/loops";
 import { canMutate } from "@/lib/authz";
 import { getAppSession } from "@/lib/session";

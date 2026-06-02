@@ -9,6 +9,7 @@ import { AuthzError, requireRole } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
+import { analyzeLoop } from "../transcribe";
 import type { LoopCreateInput } from "../loops-types";
 
 export type LoopMutationResult<T = unknown> =

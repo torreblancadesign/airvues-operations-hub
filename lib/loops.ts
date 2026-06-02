@@ -103,6 +103,11 @@ function toLoop(rec: { id: string; createdTime: string; fields: RecordingRow }):
     linkedClientName: f["Linked Client Name"]?.[0] ?? null,
     linkedQuoteId: f["Linked Quote"]?.[0] ?? null,
     linkedQuoteName: f["Linked Quote Name"]?.[0] ?? null,
+    transcript: f.Transcript ?? null,
+    summary: f.Summary ?? null,
+    keyNotes: f["Key Notes"] ?? null,
+    actionItems: f["Action Items"] ?? null,
+    questions: f["Client Questions"] ?? null,
   };
 }
 

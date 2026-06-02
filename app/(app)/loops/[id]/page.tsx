@@ -112,6 +112,33 @@ export default async function LoopDetailPage({
           )
         )}
 
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-ink-faint">
+              AI summary
+            </div>
+            {canDelete && <RegenerateAnalysisButton id={loop.id} />}
+          </div>
+          <AiSummaryPanel
+            summary={loop.summary}
+            keyNotes={loop.keyNotes}
+            actionItems={loop.actionItems}
+            questions={loop.questions}
+            variant="internal"
+          />
+        </div>
+
+        {loop.transcript && (
+          <details className="bg-surface border border-rule rounded-card p-4 group">
+            <summary className="cursor-pointer text-[11px] font-mono uppercase tracking-wider text-ink-faint hover:text-emerald transition">
+              Full transcript
+            </summary>
+            <div className="mt-3 text-[12.5px] leading-relaxed text-ink-muted whitespace-pre-wrap font-mono">
+              {loop.transcript}
+            </div>
+          </details>
+        )}
+
         <div className="flex items-center justify-between gap-4 text-[12px] font-mono text-ink-faint">
           <div>
             {loop.viewCount} view{loop.viewCount === 1 ? "" : "s"}

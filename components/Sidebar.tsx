@@ -148,6 +148,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "/": <IconHome />,
   "/me": <IconUser />,
   "/loops": <IconLoop />,
+  "/meetings": <IconVideo />,
   "/leads": <IconLeads />,
   "/money": <IconDollar />,
   "/pipeline": <IconChart />,

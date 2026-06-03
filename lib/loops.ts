@@ -111,6 +111,7 @@ function toLoop(rec: { id: string; createdTime: string; fields: RecordingRow }):
     keyNotes: f["Key Notes"] ?? null,
     actionItems: f["Action Items"] ?? null,
     questions: f["Client Questions"] ?? null,
+    debugStatus: f["Debug Status"] ?? null,
   };
 }
 

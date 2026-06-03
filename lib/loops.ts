@@ -33,7 +33,9 @@ type RecordingRow = {
   "Key Notes"?: string;
   "Action Items"?: string;
   "Client Questions"?: string;
+  "Debug Status"?: string;
   Deleted?: boolean;
+
 };
 
 const FIELDS = [
@@ -59,6 +61,7 @@ const FIELDS = [
   "Key Notes",
   "Action Items",
   "Client Questions",
+  "Debug Status",
   "Deleted",
 ];
 
@@ -108,6 +111,7 @@ function toLoop(rec: { id: string; createdTime: string; fields: RecordingRow }):
     keyNotes: f["Key Notes"] ?? null,
     actionItems: f["Action Items"] ?? null,
     questions: f["Client Questions"] ?? null,
+    debugStatus: f["Debug Status"] ?? null,
   };
 }
 

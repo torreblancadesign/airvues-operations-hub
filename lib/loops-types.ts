@@ -29,6 +29,7 @@ export type Loop = {
   keyNotes: string | null;
   actionItems: string | null;
   questions: string | null;
+  debugStatus: string | null;
 };
 
 export type LoopCreateInput = {

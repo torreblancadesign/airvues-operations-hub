@@ -126,7 +126,7 @@ export async function regenerateLoopAnalysis(id: string): Promise<LoopMutationRe
     const rec = await getRecord<{ "Video URL"?: string }>(RECORDINGS_TABLE, id);
     const videoUrl = rec.fields["Video URL"];
     if (!videoUrl) return { error: "Recording has no video URL." };
-    const a = await analyzeLoop(videoUrl);
+    const { analysis: a, debug } = await analyzeLoop(videoUrl);
     await patchRecords(RECORDINGS_TABLE, [
       {
         id,
@@ -136,6 +136,7 @@ export async function regenerateLoopAnalysis(id: string): Promise<LoopMutationRe
           "Key Notes": a.keyNotes,
           "Action Items": a.actionItems,
           "Client Questions": a.questions,
+          "Debug Status": debug,
         },
       },
     ]);

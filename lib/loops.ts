@@ -61,6 +61,7 @@ const FIELDS = [
   "Key Notes",
   "Action Items",
   "Client Questions",
+  "Debug Status",
   "Deleted",
 ];
 

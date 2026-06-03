@@ -14,6 +14,11 @@ export type LoopAnalysis = {
   questions: string;
 };
 
+export type LoopAnalysisResult = {
+  analysis: LoopAnalysis;
+  debug: string;
+};
+
 const EMPTY: LoopAnalysis = {
   transcript: "",
   summary: "",
@@ -35,32 +40,11 @@ Return ONLY a JSON object with these exact keys (all strings):
 
 If a section genuinely has nothing to report, return an empty string for it. Do not fabricate.`;
 
-async function fetchVideoBase64(videoUrl: string): Promise<{ b64: string; mime: string } | null> {
-  const resp = await fetch(videoUrl);
-  if (!resp.ok) {
-    console.warn(`[transcribe] fetch video failed ${resp.status} ${videoUrl}`);
-    return null;
-  }
-  const len = Number(resp.headers.get("content-length") ?? "0");
-  if (len && len > MAX_BYTES) {
-    console.warn(`[transcribe] video too large (${len} bytes), skipping analysis`);
-    return null;
-  }
-  const buf = Buffer.from(await resp.arrayBuffer());
-  if (buf.byteLength > MAX_BYTES) {
-    console.warn(`[transcribe] video too large after download (${buf.byteLength} bytes)`);
-    return null;
-  }
-  const mime = resp.headers.get("content-type")?.split(";")[0]?.trim() || "video/webm";
-  return { b64: buf.toString("base64"), mime };
-}
-
 function safeString(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
 function extractJson(text: string): unknown {
-  // Strip markdown fences if the model added them.
   const cleaned = text
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -68,7 +52,6 @@ function extractJson(text: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    // Try to find the first {...} block.
     const m = cleaned.match(/\{[\s\S]*\}/);
     if (m) {
       try {
@@ -81,18 +64,51 @@ function extractJson(text: string): unknown {
   }
 }
 
-export async function analyzeLoop(videoUrl: string): Promise<LoopAnalysis> {
+export async function analyzeLoop(videoUrl: string): Promise<LoopAnalysisResult> {
+  const started = Date.now();
+  const log: string[] = [];
+  const stamp = () => `${((Date.now() - started) / 1000).toFixed(1)}s`;
+  const done = (status: "OK" | "FAILED", extra?: string) => ({
+    debug: `[${new Date().toISOString()}] ${status} | ${stamp()} | ${log.join(" | ")}${extra ? " | " + extra : ""}`.slice(0, 4000),
+  });
+
   const key = process.env.LOVABLE_API_KEY;
+  log.push(key ? `key: present (len=${key.length})` : "key: MISSING");
   if (!key) {
-    console.warn("[transcribe] LOVABLE_API_KEY missing");
-    return EMPTY;
+    return { analysis: EMPTY, ...done("FAILED", "LOVABLE_API_KEY not set in runtime env") };
   }
 
-  const video = await fetchVideoBase64(videoUrl);
-  if (!video) return EMPTY;
+  // Fetch video
+  let mime = "video/webm";
+  let b64 = "";
+  try {
+    const resp = await fetch(videoUrl);
+    log.push(`video fetch: ${resp.status}`);
+    if (!resp.ok) {
+      return { analysis: EMPTY, ...done("FAILED", `video fetch failed ${resp.status}`) };
+    }
+    const len = Number(resp.headers.get("content-length") ?? "0");
+    if (len && len > MAX_BYTES) {
+      return {
+        analysis: EMPTY,
+        ...done("FAILED", `video too large: ${(len / 1024 / 1024).toFixed(1)}MB > 20MB cap`),
+      };
+    }
+    const buf = Buffer.from(await resp.arrayBuffer());
+    if (buf.byteLength > MAX_BYTES) {
+      return {
+        analysis: EMPTY,
+        ...done("FAILED", `video too large after dl: ${(buf.byteLength / 1024 / 1024).toFixed(1)}MB`),
+      };
+    }
+    mime = resp.headers.get("content-type")?.split(";")[0]?.trim() || "video/webm";
+    b64 = buf.toString("base64");
+    log.push(`video: ${(buf.byteLength / 1024 / 1024).toFixed(2)}MB ${mime}`);
+  } catch (e) {
+    return { analysis: EMPTY, ...done("FAILED", `video fetch threw: ${(e as Error).message}`) };
+  }
 
-  const dataUrl = `data:${video.mime};base64,${video.b64}`;
-
+  const dataUrl = `data:${mime};base64,${b64}`;
   const body = {
     model: MODEL,
     messages: [
@@ -100,7 +116,6 @@ export async function analyzeLoop(videoUrl: string): Promise<LoopAnalysis> {
         role: "user",
         content: [
           { type: "text", text: PROMPT },
-          // Gemini via OpenAI-compatible accepts media here as image_url; works for audio/video too.
           { type: "image_url", image_url: { url: dataUrl } },
         ],
       },
@@ -108,35 +123,53 @@ export async function analyzeLoop(videoUrl: string): Promise<LoopAnalysis> {
     response_format: { type: "json_object" },
   };
 
-  const resp = await fetch(GATEWAY_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Lovable-API-Key": key,
-      "X-Lovable-AIG-SDK": "raw",
-    },
-    body: JSON.stringify(body),
-  });
+  let resp: Response;
+  try {
+    resp = await fetch(GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": key,
+        "X-Lovable-AIG-SDK": "raw",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    return { analysis: EMPTY, ...done("FAILED", `gateway fetch threw: ${(e as Error).message}`) };
+  }
 
+  log.push(`gateway: ${resp.status}`);
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`AI gateway ${resp.status}: ${text.slice(0, 300)}`);
+    return {
+      analysis: EMPTY,
+      ...done("FAILED", `gateway ${resp.status}: ${text.slice(0, 400)}`),
+    };
   }
 
-  const json = (await resp.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
+  let json: { choices?: { message?: { content?: string } }[] };
+  try {
+    json = await resp.json();
+  } catch (e) {
+    return { analysis: EMPTY, ...done("FAILED", `gateway JSON parse: ${(e as Error).message}`) };
+  }
   const content = json.choices?.[0]?.message?.content ?? "";
+  log.push(`content len: ${content.length}`);
   const parsed = extractJson(content) as Partial<LoopAnalysis> | null;
   if (!parsed) {
-    throw new Error("AI gateway returned non-JSON content");
+    return {
+      analysis: EMPTY,
+      ...done("FAILED", `non-JSON content: ${content.slice(0, 300)}`),
+    };
   }
 
-  return {
+  const analysis: LoopAnalysis = {
     transcript: safeString(parsed.transcript),
     summary: safeString(parsed.summary),
     keyNotes: safeString(parsed.keyNotes),
     actionItems: safeString(parsed.actionItems),
     questions: safeString(parsed.questions),
   };
+  log.push(`transcript: ${analysis.transcript.length} chars`);
+  return { analysis, ...done("OK") };
 }

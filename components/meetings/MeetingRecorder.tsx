@@ -255,11 +255,14 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Prop
       const sessionId = newSessionId();
       const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const pathname = `meetings/${sessionId}/audio.${ext}`;
+      // Strip codec params (e.g. "audio/webm;codecs=opus") — Vercel Blob
+      // allowedContentTypes only matches the base MIME.
+      const baseMime = (blob.type || `audio/${ext}`).split(";")[0].trim();
       const uploaded = await upload(pathname, blob, {
         access: "public",
         handleUploadUrl: "/api/meetings/upload",
         clientPayload: JSON.stringify({ sessionId }),
-        contentType: blob.type || `audio/${ext}`,
+        contentType: baseMime,
         onUploadProgress: (p: { percentage: number }) => setUploadPct(p.percentage),
       });
       setStatus("saving");

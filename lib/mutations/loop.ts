@@ -93,12 +93,7 @@ export async function createLoop(
 
 async function analyzeLoopInBackground(id: string, videoUrl: string): Promise<void> {
   try {
-    const a = await analyzeLoop(videoUrl);
-    // Skip the write entirely if nothing came back — keeps placeholder UI honest.
-    if (!a.transcript && !a.summary && !a.keyNotes && !a.actionItems && !a.questions) {
-      console.warn(`[loops] analysis returned empty for ${id}`);
-      return;
-    }
+    const { analysis: a, debug } = await analyzeLoop(videoUrl);
     await patchRecords(RECORDINGS_TABLE, [
       {
         id,
@@ -108,11 +103,18 @@ async function analyzeLoopInBackground(id: string, videoUrl: string): Promise<vo
           "Key Notes": a.keyNotes,
           "Action Items": a.actionItems,
           "Client Questions": a.questions,
+          "Debug Status": debug,
         },
       },
     ]);
     invalidate(id);
   } catch (err) {
+    try {
+      await patchRecords(RECORDINGS_TABLE, [
+        { id, fields: { "Debug Status": `[${new Date().toISOString()}] FAILED | patch threw: ${(err as Error).message}` } },
+      ]);
+      invalidate(id);
+    } catch {}
     console.warn(`[loops] analyze failed for ${id}:`, (err as Error).message);
   }
 }

@@ -33,7 +33,9 @@ type RecordingRow = {
   "Key Notes"?: string;
   "Action Items"?: string;
   "Client Questions"?: string;
+  "Debug Status"?: string;
   Deleted?: boolean;
+
 };
 
 const FIELDS = [

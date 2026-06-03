@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CalendarEvent, CalendarResult } from "@/lib/calendar";
+import { JoinAndRecordButton } from "@/components/meetings/JoinAndRecordButton";
 
 type Props = {
   result: CalendarResult;
@@ -175,14 +176,14 @@ export function CalendarWidget({ result, compact = false }: Props) {
                 const live = until.mins < 0 && until.mins > -60;
                 return (
                   <li key={ev.id}>
-                    <a
-                      href={ev.conferenceLink ?? ev.link ?? "#"}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block px-4 py-3 hover:bg-bg-elevated transition-colors group"
-                    >
+                    <div className="block px-4 py-3 hover:bg-bg-elevated transition-colors group">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
+                        <a
+                          href={ev.conferenceLink ?? ev.link ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="min-w-0 flex-1"
+                        >
                           <div className="text-[13px] text-ink-strong font-medium leading-snug truncate group-hover:text-emerald transition-colors">
                             {ev.title}
                           </div>
@@ -206,7 +207,7 @@ export function CalendarWidget({ result, compact = false }: Props) {
                               {ev.location}
                             </div>
                           )}
-                        </div>
+                        </a>
                         <div className="text-right shrink-0">
                           {live && (
                             <span className="inline-block px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider rounded bg-red/15 text-red border border-red/30">
@@ -224,11 +225,17 @@ export function CalendarWidget({ result, compact = false }: Props) {
                             </span>
                           )}
                           {ev.conferenceLink && (
-                            <div className="text-[10px] text-emerald mt-1 font-mono">Join ↗</div>
+                            <div className="mt-1">
+                              <JoinAndRecordButton
+                                meetingUrl={ev.conferenceLink}
+                                label="Join + record ↗"
+                                className="text-[10px] text-emerald font-mono hover:underline"
+                              />
+                            </div>
                           )}
                         </div>
                       </div>
-                    </a>
+                    </div>
                   </li>
                 );
               })}

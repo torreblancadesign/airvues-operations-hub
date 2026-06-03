@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CalendarEvent, CalendarResult } from "@/lib/calendar";
+import { JoinAndRecordButton } from "@/components/meetings/JoinAndRecordButton";
 
 type Props = {
   result: CalendarResult;

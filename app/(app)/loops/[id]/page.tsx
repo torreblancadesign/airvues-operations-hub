@@ -139,16 +139,6 @@ export default async function LoopDetailPage({
           </details>
         )}
 
-        {(isAdmin || isOwner) && (
-          <details className="bg-surface border border-amber-500/30 rounded-card p-4" open={!loop.summary}>
-            <summary className="cursor-pointer text-[11px] font-mono uppercase tracking-wider text-amber-400 hover:text-amber-300 transition">
-              🔧 Debug — transcription status
-            </summary>
-            <pre className="mt-3 text-[11.5px] leading-relaxed text-ink-muted whitespace-pre-wrap font-mono break-all">
-{loop.debugStatus ?? "No debug status yet. Click Regenerate to run analysis and capture a status line."}
-            </pre>
-          </details>
-        )}
 
         <div className="flex items-center justify-between gap-4 text-[12px] font-mono text-ink-faint">
           <div>

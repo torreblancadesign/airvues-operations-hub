@@ -333,6 +333,34 @@ export function StorySheet({
               All for {current.clientNames[0]}
             </button>
           )}
+          {canEdit && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  !confirm(
+                    `Duplicate "${current.name}" into the Next sprint?\n\nThe copy will be created with status Todo. You can split it later if needed.`,
+                  )
+                )
+                  return;
+                setError(null);
+                startTransition(async () => {
+                  const result = await duplicateStoryToNextSprint(story!.id);
+                  if (!("ok" in result)) {
+                    setError(result.error);
+                  } else {
+                    setSavedFlash(true);
+                    setTimeout(() => setSavedFlash(false), 1500);
+                    onDuplicated?.(result.id, result.sprintNumber);
+                  }
+                });
+              }}
+              className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-emerald hover:text-emerald transition-colors disabled:opacity-50"
+            >
+              Duplicate → Next sprint
+            </button>
+          )}
           {allowDelete && (
             <button
               type="button"

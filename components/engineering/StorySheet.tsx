@@ -279,6 +279,11 @@ export function StorySheet({
                   </a>
                 ))}
               </div>
+              {current.epicOwnerNames.length > 0 && (
+                <div className="text-[11px] text-ink-muted mt-1">
+                  Owner: <span className="text-ink-strong">{current.epicOwnerNames.join(", ")}</span>
+                </div>
+              )}
             </div>
           )}
           {current.description && (

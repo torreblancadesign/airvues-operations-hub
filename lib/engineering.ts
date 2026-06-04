@@ -316,6 +316,13 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       clientNames,
       quoteIds,
       quoteLabels: quoteIds.map((id) => quoteMap.get(id) ?? "(quote)"),
+      epicOwnerNames: Array.from(
+        new Set(
+          quoteIds
+            .flatMap((id) => quoteOwnerMap.get(id) ?? [])
+            .map((pid) => peopleMap.get(pid)?.name ?? "(unknown)"),
+        ),
+      ),
       sprintIds,
       sprintNumbers,
       sprintStatuses,
@@ -323,6 +330,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       completedDate: (f["Completed Date"] as string) ?? null,
       payStatus: asArray<string>(f["Pay Status (from Quote)"]),
       description: (f["Description"] as string) ?? "",
+      comments: (f["Comments"] as string) ?? "",
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
     };
   });

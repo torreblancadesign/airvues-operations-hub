@@ -155,27 +155,45 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Prop
         setWarning("Mic access was denied — recording the meeting audio only.");
       }
 
-      // Mix tab audio + mic into a single stream via Web Audio.
+      // Build a stereo graph so the AI can tell who's talking:
+      //   LEFT  channel = your mic (the recorder)
+      //   RIGHT channel = tab audio (the other participants)
+      // If the mic was denied, fall back to mono tab audio.
       const ctx = new AudioContext({ latencyHint: "interactive" });
       audioCtxRef.current = ctx;
       const dest = ctx.createMediaStreamDestination();
 
       const tabSrc = ctx.createMediaStreamSource(new MediaStream(audioTracks));
-      tabSrc.connect(dest);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
 
       if (mic) {
         const micSrc = ctx.createMediaStreamSource(mic);
-        micSrc.connect(dest);
+        const merger = ctx.createChannelMerger(2);
+        // Force each source down to a single channel before merging so the
+        // resulting MediaStream is true stereo (mic = L, tab = R).
+        const micMono = ctx.createGain();
+        micMono.channelCount = 1;
+        micMono.channelCountMode = "explicit";
+        micMono.channelInterpretation = "speakers";
+        const tabMono = ctx.createGain();
+        tabMono.channelCount = 1;
+        tabMono.channelCountMode = "explicit";
+        tabMono.channelInterpretation = "speakers";
+        micSrc.connect(micMono);
+        tabSrc.connect(tabMono);
+        micMono.connect(merger, 0, 0); // → left
+        tabMono.connect(merger, 0, 1); // → right
+        merger.connect(dest);
+        // Tap both into the level meter so it reflects either speaker.
+        micMono.connect(analyser);
+        tabMono.connect(analyser);
+      } else {
+        // Mono fallback — tab audio only.
+        tabSrc.connect(dest);
+        tabSrc.connect(analyser);
       }
 
-      // Level meter (analyser hangs off the mixed destination via a tap).
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
-      tabSrc.connect(analyser);
-      if (mic) {
-        const micSrc2 = ctx.createMediaStreamSource(mic);
-        micSrc2.connect(analyser);
-      }
       analyserRef.current = analyser;
       const buf = new Uint8Array(analyser.frequencyBinCount);
       const tickLevel = () => {

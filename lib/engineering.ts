@@ -66,6 +66,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
   const invoice = (f["Invoice"] as number) ?? 0;
 
   let quoteLabels: string[] = [];
+  let epicOwnerNames: string[] = [];
   if (quoteIds.length > 0) {
     const qTbl = Tables.Quotes;
     const quotes = await listRecordsCached<Record<string, unknown>>(
@@ -75,11 +76,14 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
           qTbl.fields["Quote ID"].id,
           qTbl.fields["Project Name"].id,
           qTbl.fields["Company Name"].id,
+          // New field — pass by name; schema.ts not yet regenerated.
+          "Epic Owner",
         ],
       },
       ["engineering:quotes"],
     );
     const qmap = new Map<string, string>();
+    const ownerMap = new Map<string, string[]>();
     for (const q of quotes) {
       const qf = q.fields;
       const project = (qf["Project Name"] as string) ?? "";
@@ -87,8 +91,35 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
       const qid = (qf["Quote ID"] as string) ?? "";
       const label = [company, project].filter(Boolean).join(" · ") || qid || "(quote)";
       qmap.set(q.id, label);
+      ownerMap.set(q.id, asArray<string>(qf["Epic Owner"]));
     }
     quoteLabels = quoteIds.map((id) => qmap.get(id) ?? "(quote)");
+    const allOwnerIds = quoteIds.flatMap((id) => ownerMap.get(id) ?? []);
+    if (allOwnerIds.length > 0) {
+      const pTbl = Tables.People;
+      const people = await listRecordsCached<Record<string, unknown>>(
+        pTbl.id,
+        {
+          fields: [
+            pTbl.fields["Full Name"].id,
+            pTbl.fields["First Name"].id,
+            pTbl.fields["Last Name"].id,
+          ],
+        },
+        ["engineering:people"],
+      );
+      const pmap = new Map<string, string>();
+      for (const p of people) {
+        const pf = p.fields;
+        pmap.set(
+          p.id,
+          (pf["Full Name"] as string) ||
+            [pf["First Name"], pf["Last Name"]].filter(Boolean).join(" ").trim() ||
+            "(unnamed)",
+        );
+      }
+      epicOwnerNames = Array.from(new Set(allOwnerIds.map((id) => pmap.get(id) ?? "(unknown)")));
+    }
   }
 
   return {

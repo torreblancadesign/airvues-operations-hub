@@ -4,15 +4,18 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { upload } from "@vercel/blob/client";
 import { Lead, LeadAttachment, LeadStatus } from "@/lib/leads";
+import type { Meeting } from "@/lib/meetings-types";
 import { STATUS_PILL } from "./types";
 import { attachLeadFiles, updateLeadStatus, updateLeadTranscript } from "@/lib/mutations/lead";
 import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BATCH, UPLOAD_MAX_BYTES, sanitizeUploadFilename } from "@/lib/uploads";
 import { JoinAndRecordButton } from "@/components/meetings/JoinAndRecordButton";
+import { MeetingNotesPanel } from "@/components/meetings/MeetingNotesPanel";
 
 type Props = {
   lead: Lead | null;
   onClose: () => void;
   canEdit?: boolean;
+  meetings?: Meeting[];
 };
 
 const STATUS_CHOICES: LeadStatus[] = [
@@ -448,7 +451,7 @@ function Attachments({ lead, canEdit }: { lead: Lead; canEdit: boolean }) {
   );
 }
 
-export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
+export function LeadSheet({ lead, onClose, canEdit = false, meetings = [] }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -530,6 +533,61 @@ export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
             <span className="text-[13px]">{lead.whatToBuild ?? "—"}</span>
           </Row>
         </div>
+
+        {meetings.length > 0 && (
+          <>
+            <SectionHeader>
+              Recorded Meetings <span className="ml-1 text-ink-faint normal-case font-normal">· {meetings.length}</span>
+            </SectionHeader>
+            <div className="border-t border-rule px-5 py-3 space-y-2">
+              {meetings.map((m) => {
+                const dateStr = new Date(m.createdAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+                const mins = Math.max(1, Math.round(m.durationSec / 60));
+                const statusTone =
+                  m.status === "Ready" ? "text-emerald border-emerald/30 bg-emerald/10"
+                  : m.status === "Failed" ? "text-red border-red/30 bg-red-soft"
+                  : "text-amber border-amber/30 bg-amber/10";
+                return (
+                  <details key={m.id} className="group bg-bg-elevated border border-rule rounded-md">
+                    <summary className="cursor-pointer list-none px-3 py-2 flex items-center gap-2 hover:bg-bg/50 rounded-md">
+                      <span className="text-ink-faint text-[10px] group-open:rotate-90 transition-transform inline-block w-3">▶</span>
+                      <span className="text-[12.5px] text-ink-strong font-medium truncate flex-1 min-w-0">{m.title}</span>
+                      <span className={`shrink-0 inline-block px-1.5 py-0.5 rounded text-[9px] font-mono uppercase tracking-wider border ${statusTone}`}>{m.status}</span>
+                      <span className="shrink-0 text-[11px] text-ink-muted font-mono tabnum">{mins}m</span>
+                      <a
+                        href={`/meetings/${m.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="shrink-0 text-[11px] text-emerald hover:underline"
+                      >Open ↗</a>
+                    </summary>
+                    <div className="px-3 pb-3 pt-1 space-y-3 border-t border-rule-soft">
+                      <div className="text-[10px] font-mono text-ink-faint tabnum">{dateStr}</div>
+                      <MeetingNotesPanel
+                        status={m.status}
+                        summary={m.summary}
+                        keyDecisions={m.keyDecisions}
+                        actionItems={m.actionItems}
+                        questions={m.questions}
+                      />
+                      {m.transcript && (
+                        <details className="bg-surface border border-rule rounded-card">
+                          <summary className="cursor-pointer list-none px-3 py-2 text-[11px] font-mono uppercase tracking-wider text-ink-muted hover:text-ink">
+                            Transcript
+                          </summary>
+                          <div className="px-3 pb-3 text-[12.5px] leading-relaxed text-ink whitespace-pre-wrap">
+                            {m.transcript}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+
 
         {/* Lead Assessment — editable */}
         <SectionHeader>

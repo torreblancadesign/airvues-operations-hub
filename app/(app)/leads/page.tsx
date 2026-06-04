@@ -1,6 +1,8 @@
 // Leads page — inbound demand, intro meetings, conversion. Server fetcher → client dashboard.
 
 import { listAllLeads } from "@/lib/leads";
+import { listAllMeetings } from "@/lib/meetings";
+import type { Meeting } from "@/lib/meetings-types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LeadsDashboard } from "@/components/leads/LeadsDashboard";
 import type { Filter } from "@/components/leads/types";
@@ -27,9 +29,15 @@ export default async function LeadsPage({
   if (sp.budget && VALID_BUDGET.has(sp.budget as LeadBudget)) initialFilter.budget = sp.budget as LeadBudget;
 
   let leads: Awaited<ReturnType<typeof listAllLeads>> = [];
+  let meetingsByLead: Record<string, Meeting[]> = {};
   let error: string | null = null;
   try {
-    leads = await listAllLeads();
+    const [ls, ms] = await Promise.all([listAllLeads(), listAllMeetings().catch(() => [] as Meeting[])]);
+    leads = ls;
+    for (const m of ms) {
+      if (!m.linkedLeadId) continue;
+      (meetingsByLead[m.linkedLeadId] ||= []).push(m);
+    }
   } catch (e) {
     error = (e as Error).message;
   }
@@ -57,7 +65,7 @@ export default async function LeadsPage({
           ⚠ Failed to load leads: {error}
         </div>
       ) : (
-        <LeadsDashboard leads={leads} initialFilter={initialFilter} canEdit={canEdit} />
+        <LeadsDashboard leads={leads} initialFilter={initialFilter} canEdit={canEdit} meetingsByLead={meetingsByLead} />
       )}
     </main>
   );

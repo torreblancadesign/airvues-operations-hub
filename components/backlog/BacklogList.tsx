@@ -10,6 +10,7 @@ import { NewStoryModal } from "./NewStoryModal";
 import { BacklogFilter, EMPTY_BACKLOG_FILTER, SCOPE_TO_STATUSES } from "./types";
 
 type EngineerOption = { id: string; name: string };
+type SprintOption = { id: string; number: number | null; status: string | null };
 type QuoteOption = { id: string; label: string; totalCost: number; status: string | null };
 
 type Props = {
@@ -18,6 +19,7 @@ type Props = {
   assignableEngineers: EngineerOption[];
   clients: string[];
   quotes: QuoteOption[];
+  sprints: SprintOption[];
   canEdit: boolean;
   initialFilter?: Partial<BacklogFilter>;
 };
@@ -52,7 +54,7 @@ function matches(s: Story, f: BacklogFilter): boolean {
   return true;
 }
 
-export function BacklogList({ stories, engineers, assignableEngineers, clients, quotes, canEdit, initialFilter }: Props) {
+export function BacklogList({ stories, engineers, assignableEngineers, clients, quotes, sprints, canEdit, initialFilter }: Props) {
   const [filter, setFilter] = useState<BacklogFilter>({ ...EMPTY_BACKLOG_FILTER, ...initialFilter });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openStory, setOpenStory] = useState<Story | null>(null);
@@ -254,7 +256,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden md:table-cell">Status</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Assignee</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden md:table-cell">Client</th>
-                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Quote</th>
+                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Epic</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint text-right">Hrs</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Sprint</th>
               </tr>
@@ -285,6 +287,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
       <StorySheet
         story={openStory}
         engineers={assignableEngineers}
+        sprints={sprints}
         canEdit={canEdit}
         onClose={() => setOpenStory(null)}
         onFilterByEngineer={(id) => {

@@ -139,7 +139,8 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   const pTbl = Tables.People;
   const qTbl = Tables.Quotes;
 
-  const [storyRecords, peopleRecords, quoteRecords] = await Promise.all([
+  const sprTbl = Tables.Sprints;
+  const [storyRecords, peopleRecords, quoteRecords, sprintRecords] = await Promise.all([
     listRecordsCached<Record<string, unknown>>(
       sTbl.id,
       {
@@ -195,6 +196,16 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
         ],
       },
       ["engineering:quotes"],
+    ),
+    listRecordsCached<Record<string, unknown>>(
+      sprTbl.id,
+      {
+        fields: [
+          sprTbl.fields["Sprint Number"].id,
+          sprTbl.fields["Sprint Status"].id,
+        ],
+      },
+      ["sprints:all"],
     ),
   ]);
 
@@ -340,12 +351,21 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const sprintOptions = sprintRecords
+    .map((s) => ({
+      id: s.id,
+      number: (s.fields["Sprint Number"] as number) ?? null,
+      status: (s.fields["Sprint Status"] as string) ?? null,
+    }))
+    .sort((a, b) => (b.number ?? 0) - (a.number ?? 0));
+
   const board: EngineeringBoardData = {
     groups: orphan.stories.length > 0 ? [orphan, ...groups] : groups,
     assignablePeople,
     totals: tallyGlobal(stories),
     clients: [...new Set(stories.flatMap((s) => s.clientNames))].filter(Boolean).sort(),
     sprints: dedupeSprints(stories),
+    sprintOptions,
     statuses: [...new Set(stories.map((s) => s.status).filter(Boolean) as string[])].sort(),
   };
 

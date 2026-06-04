@@ -3,17 +3,20 @@
 import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Story } from "@/lib/engineering-types";
-import { updateStory, deleteStory } from "@/lib/mutations/story";
+import { updateStory, deleteStory, duplicateStoryToNextSprint } from "@/lib/mutations/story";
 
 type EngineerOption = { id: string; name: string };
+type SprintOption = { id: string; number: number | null; status: string | null };
 
 type Props = {
   story: Story | null;
   engineers?: EngineerOption[];
+  sprints?: SprintOption[];
   canEdit?: boolean;
   canDelete?: boolean;
   onClose: () => void;
   onDeleted?: (id: string) => void;
+  onDuplicated?: (newId: string, sprintNumber: number | null) => void;
   onFilterByEngineer: (engineerId: string) => void;
   onFilterByClient: (client: string) => void;
 };
@@ -29,6 +32,7 @@ const STATUS_OPTIONS = [
 ];
 
 const PRIORITY_OPTIONS = ["Urgent", "High", "Medium", "Low"];
+const PHASE_OPTIONS = ["Phase 1", "Phase 2", "Phase 3"];
 
 
 function statusToneText(status: string | null): string {
@@ -71,10 +75,12 @@ const inputCls =
 export function StorySheet({
   story,
   engineers = [],
+  sprints = [],
   canEdit = false,
   canDelete,
   onClose,
   onDeleted,
+  onDuplicated,
   onFilterByEngineer,
   onFilterByClient,
 }: Props) {
@@ -259,7 +265,7 @@ export function StorySheet({
           )}
           {current.quoteIds.length > 0 && (
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Quote</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Epic (Proposal)</div>
               <div className="flex flex-col gap-0.5">
                 {current.quoteIds.map((q, i) => (
                   <a
@@ -325,6 +331,34 @@ export function StorySheet({
               className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
             >
               All for {current.clientNames[0]}
+            </button>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => {
+                if (
+                  !confirm(
+                    `Duplicate "${current.name}" into the Next sprint?\n\nThe copy will be created with status Todo. You can split it later if needed.`,
+                  )
+                )
+                  return;
+                setError(null);
+                startTransition(async () => {
+                  const result = await duplicateStoryToNextSprint(story!.id);
+                  if (!("ok" in result)) {
+                    setError(result.error);
+                  } else {
+                    setSavedFlash(true);
+                    setTimeout(() => setSavedFlash(false), 1500);
+                    onDuplicated?.(result.id, result.sprintNumber);
+                  }
+                });
+              }}
+              className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-emerald hover:text-emerald transition-colors disabled:opacity-50"
+            >
+              Duplicate → Next sprint
             </button>
           )}
           {allowDelete && (
@@ -523,7 +557,34 @@ export function StorySheet({
 
           {/* Client shown in the top Context block */}
           <Field label="Sprint">
-            {sprintNum != null ? (
+            {canEdit && sprints.length > 0 ? (
+              <select
+                value={current.sprintIds[0] ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const ids = id ? [id] : [];
+                  const opt = sprints.find((s) => s.id === id);
+                  save(
+                    {
+                      sprintIds: ids,
+                      sprintNumbers: opt?.number != null ? [opt.number] : [],
+                      sprintStatuses: opt?.status ? [opt.status] : [],
+                    },
+                    { sprintIds: ids },
+                  );
+                }}
+                disabled={pending}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">— backlog (no sprint) —</option>
+                {sprints.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.number != null ? `Sprint #${s.number}` : "Sprint"}
+                    {s.status ? ` · ${s.status}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : sprintNum != null ? (
               <span className="font-mono">
                 #{sprintNum}
                 {sprintStatus && <span className="text-ink-muted"> · {sprintStatus}</span>}
@@ -532,7 +593,23 @@ export function StorySheet({
               "—"
             )}
           </Field>
-          <Field label="Phase">{current.phase ?? "—"}</Field>
+          <Field label="Phase">
+            {canEdit ? (
+              <select
+                value={current.phase ?? ""}
+                onChange={(e) => save({ phase: e.target.value || null }, { phase: e.target.value || null })}
+                disabled={pending}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">—</option>
+                {PHASE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : (
+              <span>{current.phase ?? "—"}</span>
+            )}
+          </Field>
           <Field label="Budget % Used">
             {current.budgetPctUsed != null ? (
               <span className={current.budgetPctUsed > 1 ? "text-red" : ""}>

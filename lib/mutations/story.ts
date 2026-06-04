@@ -17,6 +17,8 @@ export type StoryPatch = {
   hours?: number | null;
   hoursWorked?: number | null;
   assigneeIds?: string[];
+  phase?: string | null;
+  sprintIds?: string[];
 };
 
 export type MutationResult = { ok: true } | { error: string };
@@ -33,6 +35,8 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   if (patch.hours !== undefined) fields["Hours"] = patch.hours;
   if (patch.hoursWorked !== undefined) fields["Hours Worked"] = patch.hoursWorked;
   if (patch.assigneeIds !== undefined) fields["Assignee"] = patch.assigneeIds;
+  if (patch.phase !== undefined) fields["Phase"] = patch.phase;
+  if (patch.sprintIds !== undefined) fields[SPRINT_FIELD_NAME] = patch.sprintIds;
   return fields;
 }
 
@@ -202,6 +206,79 @@ export async function deleteStory(storyId: string): Promise<MutationResult> {
     invalidateStoryCaches();
     revalidateTag("pipeline:all-quotes");
     return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+// Duplicate an existing story and place the copy in the "Next" sprint.
+// Used when a story is bigger than expected — the team wants a placeholder in
+// next sprint that can later be split. Status is reset to Todo; assignees,
+// quote link, phase, hours, invoice, priority, description carry over.
+export type DuplicateResult =
+  | { ok: true; id: string; sprintNumber: number | null }
+  | { error: string };
+
+export async function duplicateStoryToNextSprint(
+  storyId: string,
+): Promise<DuplicateResult> {
+  const denied = await gate();
+  if (denied) return denied;
+
+  try {
+    const { getRecord, listRecordsCached } = await import("../airtable");
+    const src = await getRecord<Record<string, unknown>>(Tables.Stories.id, storyId);
+    if (!src) return { error: "Story not found" };
+    const f = src.fields;
+
+    // Find the Sprint record where Sprint Status = "Next".
+    const sprints = await listRecordsCached<Record<string, unknown>>(
+      Tables.Sprints.id,
+      {
+        fields: [
+          Tables.Sprints.fields["Sprint Status"].id,
+          Tables.Sprints.fields["Sprint Number"].id,
+        ],
+      },
+      ["sprints:all"],
+    );
+    const next = sprints.find((s) => s.fields["Sprint Status"] === "Next");
+    if (!next) {
+      return {
+        error: "No sprint with status 'Next' exists. Create one in /sprints first.",
+      };
+    }
+    const nextNumber = (next.fields["Sprint Number"] as number) ?? null;
+
+    const baseName = ((f["Story Name"] as string) ?? "(untitled)").trim();
+    const newName = baseName.endsWith("(cont.)") ? baseName : `${baseName} (cont.)`;
+
+    const fields: Record<string, unknown> = {
+      "Story Name": newName,
+      "Story Status": "Todo",
+      [SPRINT_FIELD_NAME]: [next.id],
+    };
+    const carry = (key: string, dst = key) => {
+      const v = f[key];
+      if (v !== undefined && v !== null && !(Array.isArray(v) && v.length === 0)) {
+        fields[dst] = v;
+      }
+    };
+    carry("Hours");
+    carry("Invoice");
+    carry("Priority");
+    carry("Phase");
+    carry("Description");
+    carry("Assignee");
+    carry("Quote");
+
+    const created = await createRecords(Tables.Stories.id, [{ fields }]);
+    invalidateStoryCaches();
+    return {
+      ok: true,
+      id: created[0]?.id ?? "",
+      sprintNumber: nextNumber,
+    };
   } catch (e) {
     return { error: (e as Error).message };
   }

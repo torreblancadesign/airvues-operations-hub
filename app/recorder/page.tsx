@@ -2,6 +2,8 @@
 // "New recording" on /meetings. Pre-binds to a lead via ?leadId=…&source=meet.
 import { MeetingRecorder } from "@/components/meetings/MeetingRecorder";
 import { listAllLeads } from "@/lib/leads";
+import { getAppSession } from "@/lib/session";
+import { resolvePersonByEmail } from "@/lib/people";
 import type { MeetingSource } from "@/lib/meetings-types";
 
 function normSource(v: string | string[] | undefined): MeetingSource {

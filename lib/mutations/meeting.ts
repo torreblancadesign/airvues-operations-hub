@@ -3,6 +3,7 @@
 
 import { revalidateTag } from "next/cache";
 import { del } from "@vercel/blob";
+import { waitUntil } from "@vercel/functions";
 import { createRecords, patchRecords, getRecord } from "../airtable";
 import { AuthzError, requireRole } from "../authz";
 import { getAppSession } from "../session";

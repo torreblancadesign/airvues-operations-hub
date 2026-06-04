@@ -78,7 +78,7 @@ export async function createMeeting(
     const [created] = await createRecords(MEETINGS_TABLE, [{ fields }]);
     invalidate(created.id, input.linkedLeadId);
     // Fire-and-forget AI analysis. Best-effort; never blocks the upload.
-    void analyzeMeetingInBackground(created.id, input.audioUrl, input.linkedLeadId);
+    waitUntil(analyzeMeetingInBackground(created.id, input.audioUrl, input.linkedLeadId));
     return { ok: true, id: created.id };
   } catch (e) {
     return { error: (e as Error).message };

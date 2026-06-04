@@ -363,11 +363,29 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source, record
           >
             ● Start recording
           </button>
-          <p className="text-[11.5px] text-ink-muted leading-relaxed">
-            Chrome will ask what to share. Pick the <strong>browser tab</strong> running your
-            meeting and tick <strong>"Share tab audio"</strong>. Your mic is captured
-            separately and mixed in.
-          </p>
+          <div className="bg-bg-elevated border border-rule rounded-md p-3">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-ink-faint mb-2">
+              Before you start
+            </div>
+            <ol className="space-y-1.5 text-[11.5px] text-ink-muted leading-relaxed list-decimal list-inside marker:text-emerald">
+              <li>
+                You&apos;re in <strong className="text-ink-strong">Google Chrome</strong> (or
+                Edge/Arc). Other browsers can&apos;t share tab audio.
+              </li>
+              <li>
+                Pop-ups are <strong className="text-ink-strong">allowed</strong> for this site.
+              </li>
+              <li>
+                Your meeting is open in another Chrome{" "}
+                <strong className="text-ink-strong">tab</strong> (Google Meet, Zoom Web, etc.).
+              </li>
+              <li>
+                In the share dialog, pick that{" "}
+                <strong className="text-ink-strong">tab</strong> (not a window or screen) and
+                tick <strong className="text-ink-strong">&quot;Share tab audio&quot;</strong>.
+              </li>
+            </ol>
+          </div>
         </div>
       )}
 

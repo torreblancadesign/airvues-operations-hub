@@ -52,7 +52,7 @@ export function JoinAndRecordButton({
       if (!popup) {
         // Popup blocked — fall back to a same-tab open in a small chunk.
         alert(
-          "Popup was blocked. Allow popups for this site so the recorder can open alongside the meeting.",
+          "Pop-up was blocked. Please allow pop-ups for this site in Chrome (click the pop-up icon in the address bar → Always allow) so the recorder can open alongside the meeting.",
         );
       } else {
         try {

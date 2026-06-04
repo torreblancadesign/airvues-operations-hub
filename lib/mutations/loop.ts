@@ -4,6 +4,7 @@
 import { revalidateTag } from "next/cache";
 import { randomBytes } from "crypto";
 import { del } from "@vercel/blob";
+import { waitUntil } from "@vercel/functions";
 import { createRecords, patchRecords, getRecord } from "../airtable";
 import { AuthzError, requireRole } from "../authz";
 import { getAppSession } from "../session";
@@ -84,7 +85,7 @@ export async function createLoop(
     const [created] = await createRecords(RECORDINGS_TABLE, [{ fields }]);
     invalidate(created.id);
     // Fire-and-forget AI analysis. Best-effort; never blocks the upload.
-    void analyzeLoopInBackground(created.id, input.videoUrl);
+    waitUntil(analyzeLoopInBackground(created.id, input.videoUrl));
     return { ok: true, id: created.id, shareToken };
   } catch (e) {
     return { error: (e as Error).message };

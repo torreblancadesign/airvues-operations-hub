@@ -78,20 +78,33 @@ export async function createMeeting(
     const [created] = await createRecords(MEETINGS_TABLE, [{ fields }]);
     invalidate(created.id, input.linkedLeadId);
     // Fire-and-forget AI analysis. Best-effort; never blocks the upload.
-    waitUntil(analyzeMeetingInBackground(created.id, input.audioUrl, input.linkedLeadId));
+    waitUntil(
+      analyzeMeetingInBackground(created.id, input.audioUrl, input.linkedLeadId, {
+        channelLayout: input.channelLayout,
+        recorderName: input.recorderName,
+        otherName: input.otherName,
+      }),
+    );
     return { ok: true, id: created.id };
   } catch (e) {
     return { error: (e as Error).message };
   }
 }
 
+type SpeakerCtx = {
+  channelLayout: "mic-left/tab-right" | "mono";
+  recorderName: string | null;
+  otherName: string | null;
+};
+
 async function analyzeMeetingInBackground(
   id: string,
   audioUrl: string,
   leadId: string | null,
+  ctx: SpeakerCtx,
 ): Promise<void> {
   try {
-    const a = await analyzeMeeting(audioUrl);
+    const a = await analyzeMeeting(audioUrl, ctx);
     if (!a.transcript && !a.summary && !a.keyDecisions && !a.actionItems && !a.questions) {
       console.warn(`[meetings] analysis returned empty for ${id}`);
       await patchRecords(MEETINGS_TABLE, [{ id, fields: { Status: "Failed" } }]);

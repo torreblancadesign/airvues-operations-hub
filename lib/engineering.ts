@@ -139,7 +139,8 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   const pTbl = Tables.People;
   const qTbl = Tables.Quotes;
 
-  const [storyRecords, peopleRecords, quoteRecords] = await Promise.all([
+  const sprTbl = Tables.Sprints;
+  const [storyRecords, peopleRecords, quoteRecords, sprintRecords] = await Promise.all([
     listRecordsCached<Record<string, unknown>>(
       sTbl.id,
       {
@@ -195,6 +196,16 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
         ],
       },
       ["engineering:quotes"],
+    ),
+    listRecordsCached<Record<string, unknown>>(
+      sprTbl.id,
+      {
+        fields: [
+          sprTbl.fields["Sprint Number"].id,
+          sprTbl.fields["Sprint Status"].id,
+        ],
+      },
+      ["sprints:all"],
     ),
   ]);
 

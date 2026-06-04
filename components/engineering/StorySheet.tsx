@@ -265,7 +265,7 @@ export function StorySheet({
           )}
           {current.quoteIds.length > 0 && (
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Quote</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Epic (Proposal)</div>
               <div className="flex flex-col gap-0.5">
                 {current.quoteIds.map((q, i) => (
                   <a

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Lead, LeadStatus } from "@/lib/leads";
+import type { Meeting } from "@/lib/meetings-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { LeadsFilterBar } from "./FilterBar";
 import { LeadsTable } from "./LeadsTable";
@@ -15,6 +16,7 @@ type Props = {
   leads: Lead[];
   initialFilter?: Partial<Filter>;
   canEdit?: boolean;
+  meetingsByLead?: Record<string, Meeting[]>;
 };
 
 function windowStart(win: Window): number {

@@ -4,15 +4,18 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { upload } from "@vercel/blob/client";
 import { Lead, LeadAttachment, LeadStatus } from "@/lib/leads";
+import type { Meeting } from "@/lib/meetings-types";
 import { STATUS_PILL } from "./types";
 import { attachLeadFiles, updateLeadStatus, updateLeadTranscript } from "@/lib/mutations/lead";
 import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BATCH, UPLOAD_MAX_BYTES, sanitizeUploadFilename } from "@/lib/uploads";
 import { JoinAndRecordButton } from "@/components/meetings/JoinAndRecordButton";
+import { MeetingNotesPanel } from "@/components/meetings/MeetingNotesPanel";
 
 type Props = {
   lead: Lead | null;
   onClose: () => void;
   canEdit?: boolean;
+  meetings?: Meeting[];
 };
 
 const STATUS_CHOICES: LeadStatus[] = [

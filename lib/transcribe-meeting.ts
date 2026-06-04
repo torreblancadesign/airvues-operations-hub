@@ -101,7 +101,10 @@ function extractJson(text: string): unknown {
   }
 }
 
-export async function analyzeMeeting(audioUrl: string): Promise<MeetingAnalysis> {
+export async function analyzeMeeting(
+  audioUrl: string,
+  opts: AnalyzeOpts = { channelLayout: "mono", recorderName: null, otherName: null },
+): Promise<MeetingAnalysis> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) {
     console.warn("[transcribe-meeting] LOVABLE_API_KEY missing");
@@ -119,7 +122,7 @@ export async function analyzeMeeting(audioUrl: string): Promise<MeetingAnalysis>
       {
         role: "user",
         content: [
-          { type: "text", text: PROMPT },
+          { type: "text", text: buildPrompt(opts) },
           // Gemini via OpenAI-compatible accepts audio as image_url data URI.
           { type: "image_url", image_url: { url: dataUrl } },
         ],

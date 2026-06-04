@@ -36,6 +36,7 @@ type QuoteFields = {
   "Total Hours"?: number;
   "Run AI Proposal Agent"?: boolean;
   "Blueprint"?: boolean;
+  "Epic Owner"?: string[];
 };
 
 type StoryFields = {

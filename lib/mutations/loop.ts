@@ -85,7 +85,7 @@ export async function createLoop(
     const [created] = await createRecords(RECORDINGS_TABLE, [{ fields }]);
     invalidate(created.id);
     // Fire-and-forget AI analysis. Best-effort; never blocks the upload.
-    void analyzeLoopInBackground(created.id, input.videoUrl);
+    waitUntil(analyzeLoopInBackground(created.id, input.videoUrl));
     return { ok: true, id: created.id, shareToken };
   } catch (e) {
     return { error: (e as Error).message };

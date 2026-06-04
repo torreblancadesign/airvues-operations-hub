@@ -256,7 +256,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden md:table-cell">Status</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Assignee</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden md:table-cell">Client</th>
-                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Quote</th>
+                <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Epic</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint text-right">Hrs</th>
                 <th className="px-2 py-2 text-[10px] font-mono uppercase tracking-wider text-ink-faint hidden lg:table-cell">Sprint</th>
               </tr>

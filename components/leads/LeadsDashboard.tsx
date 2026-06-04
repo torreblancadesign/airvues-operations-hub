@@ -226,7 +226,7 @@ export function LeadsDashboard({ leads, initialFilter, canEdit = false, meetings
 
       <LeadsTable rows={sorted} sort={sort} setSort={setSort} onRowClick={setSelected} selectedId={selected?.id ?? null} />
 
-      <LeadSheet lead={selected} onClose={() => setSelected(null)} canEdit={canEdit} />
+      <LeadSheet lead={selected} onClose={() => setSelected(null)} canEdit={canEdit} meetings={selected ? meetingsByLead?.[selected.id] ?? [] : []} />
     </>
   );
 }

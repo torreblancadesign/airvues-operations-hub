@@ -451,7 +451,7 @@ function Attachments({ lead, canEdit }: { lead: Lead; canEdit: boolean }) {
   );
 }
 
-export function LeadSheet({ lead, onClose, canEdit = false }: Props) {
+export function LeadSheet({ lead, onClose, canEdit = false, meetings = [] }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);

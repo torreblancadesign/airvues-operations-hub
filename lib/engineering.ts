@@ -245,6 +245,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   ]);
 
   const quoteMap = new Map<string, string>();
+  const quoteOwnerMap = new Map<string, string[]>();
   for (const q of quoteRecords) {
     const f = q.fields;
     const project = (f["Project Name"] as string) ?? "";
@@ -252,6 +253,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const quoteId = (f["Quote ID"] as string) ?? "";
     const label = [company, project].filter(Boolean).join(" · ") || quoteId || "(quote)";
     quoteMap.set(q.id, label);
+    quoteOwnerMap.set(q.id, asArray<string>(f["Epic Owner"]));
   }
 
   type PersonRow = {

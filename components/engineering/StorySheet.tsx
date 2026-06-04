@@ -6,14 +6,17 @@ import { Story } from "@/lib/engineering-types";
 import { updateStory, deleteStory } from "@/lib/mutations/story";
 
 type EngineerOption = { id: string; name: string };
+type SprintOption = { id: string; number: number | null; status: string | null };
 
 type Props = {
   story: Story | null;
   engineers?: EngineerOption[];
+  sprints?: SprintOption[];
   canEdit?: boolean;
   canDelete?: boolean;
   onClose: () => void;
   onDeleted?: (id: string) => void;
+  onDuplicated?: (newId: string, sprintNumber: number | null) => void;
   onFilterByEngineer: (engineerId: string) => void;
   onFilterByClient: (client: string) => void;
 };
@@ -29,6 +32,7 @@ const STATUS_OPTIONS = [
 ];
 
 const PRIORITY_OPTIONS = ["Urgent", "High", "Medium", "Low"];
+const PHASE_OPTIONS = ["Phase 1", "Phase 2", "Phase 3"];
 
 
 function statusToneText(status: string | null): string {

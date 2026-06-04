@@ -781,6 +781,21 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </FieldRow>
 
+        <FieldRow
+          label="Epic Owner"
+          hint="Engineer responsible for delivering this epic."
+          chip={<InternalChip />}
+          state={stateFor("epicOwnerId")}
+        >
+          <PersonPicker
+            value={quote.epicOwnerId}
+            options={people.filter((p) => p.isInternal)}
+            disabled={!canEdit}
+            placeholder="Pick the lead engineer"
+            onChange={(id) => void patchAndRefresh("epicOwnerId", { epicOwnerId: id })}
+          />
+        </FieldRow>
+
         <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")}>
           <input
             type="date"

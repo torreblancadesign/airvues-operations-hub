@@ -407,6 +407,27 @@ export function StorySheet({
               />
             </Field>
           )}
+          {/* Editable Comments */}
+          <Field label="Comments" hint="Use to explain blockers or why a story is incomplete. Saves on blur.">
+            {canEdit ? (
+              <textarea
+                key={`comments-${current.id}`}
+                defaultValue={current.comments ?? ""}
+                disabled={pending}
+                rows={3}
+                placeholder="Add a comment…"
+                onBlur={(e) => {
+                  const val = e.target.value;
+                  if (val !== (current.comments ?? "")) save({ comments: val }, { comments: val });
+                }}
+                className={`${inputCls} w-full resize-y`}
+              />
+            ) : current.comments ? (
+              <div className="text-[12px] text-ink-muted whitespace-pre-wrap">{current.comments}</div>
+            ) : (
+              <span className="text-ink-faint">—</span>
+            )}
+          </Field>
           {/* Editable Status */}
           <Field label="Status">
             {canEdit ? (

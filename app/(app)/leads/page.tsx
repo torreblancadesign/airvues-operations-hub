@@ -29,9 +29,15 @@ export default async function LeadsPage({
   if (sp.budget && VALID_BUDGET.has(sp.budget as LeadBudget)) initialFilter.budget = sp.budget as LeadBudget;
 
   let leads: Awaited<ReturnType<typeof listAllLeads>> = [];
+  let meetingsByLead: Record<string, Meeting[]> = {};
   let error: string | null = null;
   try {
-    leads = await listAllLeads();
+    const [ls, ms] = await Promise.all([listAllLeads(), listAllMeetings().catch(() => [] as Meeting[])]);
+    leads = ls;
+    for (const m of ms) {
+      if (!m.linkedLeadId) continue;
+      (meetingsByLead[m.linkedLeadId] ||= []).push(m);
+    }
   } catch (e) {
     error = (e as Error).message;
   }

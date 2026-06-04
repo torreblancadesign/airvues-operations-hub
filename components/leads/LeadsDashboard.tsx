@@ -90,7 +90,7 @@ function applySort(rows: Lead[], s: Sort): Lead[] {
   });
 }
 
-export function LeadsDashboard({ leads, initialFilter, canEdit = false }: Props) {
+export function LeadsDashboard({ leads, initialFilter, canEdit = false, meetingsByLead }: Props) {
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...initialFilter });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<Lead | null>(null);

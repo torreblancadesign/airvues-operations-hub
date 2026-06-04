@@ -65,7 +65,7 @@ export default async function LeadsPage({
           ⚠ Failed to load leads: {error}
         </div>
       ) : (
-        <LeadsDashboard leads={leads} initialFilter={initialFilter} canEdit={canEdit} />
+        <LeadsDashboard leads={leads} initialFilter={initialFilter} canEdit={canEdit} meetingsByLead={meetingsByLead} />
       )}
     </main>
   );

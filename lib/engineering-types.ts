@@ -81,6 +81,7 @@ export type EngineeringBoardData = {
   };
   clients: string[];
   sprints: { number: number; status: string | null }[];
+  sprintOptions: { id: string; number: number | null; status: string | null }[];
   statuses: string[];
 };
 

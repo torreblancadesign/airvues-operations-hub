@@ -12,7 +12,9 @@ export function NewRecordingButton({ className }: { className?: string }) {
       "width=440,height=620,popup=yes,noopener=no",
     );
     if (!popup) {
-      alert("Popup was blocked. Allow popups for this site.");
+      alert(
+        "Pop-up was blocked. Please allow pop-ups for this site in Chrome (click the pop-up icon in the address bar → Always allow) so the recorder can open.",
+      );
     } else {
       try {
         popup.focus();

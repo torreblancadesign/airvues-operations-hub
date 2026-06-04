@@ -1,6 +1,8 @@
 // Leads page — inbound demand, intro meetings, conversion. Server fetcher → client dashboard.
 
 import { listAllLeads } from "@/lib/leads";
+import { listAllMeetings } from "@/lib/meetings";
+import type { Meeting } from "@/lib/meetings-types";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LeadsDashboard } from "@/components/leads/LeadsDashboard";
 import type { Filter } from "@/components/leads/types";

@@ -19,6 +19,7 @@ export type StoryPatch = {
   assigneeIds?: string[];
   phase?: string | null;
   sprintIds?: string[];
+  comments?: string;
 };
 
 export type MutationResult = { ok: true } | { error: string };

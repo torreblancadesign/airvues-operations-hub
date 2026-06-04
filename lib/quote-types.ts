@@ -31,6 +31,8 @@ export type QuoteDetail = {
   projectStatus: string | null;
   proposalType: string | null;
   status: string | null;
+  epicOwnerId: string | null;
+  epicOwnerName: string | null;
   // Client input (internal)
   customProblemStatement: string;
   documents: QuoteAttachment[];

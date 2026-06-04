@@ -150,11 +150,6 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     payStatus: asArray<string>(f["Pay Status (from Quote)"]),
     description: (f["Description"] as string) ?? "",
     comments: (f["Comments"] as string) ?? "",
-    sprintStatuses,
-    sprintEnds,
-    completedDate: (f["Completed Date"] as string) ?? null,
-    payStatus: asArray<string>(f["Pay Status (from Quote)"]),
-    description: (f["Description"] as string) ?? "",
     airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${rec.id}`,
   };
 }

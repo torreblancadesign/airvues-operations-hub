@@ -75,10 +75,12 @@ const inputCls =
 export function StorySheet({
   story,
   engineers = [],
+  sprints = [],
   canEdit = false,
   canDelete,
   onClose,
   onDeleted,
+  onDuplicated,
   onFilterByEngineer,
   onFilterByClient,
 }: Props) {

@@ -557,7 +557,34 @@ export function StorySheet({
 
           {/* Client shown in the top Context block */}
           <Field label="Sprint">
-            {sprintNum != null ? (
+            {canEdit && sprints.length > 0 ? (
+              <select
+                value={current.sprintIds[0] ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const ids = id ? [id] : [];
+                  const opt = sprints.find((s) => s.id === id);
+                  save(
+                    {
+                      sprintIds: ids,
+                      sprintNumbers: opt?.number != null ? [opt.number] : [],
+                      sprintStatuses: opt?.status ? [opt.status] : [],
+                    },
+                    { sprintIds: ids },
+                  );
+                }}
+                disabled={pending}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">— backlog (no sprint) —</option>
+                {sprints.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.number != null ? `Sprint #${s.number}` : "Sprint"}
+                    {s.status ? ` · ${s.status}` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : sprintNum != null ? (
               <span className="font-mono">
                 #{sprintNum}
                 {sprintStatus && <span className="text-ink-muted"> · {sprintStatus}</span>}
@@ -566,7 +593,23 @@ export function StorySheet({
               "—"
             )}
           </Field>
-          <Field label="Phase">{current.phase ?? "—"}</Field>
+          <Field label="Phase">
+            {canEdit ? (
+              <select
+                value={current.phase ?? ""}
+                onChange={(e) => save({ phase: e.target.value || null }, { phase: e.target.value || null })}
+                disabled={pending}
+                className={`${inputCls} w-full`}
+              >
+                <option value="">—</option>
+                {PHASE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : (
+              <span>{current.phase ?? "—"}</span>
+            )}
+          </Field>
           <Field label="Budget % Used">
             {current.budgetPctUsed != null ? (
               <span className={current.budgetPctUsed > 1 ? "text-red" : ""}>

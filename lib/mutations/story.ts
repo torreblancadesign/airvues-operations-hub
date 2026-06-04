@@ -17,6 +17,8 @@ export type StoryPatch = {
   hours?: number | null;
   hoursWorked?: number | null;
   assigneeIds?: string[];
+  phase?: string | null;
+  sprintIds?: string[];
 };
 
 export type MutationResult = { ok: true } | { error: string };
@@ -33,6 +35,8 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   if (patch.hours !== undefined) fields["Hours"] = patch.hours;
   if (patch.hoursWorked !== undefined) fields["Hours Worked"] = patch.hoursWorked;
   if (patch.assigneeIds !== undefined) fields["Assignee"] = patch.assigneeIds;
+  if (patch.phase !== undefined) fields["Phase"] = patch.phase;
+  if (patch.sprintIds !== undefined) fields[SPRINT_FIELD_NAME] = patch.sprintIds;
   return fields;
 }
 

@@ -38,6 +38,7 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   if (patch.assigneeIds !== undefined) fields["Assignee"] = patch.assigneeIds;
   if (patch.phase !== undefined) fields["Phase"] = patch.phase;
   if (patch.sprintIds !== undefined) fields[SPRINT_FIELD_NAME] = patch.sprintIds;
+  if (patch.comments !== undefined) fields["Comments"] = patch.comments;
   return fields;
 }
 

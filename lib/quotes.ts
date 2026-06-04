@@ -155,6 +155,8 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
 
     runAiProposalAgent: f["Run AI Proposal Agent"] === true,
     blueprint: f["Blueprint"] === true,
+    epicOwnerId: first(f["Epic Owner"] as string[] | undefined),
+    epicOwnerName: null,
     stories,
     totalCost: (f["Total Cost"] as number) ?? 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,

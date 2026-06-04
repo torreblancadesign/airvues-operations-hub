@@ -50,6 +50,16 @@ export default async function RecorderPage({
     defaultTitle = `Meeting · ${today}`;
   }
 
+  // Resolve the signed-in user's name so the transcript can label their lines.
+  let recorderName: string | null = null;
+  try {
+    const session = await getAppSession();
+    const me = await resolvePersonByEmail(session?.user?.email);
+    recorderName = me?.firstName || me?.fullName || session?.user?.name || null;
+  } catch {
+    recorderName = null;
+  }
+
   return (
     <main className="max-w-md mx-auto">
       <header className="mb-4 flex items-baseline justify-between">
@@ -68,6 +78,7 @@ export default async function RecorderPage({
         leadName={leadName}
         defaultTitle={defaultTitle}
         source={source}
+        recorderName={recorderName}
       />
     </main>
   );

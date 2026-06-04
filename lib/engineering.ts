@@ -197,9 +197,10 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           sTbl.fields["Sprint Number (from 📆Sprints)"].id,
           sTbl.fields["Sprint Status (from 📆Sprints)"].id,
           sTbl.fields["Sprint End (from 📆Sprints)"].id,
-          // New field — schema.ts not yet regenerated; pass by name.
+          // New fields — schema.ts not yet regenerated; pass by name.
           "Completed Date",
           "Pay Status (from Quote)",
+          "Comments",
         ],
       },
       ["engineering:stories"],
@@ -226,6 +227,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           qTbl.fields["Quote ID"].id,
           qTbl.fields["Project Name"].id,
           qTbl.fields["Company Name"].id,
+          "Epic Owner",
         ],
       },
       ["engineering:quotes"],

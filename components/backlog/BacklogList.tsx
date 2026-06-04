@@ -287,6 +287,7 @@ export function BacklogList({ stories, engineers, assignableEngineers, clients, 
       <StorySheet
         story={openStory}
         engineers={assignableEngineers}
+        sprints={sprints}
         canEdit={canEdit}
         onClose={() => setOpenStory(null)}
         onFilterByEngineer={(id) => {

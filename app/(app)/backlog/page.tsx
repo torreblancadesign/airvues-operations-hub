@@ -98,6 +98,7 @@ export default async function BacklogPage({
         assignableEngineers={assignableEngineers}
         clients={data.clients}
         quotes={quotes}
+        sprints={data.sprintOptions}
         canEdit={editable}
         initialFilter={initialFilter}
       />

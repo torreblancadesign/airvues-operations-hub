@@ -285,6 +285,10 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source, record
         onUploadProgress: (p: { percentage: number }) => setUploadPct(p.percentage),
       });
       setStatus("saving");
+      const hadMic = !!micRef.current || chunksRef.current.length === 0; // micRef cleared on stop; trust the warning instead
+      const channelLayout: "mic-left/tab-right" | "mono" = warning
+        ? "mono"
+        : "mic-left/tab-right";
       const res = await createMeeting({
         title: title.trim() || defaultTitle,
         audioUrl: uploaded.url,
@@ -292,7 +296,12 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source, record
         sizeMb: blob.size / (1024 * 1024),
         source,
         linkedLeadId: leadId,
+        channelLayout,
+        recorderName: recorderName ?? null,
+        otherName: leadName ?? null,
       });
+      // Suppress unused var lint
+      void hadMic;
       if ("error" in res) {
         setStatus("error");
         setError(res.error);
@@ -304,7 +313,7 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source, record
       setStatus("error");
       setError((e as Error).message || "Upload failed.");
     }
-  }, [title, defaultTitle, elapsed, source, leadId]);
+  }, [title, defaultTitle, elapsed, source, leadId, leadName, recorderName, warning]);
 
   const discard = useCallback(() => {
     blobRef.current = null;

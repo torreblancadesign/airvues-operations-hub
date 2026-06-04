@@ -23,18 +23,39 @@ const EMPTY: MeetingAnalysis = {
   questions: "",
 };
 
-const PROMPT = `You are taking post-call notes for the internal Airvues team after a meeting they just had with a client or prospect.
+type AnalyzeOpts = {
+  channelLayout: "mic-left/tab-right" | "mono";
+  recorderName: string | null;
+  otherName: string | null;
+};
 
-Listen to the recording, then produce a full transcript plus four short, plain-English internal-facing sections (no jargon, no preamble, no markdown headings inside the values).
+function buildPrompt(opts: AnalyzeOpts): string {
+  const me = opts.recorderName?.trim() || "Team";
+  const them = opts.otherName?.trim() || "Client";
+
+  const speakerRules =
+    opts.channelLayout === "mic-left/tab-right"
+      ? `The audio is STEREO and the channels are speaker-separated:
+- The LEFT channel is ${me} (the Airvues team member recording the call — their microphone).
+- The RIGHT channel is ${them} (the other participant(s) on the call — captured from the meeting tab).
+Use the channel a voice is on to attribute every line. If a voice is louder on the left, it's ${me}. If a voice is louder on the right, it's ${them}. When both speak at once, label both lines. Never label a left-channel voice as ${them} or vice versa.`
+      : `The audio is mono — channels cannot be used to attribute speakers. Identify ${me} (the Airvues team member) and ${them} (the other participant) by introductions and voice characteristics, and label accordingly.`;
+
+  return `You are taking post-call notes for the internal Airvues team after a meeting they just had with a client or prospect.
+
+${speakerRules}
+
+Listen to the recording, then produce a full speaker-labeled transcript plus four short, plain-English internal-facing sections (no jargon, no preamble, no markdown headings inside the values).
 
 Return ONLY a JSON object with these exact keys (all strings):
-- "transcript": the full spoken transcript. Identify speakers by name when they introduce themselves; otherwise label them "Team" and "Client". No timestamps.
+- "transcript": the full spoken transcript. Every line MUST start with the speaker's name followed by ": " — e.g. "${me}: ..." or "${them}: ...". No timestamps.
 - "summary": 2-4 sentences describing what was discussed and where the conversation landed.
-- "keyDecisions": decisions, commitments, or important things the client said. Short bullet-style lines separated by newlines, each starting with "- ". Empty string if none.
-- "actionItems": what someone on the Airvues team needs to do next. Same bullet format. Include the owner in brackets when stated, e.g. "- [Jose] Send the updated quote by Friday". Empty string if none.
-- "questions": open questions for the client that came up during the call and still need an answer. Same bullet format. Empty string if none.
+- "keyDecisions": decisions, commitments, or important things ${them} said. Short bullet-style lines separated by newlines, each starting with "- ". Empty string if none.
+- "actionItems": what someone on the Airvues team needs to do next. Same bullet format. Include the owner in brackets when stated, e.g. "- [${me}] Send the updated quote by Friday". Empty string if none.
+- "questions": open questions for ${them} that came up during the call and still need an answer. Same bullet format. Empty string if none.
 
 Be specific and concrete. Do not fabricate details. If a section genuinely has nothing to report, return an empty string for it.`;
+}
 
 async function fetchAudioBase64(audioUrl: string): Promise<{ b64: string; mime: string } | null> {
   const resp = await fetch(audioUrl);
@@ -80,7 +101,10 @@ function extractJson(text: string): unknown {
   }
 }
 
-export async function analyzeMeeting(audioUrl: string): Promise<MeetingAnalysis> {
+export async function analyzeMeeting(
+  audioUrl: string,
+  opts: AnalyzeOpts = { channelLayout: "mono", recorderName: null, otherName: null },
+): Promise<MeetingAnalysis> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) {
     console.warn("[transcribe-meeting] LOVABLE_API_KEY missing");
@@ -98,7 +122,7 @@ export async function analyzeMeeting(audioUrl: string): Promise<MeetingAnalysis>
       {
         role: "user",
         content: [
-          { type: "text", text: PROMPT },
+          { type: "text", text: buildPrompt(opts) },
           // Gemini via OpenAI-compatible accepts audio as image_url data URI.
           { type: "image_url", image_url: { url: dataUrl } },
         ],

@@ -78,20 +78,33 @@ export async function createMeeting(
     const [created] = await createRecords(MEETINGS_TABLE, [{ fields }]);
     invalidate(created.id, input.linkedLeadId);
     // Fire-and-forget AI analysis. Best-effort; never blocks the upload.
-    waitUntil(analyzeMeetingInBackground(created.id, input.audioUrl, input.linkedLeadId));
+    waitUntil(
+      analyzeMeetingInBackground(created.id, input.audioUrl, input.linkedLeadId, {
+        channelLayout: input.channelLayout,
+        recorderName: input.recorderName,
+        otherName: input.otherName,
+      }),
+    );
     return { ok: true, id: created.id };
   } catch (e) {
     return { error: (e as Error).message };
   }
 }
 
+type SpeakerCtx = {
+  channelLayout: "mic-left/tab-right" | "mono";
+  recorderName: string | null;
+  otherName: string | null;
+};
+
 async function analyzeMeetingInBackground(
   id: string,
   audioUrl: string,
   leadId: string | null,
+  ctx: SpeakerCtx,
 ): Promise<void> {
   try {
-    const a = await analyzeMeeting(audioUrl);
+    const a = await analyzeMeeting(audioUrl, ctx);
     if (!a.transcript && !a.summary && !a.keyDecisions && !a.actionItems && !a.questions) {
       console.warn(`[meetings] analysis returned empty for ${id}`);
       await patchRecords(MEETINGS_TABLE, [{ id, fields: { Status: "Failed" } }]);
@@ -127,13 +140,26 @@ export async function regenerateMeetingAnalysis(id: string): Promise<MeetingMuta
   const g = await gate();
   if (g) return g;
   try {
-    const rec = await getRecord<{ "Audio URL"?: string; Lead?: string[] }>(MEETINGS_TABLE, id);
+    const rec = await getRecord<{
+      "Audio URL"?: string;
+      Lead?: string[];
+      "Lead Name"?: string[];
+      "Owner Name"?: string[];
+    }>(MEETINGS_TABLE, id);
     const audioUrl = rec.fields["Audio URL"];
     const leadId = rec.fields.Lead?.[0] ?? null;
+    const otherName = rec.fields["Lead Name"]?.[0] ?? null;
+    const recorderName = rec.fields["Owner Name"]?.[0] ?? null;
     if (!audioUrl) return { error: "Meeting has no audio URL." };
     await patchRecords(MEETINGS_TABLE, [{ id, fields: { Status: "Processing" } }]);
     invalidate(id, leadId);
-    const a = await analyzeMeeting(audioUrl);
+    // We don't persist channel layout — assume stereo (new recordings always
+    // are when mic was on). Gemini handles mono gracefully if not.
+    const a = await analyzeMeeting(audioUrl, {
+      channelLayout: "mic-left/tab-right",
+      recorderName,
+      otherName,
+    });
     await patchRecords(MEETINGS_TABLE, [
       {
         id,

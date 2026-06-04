@@ -40,9 +40,10 @@ type Props = {
   leadName: string | null;
   defaultTitle: string;
   source: MeetingSource;
+  recorderName?: string | null;
 };
 
-export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Props) {
+export function MeetingRecorder({ leadId, leadName, defaultTitle, source, recorderName }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -155,27 +156,45 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Prop
         setWarning("Mic access was denied — recording the meeting audio only.");
       }
 
-      // Mix tab audio + mic into a single stream via Web Audio.
+      // Build a stereo graph so the AI can tell who's talking:
+      //   LEFT  channel = your mic (the recorder)
+      //   RIGHT channel = tab audio (the other participants)
+      // If the mic was denied, fall back to mono tab audio.
       const ctx = new AudioContext({ latencyHint: "interactive" });
       audioCtxRef.current = ctx;
       const dest = ctx.createMediaStreamDestination();
 
       const tabSrc = ctx.createMediaStreamSource(new MediaStream(audioTracks));
-      tabSrc.connect(dest);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 1024;
 
       if (mic) {
         const micSrc = ctx.createMediaStreamSource(mic);
-        micSrc.connect(dest);
+        const merger = ctx.createChannelMerger(2);
+        // Force each source down to a single channel before merging so the
+        // resulting MediaStream is true stereo (mic = L, tab = R).
+        const micMono = ctx.createGain();
+        micMono.channelCount = 1;
+        micMono.channelCountMode = "explicit";
+        micMono.channelInterpretation = "speakers";
+        const tabMono = ctx.createGain();
+        tabMono.channelCount = 1;
+        tabMono.channelCountMode = "explicit";
+        tabMono.channelInterpretation = "speakers";
+        micSrc.connect(micMono);
+        tabSrc.connect(tabMono);
+        micMono.connect(merger, 0, 0); // → left
+        tabMono.connect(merger, 0, 1); // → right
+        merger.connect(dest);
+        // Tap both into the level meter so it reflects either speaker.
+        micMono.connect(analyser);
+        tabMono.connect(analyser);
+      } else {
+        // Mono fallback — tab audio only.
+        tabSrc.connect(dest);
+        tabSrc.connect(analyser);
       }
 
-      // Level meter (analyser hangs off the mixed destination via a tap).
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 1024;
-      tabSrc.connect(analyser);
-      if (mic) {
-        const micSrc2 = ctx.createMediaStreamSource(mic);
-        micSrc2.connect(analyser);
-      }
       analyserRef.current = analyser;
       const buf = new Uint8Array(analyser.frequencyBinCount);
       const tickLevel = () => {
@@ -266,6 +285,10 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Prop
         onUploadProgress: (p: { percentage: number }) => setUploadPct(p.percentage),
       });
       setStatus("saving");
+      const hadMic = !!micRef.current || chunksRef.current.length === 0; // micRef cleared on stop; trust the warning instead
+      const channelLayout: "mic-left/tab-right" | "mono" = warning
+        ? "mono"
+        : "mic-left/tab-right";
       const res = await createMeeting({
         title: title.trim() || defaultTitle,
         audioUrl: uploaded.url,
@@ -273,7 +296,12 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Prop
         sizeMb: blob.size / (1024 * 1024),
         source,
         linkedLeadId: leadId,
+        channelLayout,
+        recorderName: recorderName ?? null,
+        otherName: leadName ?? null,
       });
+      // Suppress unused var lint
+      void hadMic;
       if ("error" in res) {
         setStatus("error");
         setError(res.error);
@@ -285,7 +313,7 @@ export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Prop
       setStatus("error");
       setError((e as Error).message || "Upload failed.");
     }
-  }, [title, defaultTitle, elapsed, source, leadId]);
+  }, [title, defaultTitle, elapsed, source, leadId, leadName, recorderName, warning]);
 
   const discard = useCallback(() => {
     blobRef.current = null;

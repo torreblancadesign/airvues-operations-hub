@@ -23,6 +23,8 @@ export type Meeting = {
   questions: string | null;
 };
 
+export type MeetingChannelLayout = "mic-left/tab-right" | "mono";
+
 export type MeetingCreateInput = {
   title: string;
   audioUrl: string;
@@ -30,4 +32,9 @@ export type MeetingCreateInput = {
   sizeMb: number;
   source: MeetingSource;
   linkedLeadId: string | null;
+  // Speaker-labeling context (not persisted to Airtable — used at first
+  // analysis time only). On regenerate we fall back to Owner/Lead names.
+  channelLayout: MeetingChannelLayout;
+  recorderName: string | null;
+  otherName: string | null;
 };

@@ -1,42 +1,40 @@
-# Show linked meetings on the Lead drawer
+## Add meeting-recorder help instructions
 
-When a meeting is linked to a lead, surface its AI notes + transcript inside the `LeadSheet` drawer. Default to collapsed cards so the section stays compact; the user expands what they want to read.
+### Context
+The meeting recorder depends on three things the user must get right:
+1. Use Google Chrome (or Chromium-based browser).
+2. Allow pop-ups for Airvues so the recorder window can open.
+3. When Chrome asks what to share, pick the correct **browser tab** (not a window/screen) and tick **"Share tab audio"**.
 
-## UX
+Currently there is only a one-sentence hint inside the recorder popup. We should make this more visible and easy to follow.
 
-New section in `LeadSheet` titled **"Recorded meetings"**, placed just below the existing "Meeting Date / Link" details block.
+### Changes
 
-- Header: `Recorded meetings · N` with an eyebrow style matching the rest of the drawer.
-- Empty state (no linked meetings): hidden entirely — no section, no real-estate cost.
-- For each linked meeting, render one collapsed row:
-  - One-line summary: meeting title · date · duration · status pill (Processing / Ready / Failed) · link `Open ↗` to `/meetings/[id]`.
-  - Click the row to expand. Expanded content:
-    - `MeetingNotesPanel` (Summary / Key Decisions / Action Items / Follow-up Questions) — reuses the existing component.
-    - A second nested `<details>` for the raw transcript (kept collapsed even when the notes panel is expanded, since transcripts are long).
-- All rows start collapsed. Use native `<details>/<summary>` for zero-JS state + a11y, styled to match the drawer.
+#### 1. `/meetings` list page — add a prominent help block
+- Insert a collapsible `<details>` / `<summary>` block just under the `PageHeader` on `app/(app)/meetings/page.tsx`.
+- Label: "How to record a meeting"
+- Content (numbered, concise):
+  1. Use **Google Chrome**.
+  2. **Allow pop-ups** for this site (the recorder opens in a small popup window).
+  3. Click **New recording** or **Join + record** on a Lead.
+  4. When Chrome asks what to share, select the **browser tab** with your meeting and make sure **"Share tab audio"** is checked.
+  5. Your microphone is captured separately — speak normally.
+- Style with existing tokens (`bg-surface`, `border-rule`, `text-ink-muted`, `text-emerald` for emphasis). Keep it collapsed by default so it does not steal real estate.
 
-## Data flow
+#### 2. Recorder popup idle state — richer inline checklist
+- Replace the current single `<p>` hint in `MeetingRecorder.tsx` (`status === "idle"`) with a similar numbered checklist.
+- Keep it compact (small type, inside the same button panel) so it is visible before the user presses **Start recording**.
+- Re-use the same wording for consistency.
 
-`LeadSheet` is a client component, so meetings must be passed in as props from the server.
+#### 3. Pop-up blocked messages — minor copy polish
+- In `JoinAndRecordButton.tsx` and `NewRecordingButton.tsx`, keep the existing `alert(...)` but tweak the text to explicitly mention Chrome: "Pop-up was blocked. Please allow pop-ups for this site in **Chrome** so the recorder can open."
 
-1. `app/(app)/leads/page.tsx` — fetch meetings once and group:
-   - `const meetings = await listAllMeetings()` (new thin wrapper, mirrors `listMeetingsForLead` but for the whole table, cached under tags `["meetings", "airtable"]`).
-   - Build `meetingsByLead: Record<string, Meeting[]>` keyed by `linkedLeadId`, sorted newest first.
-   - Pass to `<LeadsDashboard meetingsByLead={...} />`.
-2. `components/leads/LeadsDashboard.tsx` — accept the new prop and forward it to `LeadSheet` (look up by selected lead id).
-3. `components/leads/LeadSheet.tsx` — accept `meetings: Meeting[]` (default `[]`), render the new section.
+### Out of scope
+- No new dependencies.
+- No backend changes.
+- No changes to the recording logic, transcript generation, or lead-linking UI.
 
-If `listAllMeetings` doesn't exist yet, add it to `lib/meetings.ts` next to `listMeetingsForLead` using the same `listRecordsCached` shape filtered to non-deleted rows.
-
-## Files touched
-
-- `lib/meetings.ts` — add `listAllMeetings()` (cached read).
-- `app/(app)/leads/page.tsx` — fetch + group + pass `meetingsByLead`.
-- `components/leads/LeadsDashboard.tsx` — accept + forward prop to the selected `LeadSheet`.
-- `components/leads/LeadSheet.tsx` — new "Recorded meetings" collapsible section using `MeetingNotesPanel`.
-
-## Out of scope
-
-- No edits to the meetings table or recorder.
-- No re-record / re-link UI inside the drawer (that already lives on `/meetings/[id]`).
-- No transcript search or copy buttons beyond what already exists.
+### Verification
+- `npx tsc --noEmit`
+- `npm run build`
+- Visual check: confirm the help block is collapsed by default on `/meetings`, and the recorder popup shows the checklist in idle state.

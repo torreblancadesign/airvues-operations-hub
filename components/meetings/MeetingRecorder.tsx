@@ -40,9 +40,10 @@ type Props = {
   leadName: string | null;
   defaultTitle: string;
   source: MeetingSource;
+  recorderName?: string | null;
 };
 
-export function MeetingRecorder({ leadId, leadName, defaultTitle, source }: Props) {
+export function MeetingRecorder({ leadId, leadName, defaultTitle, source, recorderName }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);

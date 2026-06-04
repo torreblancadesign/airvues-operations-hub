@@ -22,6 +22,8 @@ export type Story = {
   clientNames: string[];
   quoteIds: string[];
   quoteLabels: string[];
+  epicOwnerNames: string[];
+  comments: string;
   sprintIds: string[];
   sprintNumbers: number[];
   sprintStatuses: string[];

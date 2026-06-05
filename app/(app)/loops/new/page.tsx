@@ -7,6 +7,9 @@ import { getAppSession } from "@/lib/session";
 import { resolvePersonByEmail } from "@/lib/people";
 
 export const revalidate = 60;
+// Loop analysis (audio extraction + Gemini) runs via waitUntil from createLoop.
+// Give the underlying lambda enough headroom for ~20-min recordings.
+export const maxDuration = 300;
 
 export default async function NewLoopPage() {
   const [clientRows, quoteOpts, session] = await Promise.all([

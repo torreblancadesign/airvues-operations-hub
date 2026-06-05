@@ -16,6 +16,8 @@ import { listAllClients } from "@/lib/clients";
 import { listQuoteOptions } from "@/lib/quotes-light";
 
 export const revalidate = 60;
+// Regenerate analysis can re-run the ffmpeg + Gemini pipeline; give it room.
+export const maxDuration = 300;
 
 export default async function LoopDetailPage({
   params,

@@ -1,84 +1,75 @@
-## Mapping team language → our schema
+## Problem
 
-| Team term | Our schema |
-|---|---|
-| Saga | `Sagas` table (deferred — not needed now) |
-| **Epic** | `Quotes` table (a.k.a. proposal) |
-| **Story** | `Stories` table (proposal tasks) |
+`lib/transcribe.ts` inlines the whole video as base64 into a single Gemini chat completion and hard-caps at 20 MB. An 8-minute screen recording easily exceeds that, so analysis fails with `video too large` in Debug Status. We need to support recordings up to ~20 minutes without blowing past gateway limits.
 
-Wherever the StorySheet / Backlog currently says "Quote", we'll relabel to "Epic" in copy only (table + field names stay the same in Airtable). Internal code keeps using `quote*` to avoid a giant rename.
+## Root cause
 
----
+Two stacked constraints:
+1. **Inline data ceiling** — the Lovable AI Gateway's `image_url`/inline-data path tops out around 20 MB per request. Video at screen-recording bitrates hits this in 3–5 minutes.
+2. **We send the full video** even though 99% of the signal we care about (transcript, summary, action items, questions) is in the **audio track**. Video frames are only marginally useful for a "what did they say" summary.
 
-## 1. Make Sprint and Phase editable on the backlog
+## Approach: audio-only pipeline
 
-`Story.Phase` already exists as a single-select (`Phase 1 / 2 / 3`) but isn't editable anywhere in the app. `Story.📆Sprints` is only editable from `/sprints/[id]/plan`.
+Extract the audio track server-side, transcode to a compact mono Opus/MP3, and send **that** to Gemini instead of the video. Audio at 32 kbps mono is ~240 KB/min, so 20 minutes ≈ 5 MB — comfortably under the 20 MB inline cap with headroom for the JSON response.
 
-- **`lib/mutations/story.ts`**: extend `StoryPatch` with `phase?: string | null` and `sprintIds?: string[]`; map to `"Phase"` and `"📆Sprints"` in `buildStoryFields`.
-- **`lib/engineering-types.ts`**: add `phase: string | null` to `Story`.
-- **`lib/engineering.ts`**: read the `Phase` field into the Story shape.
-- **`components/engineering/StorySheet.tsx`**: add two new editable `Field` blocks — **Sprint** (select populated from a new `sprints` prop: `{id, label, status}[]`) and **Phase** (select: Phase 1 / 2 / 3 / —).
-- **`components/backlog/BacklogList.tsx`** + **`app/(app)/backlog/page.tsx`**: pass a `sprints` list down to StorySheet (reuse `getEngineeringBoard().sprints` or load via `lib/sprints.ts`).
-- The kanban drawer on `/sprints/[id]` reuses StorySheet — pass `sprints` there too.
+We keep the existing single-call Gemini flow (no webhook plumbing, no job polling), just swap the payload.
 
-(Inline edit directly in the BacklogRow is deferred; the drawer covers the same use case with less risk.)
+### Pipeline
 
-## 2. Agile language relabel
+```text
+Blob video URL
+   │
+   ▼
+fetch() stream  ──►  ffmpeg (audio-only, mono, 32kbps Opus in WebM)
+   │                          │
+   │                          ▼
+   │                   small audio Buffer  (≤ ~6 MB for 20 min)
+   │                          │
+   ▼                          ▼
+fall back to video    Gemini 2.5 Flash  (audio inline-data + same prompt)
+if extraction fails           │
+                              ▼
+                     transcript + 4 sections
+```
 
-- StorySheet: section label **"Quote" → "Epic"**, action button **"Open in Airtable ↗"** unchanged, but the section title and the URL anchor text become "Epic".
-- BacklogList table header: **"Quote" column → "Epic"**.
-- No data-model changes; pure copy.
+### ffmpeg on Vercel
 
-## 3. Epic Owner on Quotes (Proposals)
+This project runs on Vercel Node serverless (not Cloudflare Workers), so a static ffmpeg binary works. Use `ffmpeg-static` (ships a prebuilt binary, ~25 MB, well within Vercel's 250 MB lambda budget) and spawn it via `child_process`, piping the blob download into stdin and reading the Opus/WebM output from stdout — no `/tmp` writes needed.
 
-Goal: every Epic (Quote) has one main engineer responsible for delivery.
+Add `ffmpeg-static` to the function's `includeFiles` in `next.config.js` (or a `vercel.json` `functions` block) so the binary gets bundled into the lambda.
 
-- **Airtable schema change (manual, documented in plan output)**: add a new field `Epic Owner` on the `Quotes` table — `multipleRecordLinks` → `People`, single-select-style (we'll enforce one in UI). The user creates this field in Airtable; we then re-run `scripts/regenerate-schema` to refresh `lib/schema.ts`.
-- **`lib/pipeline.ts` + `lib/quote-types.ts`**: surface `epicOwnerId / epicOwnerName` on the `PipelineQuote` shape.
-- **`components/pipeline/QuoteSheetEditor.tsx`**: add an "Epic Owner" picker (reuse `PersonPicker`) that PATCHes Quotes.`Epic Owner`.
-- **`lib/mutations/quote.ts`**: extend the existing quote-update action with `epicOwnerId?: string | null`.
-- **StorySheet**: show the Epic Owner as read-only context under the Epic link ("Owner: Jane Doe") so engineers know who runs the proposal.
+### New caps
 
-## 4. Comments on stories
+- **Audio path:** raise `MAX_BYTES` to ~18 MB on the extracted audio (covers ~25 min at 32 kbps mono — comfortable margin for 20 min target).
+- **Source video:** allow up to ~500 MB download (we only stream it through ffmpeg, never hold it in memory; ffmpeg discards video frames on the fly with `-vn`).
+- **Hard timeout:** the route already runs as a Server Action invoked via `waitUntil()` from `createLoop`, so it isn't bound to the upload's request lifetime. Bump the function's `maxDuration` in the route config to 300s to cover long downloads + extraction + Gemini round-trip.
 
-Goal: engineers can explain blockers / why a story is incomplete.
+### Failure modes & fallbacks
 
-- **Airtable schema change**: add `Comments` (multilineText) field on `Stories` table. (Existing `Developer Notes` is close but unused/single-author-feeling — the team explicitly asked for "a comment section". A single multiline field is the minimum viable; threaded comments are out of scope.)
-- **`lib/engineering-types.ts`** + **`lib/engineering.ts`**: include `comments: string | null`.
-- **`lib/mutations/story.ts`**: extend `StoryPatch` with `comments?: string | null`.
-- **`components/engineering/StorySheet.tsx`**: new editable textarea block titled "Comments" with hint *"Use to explain blockers or why a story is incomplete."* Save on blur (same pattern as Description).
+- If `ffmpeg` spawn fails (missing binary, unexpected platform) → log to `Debug Status` and fall through to the **existing** video-inline path with the current 20 MB cap. No regression for short recordings.
+- If audio extraction succeeds but Gemini still returns non-JSON → same `extractJson` fallback already in place.
+- If the source video is >500 MB → record `Debug Status` explaining the cap; do not retry.
 
-If the team later wants per-author threaded comments, we'd promote this to a child Airtable table — flagged as deferred.
+## Changes
 
-## 5. Duplicate story → push duplicate to next sprint
+1. **`package.json`** — add `ffmpeg-static` dependency.
+2. **`lib/transcribe.ts`**
+   - New `extractAudio(videoUrl): Promise<{ data: Buffer; mime: string } | null>` helper that spawns the bundled ffmpeg with `-i pipe:0 -vn -ac 1 -b:a 32k -f webm -c:a libopus pipe:1`, streams the fetched video into stdin, and buffers stdout.
+   - `analyzeLoop()` tries audio extraction first; on success, sends the audio buffer to Gemini with `mime_type: "audio/webm"`. On failure, logs the reason and falls back to the current video-inline path.
+   - Bump `MAX_BYTES` to 18 MB; add `MAX_VIDEO_DOWNLOAD_BYTES = 500 MB`.
+   - Keep the same prompt and JSON contract — no schema changes.
+3. **`next.config.js`** — add `outputFileTracingIncludes` for the loops mutation entry so the ffmpeg binary is bundled into the serverless function.
+4. **Server Action route hint** — declare `export const maxDuration = 300` on the loop-creation entry path (already a `waitUntil`'d background task, so this only affects the background analyzer, not the user-facing upload).
 
-Use case: a story turns out to be bigger than expected; engineer wants to clone it and move the clone to next sprint as a placeholder (knowing it may later be split).
+## What does NOT change
 
-- **`lib/mutations/story.ts`**: new action `duplicateStoryToNextSprint(storyId)`:
-  1. `requireRole("admin","lead","engineer","editor")`.
-  2. Load the source story (fields: Story Name, Hours, Invoice, Priority, Assignee, Quote, Description, Phase, current Sprint).
-  3. Resolve "next sprint" = the `Sprints` record whose `Sprint Status === "Next"`. If none, return `{ error: "No 'Next' sprint exists — create one in /sprints first." }`.
-  4. `createRecords(Stories)` with: `Story Name = "<original> (cont.)"`, same Hours/Invoice/Priority/Assignee/Quote/Phase/Description, `Story Status = "Todo"`, `📆Sprints = [nextSprintId]`.
-  5. Invalidate caches.
-- **StorySheet action bar**: new "Duplicate → Next sprint" button (visible when `canEdit`), with a confirm modal:
-  > "This will create a copy of *<story name>* in the next sprint. You can split it later if needed."
-- After success, flash "Created story #N in Sprint #M" + a link.
+- Upload flow, Blob storage, share tokens, view counts, UI components, RLS/role gating, schema.
+- The prompt and the 5 returned fields.
+- Short videos still work identically (audio path just makes them faster).
 
----
+## Out of scope (deferred)
 
-## Out of scope / deferred
-
-- Saga UI (team said "not important for now").
-- Inline-edit Sprint/Phase directly in the backlog row (drawer covers it).
-- Threaded/per-author comments (single multiline first).
-- Auto-splitting a duplicated story across sprints (manual today; just duplicates).
-
-## Manual Airtable steps the user must do before code ships
-
-1. Add `Epic Owner` (multipleRecordLinks → People) on the **Quotes** table.
-2. Add `Comments` (multilineText) on the **Stories** table.
-3. Ping me to re-run `scripts/regenerate-schema` so `lib/schema.ts` picks up the two new field IDs.
-
-## Verification
-
-`npx tsc --noEmit` → `npm run build` → in preview: open a backlog story, edit Sprint + Phase + Comments; on `/pipeline` set an Epic Owner; click "Duplicate → Next sprint" and confirm a new Todo story appears in the Next sprint.
+- Chunking >20-min recordings into multiple Gemini calls and stitching transcripts.
+- Switching to Gemini Files API for true multi-hour uploads.
+- Speaker diarization or timestamps.
+- A "Regenerate" button on the UI for stuck videos (already exists via `regenerateLoopAnalysis`).

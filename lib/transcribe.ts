@@ -159,7 +159,7 @@ async function extractAudio(
         resolve(null);
         return;
       }
-      const out = Buffer.concat(chunks);
+      const out = Buffer.concat(chunks as unknown as Uint8Array[]);
       log.push(`audio: ${(out.byteLength / 1024 / 1024).toFixed(2)}MB`);
       if (out.byteLength === 0) {
         resolve(null);

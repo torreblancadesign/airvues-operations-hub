@@ -51,10 +51,6 @@ type StoryFields = {
   "User (from Assignee)"?: string[];
 };
 
-function first<T>(x: T[] | undefined): T | null {
-  return Array.isArray(x) && x.length > 0 ? x[0] : null;
-}
-
 // Airtable rich-text / formula / rollup fields occasionally return non-string
 // values (objects like { specialValue: "NaN" }, arrays from rollups, etc.).
 // Coerce to a safe string so downstream React renders + .trim() calls never throw.

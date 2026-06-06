@@ -63,7 +63,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     assigneeNames = assigneeIds.map((id) => map.get(id) ?? "(unknown)");
   }
 
-  const clientNames = asArray<string>(f["Client Name (from Quote)"]);
+  const clientNames = asStringArray(f["Client Name (from Quote)"]);
   const invoice = (f["Invoice"] as number) ?? 0;
 
   let quoteLabels: string[] = [];

@@ -26,7 +26,7 @@ export function PersonPicker({ value, options, onChange, disabled, placeholder }
     return options
       .filter(
         (o) =>
-          o.name.toLowerCase().includes(q) ||
+          (o.name ?? "").toLowerCase().includes(q) ||
           (o.email ?? "").toLowerCase().includes(q),
       )
       .slice(0, 50);

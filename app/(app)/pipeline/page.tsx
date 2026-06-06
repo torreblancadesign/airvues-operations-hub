@@ -2,6 +2,7 @@
 
 import { listAllQuotes } from "@/lib/pipeline";
 import { listPeopleOptions } from "@/lib/quotes";
+import { listSprintOptions } from "@/lib/sprints";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { PipelineDashboard } from "@/components/pipeline/PipelineDashboard";
 import { assertCanAccess } from "@/lib/page-guard";
@@ -11,9 +12,14 @@ export default async function PipelinePage() {
   await assertCanAccess("/pipeline");
   let quotes: Awaited<ReturnType<typeof listAllQuotes>> = [];
   let people: Awaited<ReturnType<typeof listPeopleOptions>> = [];
+  let sprints: Awaited<ReturnType<typeof listSprintOptions>> = [];
   let error: string | null = null;
   try {
-    [quotes, people] = await Promise.all([listAllQuotes(), listPeopleOptions()]);
+    [quotes, people, sprints] = await Promise.all([
+      listAllQuotes(),
+      listPeopleOptions(),
+      listSprintOptions(),
+    ]);
   } catch (e) {
     error = (e as Error).message;
   }
@@ -41,7 +47,7 @@ export default async function PipelinePage() {
           ⚠ Failed to load quotes: {error}
         </div>
       ) : (
-        <PipelineDashboard quotes={quotes} people={people} canEdit={canEdit} />
+        <PipelineDashboard quotes={quotes} people={people} sprints={sprints} canEdit={canEdit} />
       )}
     </main>
   );

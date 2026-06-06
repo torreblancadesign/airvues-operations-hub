@@ -6,10 +6,9 @@ export type EngineerCapacity = {
   name: string;
   role: string | null;
   capacity: number;
+  hasCapacityOverride: boolean;
   committedHours: number;
   committedStories: Story[];
-  committedInvoice: number;
-  committedCommission: number;
   utilizationPct: number;
 };
 
@@ -22,13 +21,13 @@ export type SprintPlan = {
   sprintEnd: string | null;
   sprintGoals: string | null;
   engineers: EngineerCapacity[];
-  backlog: Story[];
+  pool: Story[];
   totalCapacity: number;
   totalCommitted: number;
   totalFree: number;
   airtableUrl: string;
 };
 
-// Default capacity per engineer per sprint. TODO Phase D.5: per-engineer override
-// via People.Weekly Capacity Hours field once schema lands.
+// Default capacity per engineer per sprint when no override row exists in
+// the 🟢 Sprint Capacity table.
 export const DEFAULT_CAPACITY_HOURS = 80;

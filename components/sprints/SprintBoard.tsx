@@ -9,10 +9,12 @@ import { StorySheet } from "@/components/engineering/StorySheet";
 import { KanbanCard } from "./KanbanCard";
 
 type EngineerOption = { id: string; name: string };
+type SprintOption = { id: string; number: number | null; status: string | null };
 
 type Props = {
   sprint: SprintDetail;
   engineers: EngineerOption[];
+  sprints?: SprintOption[];
   canEdit: boolean;
 };
 
@@ -33,7 +35,7 @@ const COLUMN_META: Record<KanbanColumn, { color: string; bg: string }> = {
   Completed: { color: "text-violet", bg: "bg-violet/10" },
 };
 
-export function SprintBoard({ sprint, engineers, canEdit }: Props) {
+export function SprintBoard({ sprint, engineers, sprints = [], canEdit }: Props) {
   const router = useRouter();
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [openStory, setOpenStory] = useState<Story | null>(null);
@@ -198,6 +200,7 @@ export function SprintBoard({ sprint, engineers, canEdit }: Props) {
       <StorySheet
         story={openStory}
         engineers={engineers}
+        sprints={sprints}
         canEdit={canEdit}
         onClose={() => setOpenStory(null)}
         onFilterByEngineer={(id) => {

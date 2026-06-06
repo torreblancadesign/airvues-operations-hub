@@ -585,35 +585,61 @@ export function StorySheet({
           </Field>
 
           {/* Client shown in the top Context block */}
-          <Field label="Sprint">
-            {canEdit && sprints.length > 0 ? (
-              <select
-                value={current.sprintIds[0] ?? ""}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const ids = id ? [id] : [];
-                  const opt = sprints.find((s) => s.id === id);
-                  save(
-                    {
-                      sprintIds: ids,
-                      sprintNumbers: opt?.number != null ? [opt.number] : [],
-                      sprintStatuses: opt?.status ? [opt.status] : [],
-                    },
-                    { sprintIds: ids },
-                  );
-                }}
-                disabled={pending}
-                className={`${inputCls} w-full`}
-              >
-                <option value="">— backlog (no sprint) —</option>
-                {sprints.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.number != null ? `Sprint #${s.number}` : "Sprint"}
-                    {s.status ? ` · ${s.status}` : ""}
-                  </option>
-                ))}
-              </select>
-            ) : sprintNum != null ? (
+          <Field
+            label="Sprint"
+            hint={canEdit && sprints.length > 0 ? "Only current and upcoming sprints can be selected." : undefined}
+          >
+            {canEdit && sprints.length > 0 ? (() => {
+              const currentSprintId = current.sprintIds[0] ?? "";
+              // Selectable = current or upcoming only.
+              const selectable = sprints
+                .filter((s) => s.status === "In Progress" || s.status === "Next")
+                .sort((a, b) => {
+                  // In Progress first, then Next by number asc
+                  if (a.status !== b.status) return a.status === "In Progress" ? -1 : 1;
+                  return (a.number ?? 0) - (b.number ?? 0);
+                });
+              // Keep current sprint visible even if it's past (Done), so the
+              // value renders — but users can only pick from `selectable`.
+              const currentOpt =
+                currentSprintId && !selectable.some((s) => s.id === currentSprintId)
+                  ? sprints.find((s) => s.id === currentSprintId)
+                  : null;
+              return (
+                <select
+                  value={currentSprintId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const ids = id ? [id] : [];
+                    const opt = sprints.find((s) => s.id === id);
+                    save(
+                      {
+                        sprintIds: ids,
+                        sprintNumbers: opt?.number != null ? [opt.number] : [],
+                        sprintStatuses: opt?.status ? [opt.status] : [],
+                      },
+                      { sprintIds: ids },
+                    );
+                  }}
+                  disabled={pending}
+                  className={`${inputCls} w-full`}
+                >
+                  <option value="">— backlog (no sprint) —</option>
+                  {currentOpt && (
+                    <option key={currentOpt.id} value={currentOpt.id}>
+                      {currentOpt.number != null ? `Sprint #${currentOpt.number}` : "Sprint"}
+                      {currentOpt.status ? ` · ${currentOpt.status} (past)` : ""}
+                    </option>
+                  )}
+                  {selectable.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.number != null ? `Sprint #${s.number}` : "Sprint"}
+                      {s.status ? ` · ${s.status}` : ""}
+                    </option>
+                  ))}
+                </select>
+              );
+            })() : sprintNum != null ? (
               <span className="font-mono">
                 #{sprintNum}
                 {sprintStatus && <span className="text-ink-muted"> · {sprintStatus}</span>}

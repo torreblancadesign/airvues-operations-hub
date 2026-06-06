@@ -144,3 +144,17 @@ export async function getCurrentSprintId(): Promise<string | null> {
   }
   return latest?.id ?? null;
 }
+
+// Lightweight list used by the StorySheet sprint picker. id + number + status only.
+export async function listSprintOptions(): Promise<
+  { id: string; number: number | null; status: string | null }[]
+> {
+  const sprintRecords = await fetchAllSprints();
+  return sprintRecords
+    .map((r) => ({
+      id: r.id,
+      number: (r.fields["Sprint Number"] as number) ?? null,
+      status: (r.fields["Sprint Status"] as string) ?? null,
+    }))
+    .sort((a, b) => (b.number ?? 0) - (a.number ?? 0));
+}

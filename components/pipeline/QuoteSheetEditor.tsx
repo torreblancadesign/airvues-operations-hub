@@ -33,10 +33,13 @@ import { PersonPicker } from "./PersonPicker";
 import { QuoteStoriesTable } from "./QuoteStoriesTable";
 import { NewQuoteStoryModal } from "./NewQuoteStoryModal";
 
+type SprintOption = { id: string; number: number | null; status: string | null };
+
 type Props = {
   quoteId: string;
   initial?: QuoteDetail | null;
   people: PersonOption[];
+  sprints: SprintOption[];
   canEdit: boolean;
 };
 
@@ -627,7 +630,7 @@ function CreateAiProposalRow({
 // ---------- Main editor ----------
 
 
-export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
+export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }: Props) {
   const router = useRouter();
   const [quote, setQuote] = useState<QuoteDetail | null>(initial ?? null);
   const [loading, setLoading] = useState(!initial);
@@ -790,7 +793,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
         >
           <PersonPicker
             value={quote.epicOwnerId}
-            options={people.filter((p) => p.isInternal)}
+            options={people.filter((p) => p.isInternal && p.isActive)}
             disabled={!canEdit}
             placeholder="Pick the lead engineer"
             onChange={(id) => void patchAndRefresh("epicOwnerId", { epicOwnerId: id })}
@@ -1050,6 +1053,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           <StorySheet
             story={selectedStory}
             engineers={people.filter((p) => p.isInternal && p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+            sprints={sprints}
             canEdit={canEdit}
             onClose={closeStory}
             onDeleted={() => {

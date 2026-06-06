@@ -630,7 +630,7 @@ function CreateAiProposalRow({
 // ---------- Main editor ----------
 
 
-export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
+export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }: Props) {
   const router = useRouter();
   const [quote, setQuote] = useState<QuoteDetail | null>(initial ?? null);
   const [loading, setLoading] = useState(!initial);
@@ -1053,6 +1053,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           <StorySheet
             story={selectedStory}
             engineers={people.filter((p) => p.isInternal && p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+            sprints={sprints}
             canEdit={canEdit}
             onClose={closeStory}
             onDeleted={() => {

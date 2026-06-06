@@ -167,6 +167,32 @@ function asArray<T = unknown>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
 }
 
+// Airtable linked-record fields normally return string[] of record IDs, but
+// Collaborator/User fields return [{id, email, name}, ...]. Coerce both to
+// string[] of IDs so downstream code (and React renders) never see objects.
+function asIdArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item === "string") out.push(item);
+    else if (item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string") {
+      out.push((item as { id: string }).id);
+    }
+  }
+  return out;
+}
+
+// Lookup/rollup arrays can contain null or non-string entries when an
+// underlying linked record is missing the looked-up value. Drop those.
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string");
+}
+
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
 export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   const sTbl = Tables.Stories;
   const pTbl = Tables.People;

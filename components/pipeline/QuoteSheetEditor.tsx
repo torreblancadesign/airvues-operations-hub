@@ -1040,19 +1040,24 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
         onCreated={(next) => setQuote(next)}
       />
 
-      <StorySheet
-        story={selectedStory}
-        engineers={people.filter((p) => p.isInternal && p.isActive).map((p) => ({ id: p.id, name: p.name }))}
-        canEdit={canEdit}
-        onClose={closeStory}
-        onDeleted={() => {
-          loadQuoteDetail(quoteId).then((res) => {
-            if ("ok" in res) setQuote(res.quote);
-          });
-        }}
-        onFilterByEngineer={() => {}}
-        onFilterByClient={() => {}}
-      />
-    </>
-  );
-}
+      {selectedStory && (
+        <DrawerErrorBoundary
+          airtableUrl={selectedStory.airtableUrl}
+          onClose={closeStory}
+          label="This story"
+        >
+          <StorySheet
+            story={selectedStory}
+            engineers={people.filter((p) => p.isInternal && p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+            canEdit={canEdit}
+            onClose={closeStory}
+            onDeleted={() => {
+              loadQuoteDetail(quoteId).then((res) => {
+                if ("ok" in res) setQuote(res.quote);
+              });
+            }}
+            onFilterByEngineer={() => {}}
+            onFilterByClient={() => {}}
+          />
+        </DrawerErrorBoundary>
+      )}

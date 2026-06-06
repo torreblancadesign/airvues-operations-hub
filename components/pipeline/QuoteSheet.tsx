@@ -146,9 +146,9 @@ export function QuoteSheet({ quote, people, canEdit, onClose, onFilterByClient }
         </div>
 
         {/* Editable body */}
-        <QuoteSheetErrorBoundary airtableUrl={quote.airtableUrl} onClose={onClose}>
+        <DrawerErrorBoundary airtableUrl={quote.airtableUrl} onClose={onClose} label="This quote">
           <QuoteSheetEditor quoteId={quote.id} people={people} canEdit={canEdit} />
-        </QuoteSheetErrorBoundary>
+        </DrawerErrorBoundary>
 
       </aside>
     </>,

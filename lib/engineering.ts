@@ -310,19 +310,20 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
 
   const stories: Story[] = storyRecords.map((r) => {
     const f = r.fields;
-    const status = (f["Story Status"] as string) ?? null;
-    const invoice = (f["Invoice"] as number) ?? 0;
-    const assigneeIds = asArray<string>(f["Assignee"]);
-    const clientIds = asArray<string>(f["Client"]);
-    const quoteIds = asArray<string>(f["Quote"]);
-    const sprintIds = asArray<string>(f["📆Sprints"]);
-    const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
-    const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
-    const sprintEnds = asArray<string>(f["Sprint End (from 📆Sprints)"]);
+    const status = asStr(f["Story Status"]) || null;
+    const invoice = typeof f["Invoice"] === "number" ? (f["Invoice"] as number) : 0;
+    const assigneeIds = asIdArray(f["Assignee"]);
+    const clientIds = asIdArray(f["Client"]);
+    const quoteIds = asIdArray(f["Quote"]);
+    const sprintIds = asIdArray(f["📆Sprints"]);
+    const sprintNumbers = (asArray<unknown>(f["Sprint Number (from 📆Sprints)"]))
+      .filter((x): x is number => typeof x === "number");
+    const sprintStatuses = asStringArray(f["Sprint Status (from 📆Sprints)"]);
+    const sprintEnds = asStringArray(f["Sprint End (from 📆Sprints)"]);
 
 
     const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
-    const clientNames = asArray<string>(f["Client Name (from Quote)"]);
+    const clientNames = asStringArray(f["Client Name (from Quote)"]);
 
     return {
       id: r.id,

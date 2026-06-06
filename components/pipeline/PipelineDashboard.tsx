@@ -94,9 +94,11 @@ function applySort(rows: PipelineQuote[], s: Sort): PipelineQuote[] {
 
 import type { PersonOption } from "@/lib/quote-types";
 
-type Props = { quotes: PipelineQuote[]; people: PersonOption[]; canEdit: boolean };
+type SprintOption = { id: string; number: number | null; status: string | null };
 
-export function PipelineDashboard({ quotes, people, canEdit }: Props) {
+type Props = { quotes: PipelineQuote[]; people: PersonOption[]; sprints: SprintOption[]; canEdit: boolean };
+
+export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
   const [filter, setFilter] = useState<Filter>(EMPTY_FILTER);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<PipelineQuote | null>(null);
@@ -282,6 +284,7 @@ export function PipelineDashboard({ quotes, people, canEdit }: Props) {
       <QuoteSheet
         quote={selected}
         people={people}
+        sprints={sprints}
         canEdit={canEdit}
         onClose={() => setSelected(null)}
         onFilterByClient={(client) => {

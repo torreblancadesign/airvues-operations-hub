@@ -9,9 +9,12 @@ import { QuoteSheetEditor } from "./QuoteSheetEditor";
 import { DrawerErrorBoundary } from "./DrawerErrorBoundary";
 
 
+type SprintOption = { id: string; number: number | null; status: string | null };
+
 type Props = {
   quote: PipelineQuote | null;
   people: PersonOption[];
+  sprints: SprintOption[];
   canEdit: boolean;
   onClose: () => void;
   onFilterByClient: (client: string) => void;
@@ -25,7 +28,7 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
-export function QuoteSheet({ quote, people, canEdit, onClose, onFilterByClient }: Props) {
+export function QuoteSheet({ quote, people, sprints, canEdit, onClose, onFilterByClient }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -147,7 +150,7 @@ export function QuoteSheet({ quote, people, canEdit, onClose, onFilterByClient }
 
         {/* Editable body */}
         <DrawerErrorBoundary airtableUrl={quote.airtableUrl} onClose={onClose} label="This quote">
-          <QuoteSheetEditor quoteId={quote.id} people={people} canEdit={canEdit} />
+          <QuoteSheetEditor quoteId={quote.id} people={people} sprints={sprints} canEdit={canEdit} />
         </DrawerErrorBoundary>
 
       </aside>

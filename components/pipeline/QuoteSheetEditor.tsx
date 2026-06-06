@@ -33,10 +33,13 @@ import { PersonPicker } from "./PersonPicker";
 import { QuoteStoriesTable } from "./QuoteStoriesTable";
 import { NewQuoteStoryModal } from "./NewQuoteStoryModal";
 
+type SprintOption = { id: string; number: number | null; status: string | null };
+
 type Props = {
   quoteId: string;
   initial?: QuoteDetail | null;
   people: PersonOption[];
+  sprints: SprintOption[];
   canEdit: boolean;
 };
 

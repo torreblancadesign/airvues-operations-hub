@@ -92,7 +92,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
       const qid = (qf["Quote ID"] as string) ?? "";
       const label = [company, project].filter(Boolean).join(" · ") || qid || "(quote)";
       qmap.set(q.id, label);
-      ownerMap.set(q.id, asArray<string>(qf["Epic Owner"]));
+      ownerMap.set(q.id, asIdArray(qf["Epic Owner"]));
     }
     quoteLabels = quoteIds.map((id) => qmap.get(id) ?? "(quote)");
     const allOwnerIds = quoteIds.flatMap((id) => ownerMap.get(id) ?? []);

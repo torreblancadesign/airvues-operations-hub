@@ -12,6 +12,7 @@ import {
 } from "@/lib/mutations/quote";
 import type { Story } from "@/lib/engineering-types";
 import { StorySheet } from "@/components/engineering/StorySheet";
+import { DrawerErrorBoundary } from "./DrawerErrorBoundary";
 import type {
   PersonOption,
   QuoteAttachment,

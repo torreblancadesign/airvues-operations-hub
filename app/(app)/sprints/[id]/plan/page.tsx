@@ -1,11 +1,13 @@
 // /sprints/[id]/plan — capacity planning for a single sprint.
-// Engineer rows with hours bars; backlog pool below with per-engineer plan chips.
-// Default capacity is 80h/engineer; see DEFAULT_CAPACITY_HOURS in lib/sprint-plan-types.ts.
+// Engineer rows with editable per-sprint capacity; story pool below.
+// Capacity defaults to DEFAULT_CAPACITY_HOURS until an override is saved
+// in the 🟢 Sprint Capacity table.
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SprintPlanBoard } from "@/components/sprints/SprintPlanBoard";
 import { getSprintPlan } from "@/lib/sprint-plan";
+import { listSprintOptions } from "@/lib/sprints";
 import { canMutate } from "@/lib/authz";
 import { assertCanAccess } from "@/lib/page-guard";
 
@@ -28,7 +30,10 @@ function statusPill(status: string | null): { text: string; cls: string } {
 export default async function SprintPlanPage({ params }: { params: Params }) {
   await assertCanAccess("/sprints");
   const editable = await canMutate();
-  const plan = await getSprintPlan(params.id);
+  const [plan, sprints] = await Promise.all([
+    getSprintPlan(params.id),
+    listSprintOptions(),
+  ]);
   if (!plan) notFound();
 
   const pill = statusPill(plan.sprintStatus);
@@ -39,7 +44,7 @@ export default async function SprintPlanPage({ params }: { params: Params }) {
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <PageHeader
         title={`Plan ${plan.sprintNumber != null ? `Sprint #${plan.sprintNumber}` : plan.sprintName}`}
-        subtitle={plan.sprintGoals ?? "Balance hours across engineers. Pull stories from the backlog into the sprint."}
+        subtitle={plan.sprintGoals ?? "Edit each engineer's capacity for this sprint, then add stories from the pool."}
         meta={
           <>
             <div className="flex items-center justify-end gap-2 mb-1">
@@ -67,7 +72,7 @@ export default async function SprintPlanPage({ params }: { params: Params }) {
           </>
         }
       />
-      <SprintPlanBoard plan={plan} canEdit={editable} />
+      <SprintPlanBoard plan={plan} sprints={sprints} canEdit={editable} />
     </main>
   );
 }

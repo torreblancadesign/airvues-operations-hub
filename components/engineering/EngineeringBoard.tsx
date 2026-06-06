@@ -277,7 +277,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
       <StorySheet
         story={selected}
         engineers={assignableEngineers}
-
+        sprints={data.sprintOptions}
         canEdit={canEdit}
         onClose={() => setSelected(null)}
         onFilterByEngineer={(engineerId) => {

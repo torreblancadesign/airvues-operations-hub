@@ -76,7 +76,7 @@ export default async function SprintDetailPage({ params }: { params: Params }) {
           </>
         }
       />
-      <SprintBoard sprint={sprint} engineers={engineers} canEdit={editable} />
+      <SprintBoard sprint={sprint} engineers={engineers} sprints={board.sprintOptions} canEdit={editable} />
     </main>
   );
 }

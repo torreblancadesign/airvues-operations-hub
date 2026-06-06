@@ -62,6 +62,30 @@ function asStr(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+// Linked-record fields normally return string[] of record IDs, but
+// Collaborator/User fields return [{id, email, name}, ...]. Coerce both.
+function asIdArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item === "string") out.push(item);
+    else if (item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string") {
+      out.push((item as { id: string }).id);
+    }
+  }
+  return out;
+}
+
+function firstId(v: unknown): string | null {
+  const arr = asIdArray(v);
+  return arr.length > 0 ? arr[0] : null;
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string");
+}
+
 
 export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
   const t = Tables.Quotes;

@@ -1061,3 +1061,6 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
           />
         </DrawerErrorBoundary>
       )}
+    </>
+  );
+}

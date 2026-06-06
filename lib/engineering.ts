@@ -280,7 +280,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const quoteId = (f["Quote ID"] as string) ?? "";
     const label = [company, project].filter(Boolean).join(" · ") || quoteId || "(quote)";
     quoteMap.set(q.id, label);
-    quoteOwnerMap.set(q.id, asArray<string>(f["Epic Owner"]));
+    quoteOwnerMap.set(q.id, asIdArray(f["Epic Owner"]));
   }
 
   type PersonRow = {

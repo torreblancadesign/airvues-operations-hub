@@ -28,13 +28,14 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
   }
   const f = rec.fields;
 
-  const assigneeIds = asArray<string>(f["Assignee"]);
-  const clientIds = asArray<string>(f["Client"]);
-  const quoteIds = asArray<string>(f["Quote"]);
-  const sprintIds = asArray<string>(f["📆Sprints"]);
-  const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
-  const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
-  const sprintEnds = asArray<string>(f["Sprint End (from 📆Sprints)"]);
+  const assigneeIds = asIdArray(f["Assignee"]);
+  const clientIds = asIdArray(f["Client"]);
+  const quoteIds = asIdArray(f["Quote"]);
+  const sprintIds = asIdArray(f["📆Sprints"]);
+  const sprintNumbers = (asArray<unknown>(f["Sprint Number (from 📆Sprints)"]))
+    .filter((x): x is number => typeof x === "number");
+  const sprintStatuses = asStringArray(f["Sprint Status (from 📆Sprints)"]);
+  const sprintEnds = asStringArray(f["Sprint End (from 📆Sprints)"]);
 
   let assigneeNames: string[] = [];
   if (assigneeIds.length > 0) {

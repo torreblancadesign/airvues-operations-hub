@@ -358,7 +358,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       completedDate: asStr(f["Completed Date"]) || null,
       payStatus: asStringArray(f["Pay Status (from Quote)"]),
       description: asStr(f["Description"]),
-      comments: (f["Comments"] as string) ?? "",
+      comments: asStr(f["Comments"]),
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
     };
   });

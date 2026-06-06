@@ -125,8 +125,8 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
       .filter((r): r is NonNullable<typeof r> => Boolean(r))
       .map((r) => {
         const sf = r.fields;
-        const assigneeIds = (sf["Assignee"] as string[] | undefined) ?? [];
-        const assigneeNames = (sf["User (from Assignee)"] as string[] | undefined) ?? [];
+        const assigneeIds = asIdArray(sf["Assignee"]);
+        const assigneeNames = asStringArray(sf["User (from Assignee)"]);
         return {
           id: r.id,
           name: asStr(sf["Story Name"]) || "(untitled)",
@@ -139,7 +139,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
                 ? (sf["Invoice"] as number)
                 : null,
           clientNotes: asStr(sf["Client Notes"]),
-          status: (sf["Story Status"] as string) ?? null,
+          status: asStr(sf["Story Status"]) || null,
           assignees: assigneeIds.map((id, i) => ({
             id,
             name: assigneeNames[i] ?? "(unknown)",

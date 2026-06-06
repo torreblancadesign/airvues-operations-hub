@@ -790,7 +790,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, canEdit }: Props) {
         >
           <PersonPicker
             value={quote.epicOwnerId}
-            options={people.filter((p) => p.isInternal)}
+            options={people.filter((p) => p.isInternal && p.isActive)}
             disabled={!canEdit}
             placeholder="Pick the lead engineer"
             onChange={(id) => void patchAndRefresh("epicOwnerId", { epicOwnerId: id })}

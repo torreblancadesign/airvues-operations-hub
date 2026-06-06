@@ -216,17 +216,21 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
   return rows
     .map((r) => {
       const f = r.fields;
+      const fullName = asStr(f["Full Name"]);
+      const firstName = asStr(f["First Name"]);
+      const lastName = asStr(f["Last Name"]);
+      const email = asStr(f["Primary Email"]);
       const name =
-        (f["Full Name"] as string) ||
-        [f["First Name"], f["Last Name"]].filter(Boolean).join(" ").trim() ||
-        (f["Primary Email"] as string) ||
+        fullName ||
+        [firstName, lastName].filter(Boolean).join(" ").trim() ||
+        email ||
         "(no name)";
-      const type = (f["Type"] as string) ?? null;
-      const status = (f["Status"] as string) ?? null;
+      const type = asStr(f["Type"]) || null;
+      const status = asStr(f["Status"]) || null;
       return {
         id: r.id,
         name,
-        email: (f["Primary Email"] as string) ?? null,
+        email: email || null,
         isInternal: type === "Internal" || type === "Internal team member",
         isActive: status === "Active",
       };

@@ -51,15 +51,35 @@ type StoryFields = {
   "User (from Assignee)"?: string[];
 };
 
-function first<T>(x: T[] | undefined): T | null {
-  return Array.isArray(x) && x.length > 0 ? x[0] : null;
-}
-
 // Airtable rich-text / formula / rollup fields occasionally return non-string
 // values (objects like { specialValue: "NaN" }, arrays from rollups, etc.).
 // Coerce to a safe string so downstream React renders + .trim() calls never throw.
 function asStr(v: unknown): string {
   return typeof v === "string" ? v : "";
+}
+
+// Linked-record fields normally return string[] of record IDs, but
+// Collaborator/User fields return [{id, email, name}, ...]. Coerce both.
+function asIdArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item === "string") out.push(item);
+    else if (item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string") {
+      out.push((item as { id: string }).id);
+    }
+  }
+  return out;
+}
+
+function firstId(v: unknown): string | null {
+  const arr = asIdArray(v);
+  return arr.length > 0 ? arr[0] : null;
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string");
 }
 
 
@@ -101,8 +121,8 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
       .filter((r): r is NonNullable<typeof r> => Boolean(r))
       .map((r) => {
         const sf = r.fields;
-        const assigneeIds = (sf["Assignee"] as string[] | undefined) ?? [];
-        const assigneeNames = (sf["User (from Assignee)"] as string[] | undefined) ?? [];
+        const assigneeIds = asIdArray(sf["Assignee"]);
+        const assigneeNames = asStringArray(sf["User (from Assignee)"]);
         return {
           id: r.id,
           name: asStr(sf["Story Name"]) || "(untitled)",
@@ -115,7 +135,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
                 ? (sf["Invoice"] as number)
                 : null,
           clientNotes: asStr(sf["Client Notes"]),
-          status: (sf["Story Status"] as string) ?? null,
+          status: asStr(sf["Story Status"]) || null,
           assignees: assigneeIds.map((id, i) => ({
             id,
             name: assigneeNames[i] ?? "(unknown)",
@@ -136,14 +156,14 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
   return {
     id: rec.id,
     projectName: asStr(f["Project Name"]),
-    preparedById: first(f["Prepared by"] as string[] | undefined),
-    preparedByName: first(f["Prepared By Name"] as string[] | undefined),
-    preparedDate: (f["Prepared Date"] as string) ?? null,
-    preparedForId: first(f["Prepared for"] as string[] | undefined),
-    preparedForName: first(f["Client Name"] as string[] | undefined),
-    projectStatus: (f["Project Status"] as string) ?? null,
-    proposalType: (f["Proposal Type"] as string) ?? null,
-    status: (f["Status"] as string) ?? null,
+    preparedById: firstId(f["Prepared by"]),
+    preparedByName: asStringArray(f["Prepared By Name"])[0] ?? null,
+    preparedDate: asStr(f["Prepared Date"]) || null,
+    preparedForId: firstId(f["Prepared for"]),
+    preparedForName: asStringArray(f["Client Name"])[0] ?? null,
+    projectStatus: asStr(f["Project Status"]) || null,
+    proposalType: asStr(f["Proposal Type"]) || null,
+    status: asStr(f["Status"]) || null,
     customProblemStatement: asStr(f["Custom Problem Statement and Solution Summary"]),
     documents: docs,
     recommendedApproach: asStr(f["Recommended Approach"]),
@@ -155,10 +175,10 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
 
     runAiProposalAgent: f["Run AI Proposal Agent"] === true,
     blueprint: f["Blueprint"] === true,
-    epicOwnerId: first(f["Epic Owner"] as string[] | undefined),
+    epicOwnerId: firstId(f["Epic Owner"]),
     epicOwnerName: null,
     stories,
-    totalCost: (f["Total Cost"] as number) ?? 0,
+    totalCost: typeof f["Total Cost"] === "number" ? (f["Total Cost"] as number) : 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,
   };
 }
@@ -192,17 +212,21 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
   return rows
     .map((r) => {
       const f = r.fields;
+      const fullName = asStr(f["Full Name"]);
+      const firstName = asStr(f["First Name"]);
+      const lastName = asStr(f["Last Name"]);
+      const email = asStr(f["Primary Email"]);
       const name =
-        (f["Full Name"] as string) ||
-        [f["First Name"], f["Last Name"]].filter(Boolean).join(" ").trim() ||
-        (f["Primary Email"] as string) ||
+        fullName ||
+        [firstName, lastName].filter(Boolean).join(" ").trim() ||
+        email ||
         "(no name)";
-      const type = (f["Type"] as string) ?? null;
-      const status = (f["Status"] as string) ?? null;
+      const type = asStr(f["Type"]) || null;
+      const status = asStr(f["Status"]) || null;
       return {
         id: r.id,
         name,
-        email: (f["Primary Email"] as string) ?? null,
+        email: email || null,
         isInternal: type === "Internal" || type === "Internal team member",
         isActive: status === "Active",
       };

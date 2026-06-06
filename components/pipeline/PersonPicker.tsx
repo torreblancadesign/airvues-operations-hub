@@ -26,7 +26,7 @@ export function PersonPicker({ value, options, onChange, disabled, placeholder }
     return options
       .filter(
         (o) =>
-          o.name.toLowerCase().includes(q) ||
+          (o.name ?? "").toLowerCase().includes(q) ||
           (o.email ?? "").toLowerCase().includes(q),
       )
       .slice(0, 50);
@@ -41,7 +41,7 @@ export function PersonPicker({ value, options, onChange, disabled, placeholder }
         className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 text-[12px] bg-bg-elevated border border-rule rounded-md text-ink hover:border-ink-muted focus:border-emerald focus:outline-none disabled:opacity-50"
       >
         <span className={selected ? "text-ink" : "text-ink-faint"}>
-          {selected ? selected.name : placeholder ?? "— select —"}
+          {selected ? (selected.name || "(no name)") : placeholder ?? "— select —"}
         </span>
         <span className="text-ink-faint text-[10px]">▾</span>
       </button>

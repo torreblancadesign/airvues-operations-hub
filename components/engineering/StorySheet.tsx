@@ -47,7 +47,8 @@ function statusToneText(status: string | null): string {
   }
 }
 
-function payStatusTone(s: string): string {
+function payStatusTone(s: string | null | undefined): string {
+  if (!s || typeof s !== "string") return "bg-bg-elevated text-ink-muted border-rule";
   const v = s.toLowerCase();
   if (v.includes("paid") && !v.includes("partial") && !v.includes("unpaid")) return "bg-emerald/15 text-emerald border-emerald/30";
   if (v.includes("partial") || v.includes("deposit")) return "bg-amber/15 text-amber border-amber/30";
@@ -248,18 +249,20 @@ export function StorySheet({
               {current.clientNames.join(", ") || "—"}
             </div>
           </div>
-          {current.payStatus.length > 0 && (
+          {current.payStatus.filter((p): p is string => typeof p === "string" && p.length > 0).length > 0 && (
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-0.5">Pay Status</div>
               <div className="flex flex-wrap gap-1">
-                {current.payStatus.map((p, i) => (
-                  <span
-                    key={`${p}-${i}`}
-                    className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(p)}`}
-                  >
-                    {p}
-                  </span>
-                ))}
+                {current.payStatus
+                  .filter((p): p is string => typeof p === "string" && p.length > 0)
+                  .map((p, i) => (
+                    <span
+                      key={`${p}-${i}`}
+                      className={`text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(p)}`}
+                    >
+                      {p}
+                    </span>
+                  ))}
               </div>
             </div>
           )}

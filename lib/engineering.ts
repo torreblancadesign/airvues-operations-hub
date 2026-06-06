@@ -28,13 +28,14 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
   }
   const f = rec.fields;
 
-  const assigneeIds = asArray<string>(f["Assignee"]);
-  const clientIds = asArray<string>(f["Client"]);
-  const quoteIds = asArray<string>(f["Quote"]);
-  const sprintIds = asArray<string>(f["📆Sprints"]);
-  const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
-  const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
-  const sprintEnds = asArray<string>(f["Sprint End (from 📆Sprints)"]);
+  const assigneeIds = asIdArray(f["Assignee"]);
+  const clientIds = asIdArray(f["Client"]);
+  const quoteIds = asIdArray(f["Quote"]);
+  const sprintIds = asIdArray(f["📆Sprints"]);
+  const sprintNumbers = (asArray<unknown>(f["Sprint Number (from 📆Sprints)"]))
+    .filter((x): x is number => typeof x === "number");
+  const sprintStatuses = asStringArray(f["Sprint Status (from 📆Sprints)"]);
+  const sprintEnds = asStringArray(f["Sprint End (from 📆Sprints)"]);
 
   let assigneeNames: string[] = [];
   if (assigneeIds.length > 0) {
@@ -62,7 +63,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     assigneeNames = assigneeIds.map((id) => map.get(id) ?? "(unknown)");
   }
 
-  const clientNames = asArray<string>(f["Client Name (from Quote)"]);
+  const clientNames = asStringArray(f["Client Name (from Quote)"]);
   const invoice = (f["Invoice"] as number) ?? 0;
 
   let quoteLabels: string[] = [];
@@ -91,7 +92,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
       const qid = (qf["Quote ID"] as string) ?? "";
       const label = [company, project].filter(Boolean).join(" · ") || qid || "(quote)";
       qmap.set(q.id, label);
-      ownerMap.set(q.id, asArray<string>(qf["Epic Owner"]));
+      ownerMap.set(q.id, asIdArray(qf["Epic Owner"]));
     }
     quoteLabels = quoteIds.map((id) => qmap.get(id) ?? "(quote)");
     const allOwnerIds = quoteIds.flatMap((id) => ownerMap.get(id) ?? []);
@@ -125,16 +126,16 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
   return {
     id: rec.id,
     storyNumber: (f["ID"] as number) ?? null,
-    name: (f["Story Name"] as string) ?? "(untitled)",
-    status: (f["Story Status"] as string) ?? null,
-    priority: (f["Priority"] as string) ?? null,
-    phase: (f["Phase"] as string) ?? null,
-    hours: (f["Hours"] as number) ?? null,
-    hoursWorked: (f["Hours Worked"] as number) ?? null,
+    name: asStr(f["Story Name"]) || "(untitled)",
+    status: asStr(f["Story Status"]) || null,
+    priority: asStr(f["Priority"]) || null,
+    phase: asStr(f["Phase"]) || null,
+    hours: typeof f["Hours"] === "number" ? (f["Hours"] as number) : null,
+    hoursWorked: typeof f["Hours Worked"] === "number" ? (f["Hours Worked"] as number) : null,
     invoice,
-    cost: (f["Cost"] as number) ?? 0,
+    cost: typeof f["Cost"] === "number" ? (f["Cost"] as number) : 0,
     commission: invoice * COMMISSION_RATE,
-    budgetPctUsed: (f[" Budget % Used"] as number) ?? null,
+    budgetPctUsed: typeof f[" Budget % Used"] === "number" ? (f[" Budget % Used"] as number) : null,
     assigneeIds,
     assigneeNames,
     clientIds,
@@ -146,10 +147,10 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     sprintNumbers,
     sprintStatuses,
     sprintEnds,
-    completedDate: (f["Completed Date"] as string) ?? null,
-    payStatus: asArray<string>(f["Pay Status (from Quote)"]),
-    description: (f["Description"] as string) ?? "",
-    comments: (f["Comments"] as string) ?? "",
+    completedDate: asStr(f["Completed Date"]) || null,
+    payStatus: asStringArray(f["Pay Status (from Quote)"]),
+    description: asStr(f["Description"]),
+    comments: asStr(f["Comments"]),
     airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${rec.id}`,
   };
 }
@@ -165,6 +166,32 @@ function firstString(v: unknown): string | null {
 
 function asArray<T = unknown>(v: unknown): T[] {
   return Array.isArray(v) ? (v as T[]) : [];
+}
+
+// Airtable linked-record fields normally return string[] of record IDs, but
+// Collaborator/User fields return [{id, email, name}, ...]. Coerce both to
+// string[] of IDs so downstream code (and React renders) never see objects.
+function asIdArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item === "string") out.push(item);
+    else if (item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string") {
+      out.push((item as { id: string }).id);
+    }
+  }
+  return out;
+}
+
+// Lookup/rollup arrays can contain null or non-string entries when an
+// underlying linked record is missing the looked-up value. Drop those.
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === "string");
+}
+
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v : "";
 }
 
 export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
@@ -253,7 +280,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const quoteId = (f["Quote ID"] as string) ?? "";
     const label = [company, project].filter(Boolean).join(" · ") || quoteId || "(quote)";
     quoteMap.set(q.id, label);
-    quoteOwnerMap.set(q.id, asArray<string>(f["Epic Owner"]));
+    quoteOwnerMap.set(q.id, asIdArray(f["Epic Owner"]));
   }
 
   type PersonRow = {
@@ -283,33 +310,34 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
 
   const stories: Story[] = storyRecords.map((r) => {
     const f = r.fields;
-    const status = (f["Story Status"] as string) ?? null;
-    const invoice = (f["Invoice"] as number) ?? 0;
-    const assigneeIds = asArray<string>(f["Assignee"]);
-    const clientIds = asArray<string>(f["Client"]);
-    const quoteIds = asArray<string>(f["Quote"]);
-    const sprintIds = asArray<string>(f["📆Sprints"]);
-    const sprintNumbers = asArray<number>(f["Sprint Number (from 📆Sprints)"]);
-    const sprintStatuses = asArray<string>(f["Sprint Status (from 📆Sprints)"]);
-    const sprintEnds = asArray<string>(f["Sprint End (from 📆Sprints)"]);
+    const status = asStr(f["Story Status"]) || null;
+    const invoice = typeof f["Invoice"] === "number" ? (f["Invoice"] as number) : 0;
+    const assigneeIds = asIdArray(f["Assignee"]);
+    const clientIds = asIdArray(f["Client"]);
+    const quoteIds = asIdArray(f["Quote"]);
+    const sprintIds = asIdArray(f["📆Sprints"]);
+    const sprintNumbers = (asArray<unknown>(f["Sprint Number (from 📆Sprints)"]))
+      .filter((x): x is number => typeof x === "number");
+    const sprintStatuses = asStringArray(f["Sprint Status (from 📆Sprints)"]);
+    const sprintEnds = asStringArray(f["Sprint End (from 📆Sprints)"]);
 
 
     const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
-    const clientNames = asArray<string>(f["Client Name (from Quote)"]);
+    const clientNames = asStringArray(f["Client Name (from Quote)"]);
 
     return {
       id: r.id,
-      storyNumber: (f["ID"] as number) ?? null,
-      name: (f["Story Name"] as string) ?? "(untitled)",
+      storyNumber: typeof f["ID"] === "number" ? (f["ID"] as number) : null,
+      name: asStr(f["Story Name"]) || "(untitled)",
       status,
-      priority: (f["Priority"] as string) ?? null,
-      phase: (f["Phase"] as string) ?? null,
-      hours: (f["Hours"] as number) ?? null,
-      hoursWorked: (f["Hours Worked"] as number) ?? null,
+      priority: asStr(f["Priority"]) || null,
+      phase: asStr(f["Phase"]) || null,
+      hours: typeof f["Hours"] === "number" ? (f["Hours"] as number) : null,
+      hoursWorked: typeof f["Hours Worked"] === "number" ? (f["Hours Worked"] as number) : null,
       invoice,
-      cost: (f["Cost"] as number) ?? 0,
+      cost: typeof f["Cost"] === "number" ? (f["Cost"] as number) : 0,
       commission: invoice * COMMISSION_RATE,
-      budgetPctUsed: (f[" Budget % Used"] as number) ?? null,
+      budgetPctUsed: typeof f[" Budget % Used"] === "number" ? (f[" Budget % Used"] as number) : null,
       assigneeIds,
       assigneeNames,
       clientIds,
@@ -327,10 +355,10 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       sprintNumbers,
       sprintStatuses,
       sprintEnds,
-      completedDate: (f["Completed Date"] as string) ?? null,
-      payStatus: asArray<string>(f["Pay Status (from Quote)"]),
-      description: (f["Description"] as string) ?? "",
-      comments: (f["Comments"] as string) ?? "",
+      completedDate: asStr(f["Completed Date"]) || null,
+      payStatus: asStringArray(f["Pay Status (from Quote)"]),
+      description: asStr(f["Description"]),
+      comments: asStr(f["Comments"]),
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,
     };
   });

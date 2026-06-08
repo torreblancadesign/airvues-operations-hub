@@ -99,6 +99,7 @@ function validatePatch(patch: QuoteFieldPatch): string | null {
     "recommendedApproachSummary",
     "projectOverview",
     "problemStatementSolution",
+    "changeOrderDetails",
   ] as const) {
     const v = patch[k];
     if (typeof v === "string" && v.length > TEXT_MAX) {

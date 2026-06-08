@@ -37,6 +37,7 @@ type QuoteFields = {
   "Run AI Proposal Agent"?: boolean;
   "Blueprint"?: boolean;
   "Epic Owner"?: string[];
+  "Change Order Details"?: string;
 };
 
 type StoryFields = {
@@ -49,6 +50,7 @@ type StoryFields = {
   "Story Status"?: string;
   "Assignee"?: string[];
   "User (from Assignee)"?: string[];
+  "Change Order"?: boolean;
 };
 
 // Airtable rich-text / formula / rollup fields occasionally return non-string

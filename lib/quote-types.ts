@@ -96,4 +96,5 @@ export type QuoteFieldPatch = Partial<{
   estimateCostRange: string;
   blueprint: boolean;
   epicOwnerId: string | null;
+  changeOrderDetails: string;
 }>;

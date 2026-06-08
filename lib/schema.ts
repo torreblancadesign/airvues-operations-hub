@@ -435,6 +435,8 @@ export const Tables = {
       "\ud83d\udd35 Time Entries": { id: "fldrz77Nu5Pbi4ucW", type: "multipleRecordLinks" },
       "Manual sort": { id: "fldepJFnkcijIEfqW", type: "manualSort" },
       "Phase": { id: "fldu8cAPCJbdDS6zb", type: "singleSelect", options: { choices: [{"name": "Phase 1"}, {"name": "Phase 2"}, {"name": "Phase 3"}] } },
+      // Airtable accepts the field NAME in place of fldXXX. Swap to real ID once available.
+      "Change Order": { id: "Change Order", type: "checkbox" },
     },
   },
   SprintCapacity: {

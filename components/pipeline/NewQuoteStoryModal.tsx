@@ -9,6 +9,7 @@ type Props = {
   quoteId: string;
   onClose: () => void;
   onCreated: (next: QuoteDetail) => void;
+  isChangeOrder?: boolean;
 };
 
 const inputCls =
@@ -16,7 +17,7 @@ const inputCls =
 const labelCls =
   "block text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5";
 
-export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated }: Props) {
+export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChangeOrder = false }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState("");
@@ -61,6 +62,7 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated }: Props)
         hours: h,
         cost: c,
         clientNotes: clientNotes.trim() || undefined,
+        isChangeOrder,
       });
       if (!("ok" in res)) {
         setError(res.error);
@@ -89,10 +91,17 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated }: Props)
         >
           <div className="flex items-center justify-between border-b border-rule px-5 py-4">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint flex items-center gap-2">
                 Quote Calculator
+                {isChangeOrder && (
+                  <span className="px-1.5 py-0.5 rounded bg-amber/15 text-amber text-[9px] font-semibold tracking-wider">
+                    CHANGE ORDER
+                  </span>
+                )}
               </div>
-              <h2 className="text-[16px] font-semibold text-ink-strong">Add a story</h2>
+              <h2 className="text-[16px] font-semibold text-ink-strong">
+                {isChangeOrder ? "Add a change order story" : "Add a story"}
+              </h2>
             </div>
             <button
               type="button"

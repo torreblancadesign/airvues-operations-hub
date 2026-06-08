@@ -74,6 +74,9 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.epicOwnerId !== undefined) {
     fields["Epic Owner"] = patch.epicOwnerId ? [patch.epicOwnerId] : [];
   }
+  if (patch.changeOrderDetails !== undefined) {
+    fields["Change Order Details"] = patch.changeOrderDetails;
+  }
   return fields;
 }
 
@@ -96,6 +99,7 @@ function validatePatch(patch: QuoteFieldPatch): string | null {
     "recommendedApproachSummary",
     "projectOverview",
     "problemStatementSolution",
+    "changeOrderDetails",
   ] as const) {
     const v = patch[k];
     if (typeof v === "string" && v.length > TEXT_MAX) {
@@ -262,6 +266,7 @@ export type CreateQuoteStoryInput = {
   cost: number;
   clientNotes?: string;
   status?: string;
+  isChangeOrder?: boolean;
 };
 
 export async function createQuoteStory(
@@ -288,6 +293,7 @@ export async function createQuoteStory(
   };
   if (input.description) fields["Description"] = input.description;
   if (input.clientNotes) fields["Client Notes"] = input.clientNotes;
+  if (input.isChangeOrder) fields["Change Order"] = true;
 
   try {
     await createRecords(Tables.Stories.id, [{ fields }]);

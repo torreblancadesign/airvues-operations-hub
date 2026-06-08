@@ -37,6 +37,7 @@ type QuoteFields = {
   "Run AI Proposal Agent"?: boolean;
   "Blueprint"?: boolean;
   "Epic Owner"?: string[];
+  "Change Order Details"?: string;
 };
 
 type StoryFields = {
@@ -49,6 +50,7 @@ type StoryFields = {
   "Story Status"?: string;
   "Assignee"?: string[];
   "User (from Assignee)"?: string[];
+  "Change Order"?: boolean;
 };
 
 // Airtable rich-text / formula / rollup fields occasionally return non-string
@@ -109,6 +111,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
           sT.fields["Story Status"].id,
           sT.fields["Assignee"].id,
           sT.fields["User (from Assignee)"].id,
+          sT.fields["Change Order"].id,
         ],
       },
       [`quote:${quoteId}:stories`],
@@ -140,6 +143,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
             id,
             name: assigneeNames[i] ?? "(unknown)",
           })),
+          isChangeOrder: sf["Change Order"] === true,
         };
       });
   }
@@ -152,6 +156,24 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     type: a.type ?? null,
     size: typeof a.size === "number" ? a.size : null,
   }));
+
+  // Partition totals by change-order flag (computed locally; quote rollup
+  // totals stay as the grand total from Airtable).
+  let origCost = 0;
+  let origHours = 0;
+  let origHasHours = false;
+  let coCost = 0;
+  let coHours = 0;
+  let coHasHours = false;
+  for (const s of stories) {
+    if (s.isChangeOrder) {
+      if (s.cost != null) coCost += s.cost;
+      if (s.hours != null) { coHours += s.hours; coHasHours = true; }
+    } else {
+      if (s.cost != null) origCost += s.cost;
+      if (s.hours != null) { origHours += s.hours; origHasHours = true; }
+    }
+  }
 
   return {
     id: rec.id,
@@ -177,9 +199,14 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     blueprint: f["Blueprint"] === true,
     epicOwnerId: firstId(f["Epic Owner"]),
     epicOwnerName: null,
+    changeOrderDetails: asStr(f["Change Order Details"]),
     stories,
     totalCost: typeof f["Total Cost"] === "number" ? (f["Total Cost"] as number) : 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,
+    originalTotalCost: origCost,
+    originalTotalHours: origHasHours ? origHours : null,
+    changeOrderTotalCost: coCost,
+    changeOrderTotalHours: coHasHours ? coHours : null,
   };
 }
 

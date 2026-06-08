@@ -9,6 +9,7 @@ export type QuoteStoryRow = {
   clientNotes: string;
   status: string | null;
   assignees: { id: string; name: string }[];
+  isChangeOrder: boolean;
 };
 
 export type QuoteAttachment = {
@@ -48,10 +49,17 @@ export type QuoteDetail = {
   // Sales: marks this quote as a Blueprint engagement (+5% commission bonus
   // to the Prepared by salesperson)
   blueprint: boolean;
+  // Change orders (long-text block of details + flagged stories)
+  changeOrderDetails: string;
   // Stories + totals
   stories: QuoteStoryRow[];
   totalCost: number;
   totalHours: number | null;
+  // Partitioned totals (computed from stories[])
+  originalTotalCost: number;
+  originalTotalHours: number | null;
+  changeOrderTotalCost: number;
+  changeOrderTotalHours: number | null;
 };
 
 export type PersonOption = { id: string; name: string; email: string | null; isInternal: boolean; isActive: boolean };
@@ -88,4 +96,5 @@ export type QuoteFieldPatch = Partial<{
   estimateCostRange: string;
   blueprint: boolean;
   epicOwnerId: string | null;
+  changeOrderDetails: string;
 }>;

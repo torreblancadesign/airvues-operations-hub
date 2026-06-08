@@ -637,6 +637,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [showAddStory, setShowAddStory] = useState(false);
+  const [showAddChangeOrder, setShowAddChangeOrder] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [lastSavedField, setLastSavedField] = useState<string | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
@@ -1020,20 +1021,80 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         </FieldRow>
       </Section>
 
-      {/* SECTION 4: Quote calculator — stories table */}
+      {/* SECTION 4: Quote calculator — original scope stories */}
       <Section title="Quote calculator">
         <div className="px-5 pb-4">
           <QuoteStoriesTable
-            stories={quote.stories}
-            totalCost={quote.totalCost}
-            totalHours={quote.totalHours}
+            stories={quote.stories.filter((s) => !s.isChangeOrder)}
+            totalCost={quote.originalTotalCost}
+            totalHours={quote.originalTotalHours}
             canEdit={canEdit}
             onAddClick={() => setShowAddStory(true)}
             onRowClick={openStory}
+            title="Original scope total (rolls up from stories)"
+            addLabel="+ Add story"
           />
           {storyLoading && (
             <div className="mt-2 text-[11px] text-ink-faint">Loading story…</div>
           )}
+        </div>
+      </Section>
+
+      {/* SECTION 5: Change orders */}
+      <Section title="Change orders">
+        <FieldRow
+          label="Change Order Details"
+          hint="Notes covering all change orders on this quote (scope, rationale, timing)."
+          chip={<PortalChip />}
+          state={stateFor("changeOrderDetails")}
+        >
+          <TextField
+            initialValue={quote.changeOrderDetails}
+            disabled={!canEdit}
+            multiline
+            rows={6}
+            placeholder="Describe the change orders for this engagement…"
+            onSave={(v) =>
+              patchAndRefresh("changeOrderDetails", { changeOrderDetails: v })
+            }
+          />
+        </FieldRow>
+
+        <div className="px-5 pb-4">
+          <QuoteStoriesTable
+            stories={quote.stories.filter((s) => s.isChangeOrder)}
+            totalCost={quote.changeOrderTotalCost}
+            totalHours={quote.changeOrderTotalHours}
+            canEdit={canEdit}
+            onAddClick={() => setShowAddChangeOrder(true)}
+            onRowClick={openStory}
+            title="Change order total (rolls up from stories)"
+            addLabel="+ Add change order story"
+            emptyLabel={
+              canEdit
+                ? "No change orders yet. Click + Add change order story to log one."
+                : "No change orders yet."
+            }
+          />
+
+          {/* Grand total */}
+          <div className="mt-3 flex items-center justify-between gap-3 px-3 py-3 border border-rule rounded-md bg-bg-elevated">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+              Grand total (original + change orders)
+            </div>
+            <div className="flex items-baseline gap-3">
+              <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">
+                {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(
+                  quote.originalTotalCost + quote.changeOrderTotalCost,
+                )}
+              </div>
+              {(quote.originalTotalHours != null || quote.changeOrderTotalHours != null) && (
+                <div className="text-[11px] text-ink-muted font-mono tabnum">
+                  {((quote.originalTotalHours ?? 0) + (quote.changeOrderTotalHours ?? 0))}h
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </Section>
 
@@ -1042,6 +1103,14 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         quoteId={quoteId}
         onClose={() => setShowAddStory(false)}
         onCreated={(next) => setQuote(next)}
+      />
+
+      <NewQuoteStoryModal
+        open={showAddChangeOrder}
+        quoteId={quoteId}
+        onClose={() => setShowAddChangeOrder(false)}
+        onCreated={(next) => setQuote(next)}
+        isChangeOrder
       />
 
       {selectedStory && (

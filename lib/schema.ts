@@ -235,6 +235,9 @@ export const Tables = {
       "Documents needed for Proposal": { id: "fldNPHj10hrw6rg6d", type: "multipleAttachments" },
       "Recommended Approach Summary": { id: "fldsIw1h3eNDyu7IA", type: "multilineText" },
       "Quote Last Access": { id: "fldIYXqOtAyFEyH99", type: "dateTime" },
+      // Airtable accepts field NAMES in place of fldXXX IDs for reads/writes.
+      // Swap to the real fldXXX once available without code changes.
+      "Change Order Details": { id: "Change Order Details", type: "multilineText" },
     },
   },
   Invoices: {
@@ -432,6 +435,8 @@ export const Tables = {
       "\ud83d\udd35 Time Entries": { id: "fldrz77Nu5Pbi4ucW", type: "multipleRecordLinks" },
       "Manual sort": { id: "fldepJFnkcijIEfqW", type: "manualSort" },
       "Phase": { id: "fldu8cAPCJbdDS6zb", type: "singleSelect", options: { choices: [{"name": "Phase 1"}, {"name": "Phase 2"}, {"name": "Phase 3"}] } },
+      // Airtable accepts the field NAME in place of fldXXX. Swap to real ID once available.
+      "Change Order": { id: "Change Order", type: "checkbox" },
     },
   },
   SprintCapacity: {

@@ -235,6 +235,9 @@ export const Tables = {
       "Documents needed for Proposal": { id: "fldNPHj10hrw6rg6d", type: "multipleAttachments" },
       "Recommended Approach Summary": { id: "fldsIw1h3eNDyu7IA", type: "multilineText" },
       "Quote Last Access": { id: "fldIYXqOtAyFEyH99", type: "dateTime" },
+      // Airtable accepts field NAMES in place of fldXXX IDs for reads/writes.
+      // Swap to the real fldXXX once available without code changes.
+      "Change Order Details": { id: "Change Order Details", type: "multilineText" },
     },
   },
   Invoices: {

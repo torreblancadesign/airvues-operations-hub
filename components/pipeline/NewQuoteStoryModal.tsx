@@ -9,6 +9,7 @@ type Props = {
   quoteId: string;
   onClose: () => void;
   onCreated: (next: QuoteDetail) => void;
+  isChangeOrder?: boolean;
 };
 
 const inputCls =

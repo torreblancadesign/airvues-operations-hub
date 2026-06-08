@@ -266,6 +266,7 @@ export type CreateQuoteStoryInput = {
   cost: number;
   clientNotes?: string;
   status?: string;
+  isChangeOrder?: boolean;
 };
 
 export async function createQuoteStory(
@@ -292,6 +293,7 @@ export async function createQuoteStory(
   };
   if (input.description) fields["Description"] = input.description;
   if (input.clientNotes) fields["Client Notes"] = input.clientNotes;
+  if (input.isChangeOrder) fields["Change Order"] = true;
 
   try {
     await createRecords(Tables.Stories.id, [{ fields }]);

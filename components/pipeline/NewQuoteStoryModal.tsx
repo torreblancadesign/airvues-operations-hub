@@ -17,7 +17,7 @@ const inputCls =
 const labelCls =
   "block text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5";
 
-export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated }: Props) {
+export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChangeOrder = false }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState("");

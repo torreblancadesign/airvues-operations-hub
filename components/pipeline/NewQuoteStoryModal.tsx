@@ -91,10 +91,17 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
         >
           <div className="flex items-center justify-between border-b border-rule px-5 py-4">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint flex items-center gap-2">
                 Quote Calculator
+                {isChangeOrder && (
+                  <span className="px-1.5 py-0.5 rounded bg-amber/15 text-amber text-[9px] font-semibold tracking-wider">
+                    CHANGE ORDER
+                  </span>
+                )}
               </div>
-              <h2 className="text-[16px] font-semibold text-ink-strong">Add a story</h2>
+              <h2 className="text-[16px] font-semibold text-ink-strong">
+                {isChangeOrder ? "Add a change order story" : "Add a story"}
+              </h2>
             </div>
             <button
               type="button"

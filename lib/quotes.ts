@@ -157,6 +157,24 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     size: typeof a.size === "number" ? a.size : null,
   }));
 
+  // Partition totals by change-order flag (computed locally; quote rollup
+  // totals stay as the grand total from Airtable).
+  let origCost = 0;
+  let origHours = 0;
+  let origHasHours = false;
+  let coCost = 0;
+  let coHours = 0;
+  let coHasHours = false;
+  for (const s of stories) {
+    if (s.isChangeOrder) {
+      if (s.cost != null) coCost += s.cost;
+      if (s.hours != null) { coHours += s.hours; coHasHours = true; }
+    } else {
+      if (s.cost != null) origCost += s.cost;
+      if (s.hours != null) { origHours += s.hours; origHasHours = true; }
+    }
+  }
+
   return {
     id: rec.id,
     projectName: asStr(f["Project Name"]),
@@ -181,9 +199,14 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     blueprint: f["Blueprint"] === true,
     epicOwnerId: firstId(f["Epic Owner"]),
     epicOwnerName: null,
+    changeOrderDetails: asStr(f["Change Order Details"]),
     stories,
     totalCost: typeof f["Total Cost"] === "number" ? (f["Total Cost"] as number) : 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,
+    originalTotalCost: origCost,
+    originalTotalHours: origHasHours ? origHours : null,
+    changeOrderTotalCost: coCost,
+    changeOrderTotalHours: coHasHours ? coHours : null,
   };
 }
 

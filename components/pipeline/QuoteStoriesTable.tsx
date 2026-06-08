@@ -9,6 +9,9 @@ type Props = {
   canEdit: boolean;
   onAddClick: () => void;
   onRowClick?: (storyId: string) => void;
+  title?: string;
+  addLabel?: string;
+  emptyLabel?: string;
 };
 
 const fmtMoney = (n: number) =>

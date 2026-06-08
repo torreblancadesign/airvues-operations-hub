@@ -637,6 +637,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [, startTransition] = useTransition();
   const [showAddStory, setShowAddStory] = useState(false);
+  const [showAddChangeOrder, setShowAddChangeOrder] = useState(false);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [lastSavedField, setLastSavedField] = useState<string | null>(null);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);

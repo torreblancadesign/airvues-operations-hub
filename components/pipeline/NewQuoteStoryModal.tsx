@@ -62,6 +62,7 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
         hours: h,
         cost: c,
         clientNotes: clientNotes.trim() || undefined,
+        isChangeOrder,
       });
       if (!("ok" in res)) {
         setError(res.error);

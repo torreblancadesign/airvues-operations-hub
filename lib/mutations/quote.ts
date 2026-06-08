@@ -74,6 +74,9 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.epicOwnerId !== undefined) {
     fields["Epic Owner"] = patch.epicOwnerId ? [patch.epicOwnerId] : [];
   }
+  if (patch.changeOrderDetails !== undefined) {
+    fields["Change Order Details"] = patch.changeOrderDetails;
+  }
   return fields;
 }
 

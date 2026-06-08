@@ -111,6 +111,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
           sT.fields["Story Status"].id,
           sT.fields["Assignee"].id,
           sT.fields["User (from Assignee)"].id,
+          sT.fields["Change Order"].id,
         ],
       },
       [`quote:${quoteId}:stories`],
@@ -142,6 +143,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
             id,
             name: assigneeNames[i] ?? "(unknown)",
           })),
+          isChangeOrder: sf["Change Order"] === true,
         };
       });
   }

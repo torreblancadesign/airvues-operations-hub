@@ -38,14 +38,24 @@ function StatusPill({ status }: { status: string | null }) {
   );
 }
 
-export function QuoteStoriesTable({ stories, totalCost, totalHours, canEdit, onAddClick, onRowClick }: Props) {
+export function QuoteStoriesTable({
+  stories,
+  totalCost,
+  totalHours,
+  canEdit,
+  onAddClick,
+  onRowClick,
+  title = "Quote total (rolls up from stories)",
+  addLabel = "+ Add story",
+  emptyLabel,
+}: Props) {
   return (
     <div className="bg-bg-elevated/60 border border-rule rounded-md overflow-hidden">
       {/* Totals + Add story strip */}
       <div className="flex items-center justify-between gap-3 px-3 py-3 border-b border-rule bg-bg-elevated">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-            Quote total (rolls up from stories)
+            {title}
           </div>
           <div className="mt-0.5 flex items-baseline gap-3">
             <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">
@@ -64,7 +74,7 @@ export function QuoteStoriesTable({ stories, totalCost, totalHours, canEdit, onA
             onClick={onAddClick}
             className="px-3 py-1.5 text-[12px] font-semibold bg-emerald text-bg rounded hover:bg-emerald/80 transition-colors"
           >
-            + Add story
+            {addLabel}
           </button>
         )}
       </div>
@@ -72,7 +82,7 @@ export function QuoteStoriesTable({ stories, totalCost, totalHours, canEdit, onA
       {/* Table */}
       {stories.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12px] text-ink-faint">
-          No stories yet.{canEdit ? " Click + Add story to build the quote." : ""}
+          {emptyLabel ?? `No stories yet.${canEdit ? " Click + Add story to build the quote." : ""}`}
         </div>
       ) : (
         <div className="overflow-x-auto">

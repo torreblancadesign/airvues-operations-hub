@@ -213,6 +213,8 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
 
   const created = asStr(cf["Created"]);
   const createdYear = created ? new Date(created).getFullYear() : null;
+  const startYearOverride =
+    typeof cf["Client Start Year"] === "number" ? cf["Client Start Year"] : null;
 
   return {
     id: company.id,
@@ -230,6 +232,13 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     businessDescription: asStr(cf["Business Description"]),
     logo,
     createdYear,
+    industry: asStr(cf["Industry"]) || null,
+    leadSource: asStr(cf["Lead Source"]) || null,
+    relationshipNotes: asStr(cf["Relationship Notes"]),
+    discountPct: typeof cf["Discount %"] === "number" ? cf["Discount %"] : null,
+    discountReason: asStr(cf["Discount Reason"]) || null,
+    clientStartYearOverride: startYearOverride,
+    clientStartYear: startYearOverride ?? createdYear,
     airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${cT.id}/${company.id}`,
     lifetimeRevenue,
     outstandingAR,

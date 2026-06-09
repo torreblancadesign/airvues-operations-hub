@@ -57,6 +57,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     "Created"?: string;
     "Stories"?: string[];
     "Primary Email (from Prepared for)"?: string[];
+    "Existing Company? (from Form Submission)"?: string[];
   }>(
     t.id,
     {
@@ -80,6 +81,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         t.fields["Created"].id,
         t.fields["Stories"].id,
         t.fields["Primary Email (from Prepared for)"].id,
+        t.fields["Existing Company? (from Form Submission)"].id,
       ],
     },
     ["pipeline:all-quotes"],

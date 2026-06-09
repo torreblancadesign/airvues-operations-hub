@@ -51,21 +51,8 @@ export default async function QuoteDetailPage({ params }: Params) {
 
       <PageHeader
         title={quote.projectName}
-        subtitle={
-          <span className="flex items-center gap-2 flex-wrap text-[12px] text-ink-muted">
-            <span className="font-mono">Quote {quote.autonumber ? `#${quote.autonumber}` : ""}</span>
-            <span className="text-ink-faint">·</span>
-            <span>{quote.client}</span>
-            {quote.preparedBy && quote.preparedBy !== "—" && (
-              <>
-                <span className="text-ink-faint">·</span>
-                <span>Prepared by {quote.preparedBy}</span>
-              </>
-            )}
-            <span className="text-ink-faint">·</span>
-            <span className="font-mono">{fmtDate(quote.preparedDate)}</span>
-          </span>
-        }
+        subtitle={`Quote ${quote.autonumber ? `#${quote.autonumber}` : ""} · ${quote.client}${quote.preparedBy && quote.preparedBy !== "—" ? ` · Prepared by ${quote.preparedBy}` : ""} · ${fmtDate(quote.preparedDate)}`}
+
         meta={
           <div className="text-right">
             <div className="text-[24px] font-semibold tabnum text-ink-strong leading-none">

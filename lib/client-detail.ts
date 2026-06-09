@@ -44,6 +44,14 @@ export type ClientDetail = {
   businessDescription: string;
   logo: string | null;
   createdYear: number | null;
+  // Blueprint fields
+  industry: string | null;
+  leadSource: string | null;
+  relationshipNotes: string;
+  discountPct: number | null;
+  discountReason: string | null;
+  clientStartYearOverride: number | null;
+  clientStartYear: number | null; // override ?? createdYear
   airtableUrl: string;
   // Aggregates
   lifetimeRevenue: number;

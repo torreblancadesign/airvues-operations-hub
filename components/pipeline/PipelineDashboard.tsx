@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PipelineQuote } from "@/lib/pipeline";
 import { StatCard } from "@/components/ui/StatCard";
 import { PipelineFilterBar } from "./FilterBar";
 import { QuoteTable } from "./QuoteTable";
 import { QuoteSheet } from "./QuoteSheet";
 import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, StageBucket } from "./types";
+
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);

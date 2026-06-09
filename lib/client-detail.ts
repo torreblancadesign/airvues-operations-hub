@@ -147,23 +147,27 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Projects — quotes whose linked company includes this id, with a name
-  // fallback for quotes where the lookup didn't carry the recId through.
-  const projects = allQuotes
-    .filter(
-      (q) =>
-        q.companyIds.includes(companyId) ||
-        (companyName.length > 0 && q.client === companyName),
-    )
-    .sort((a, b) => (b.preparedDate ?? "").localeCompare(a.preparedDate ?? ""));
-
-  // Invoices — payer is a Person. Build personId→companyId map from the
-  // full People list (matches lib/clients.ts aggregation pattern).
+  // Build personId→companyId map from the full People list (matches
+  // lib/clients.ts aggregation pattern). Used for both projects and invoices.
   const personToCompany = new Map<string, string>();
   for (const p of allPeople) {
     const arr = p.fields["Company"];
     if (Array.isArray(arr) && arr[0]) personToCompany.set(p.id, arr[0] as string);
   }
+
+  // Projects — quote matches if its Existing Company lookup includes this
+  // company, OR any "Prepared for" person belongs to this company. The old
+  // name-based fallback was buggy: `q.client` comes from the `Client Name`
+  // lookup which returns a PERSON name, not the company name.
+  const projects = allQuotes
+    .filter(
+      (q) =>
+        q.companyIds.includes(companyId) ||
+        q.preparedForIds.some((pid) => personToCompany.get(pid) === companyId),
+    )
+    .sort((a, b) => (b.preparedDate ?? "").localeCompare(a.preparedDate ?? ""));
+
+  // Invoices — payer is a Person; filter by the same personToCompany map.
   const companyInvoices = allInvoices
     .filter((inv) => {
       if (!inv.payerRecordId) return false;

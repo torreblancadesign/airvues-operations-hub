@@ -112,6 +112,9 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       webQuoteUrl: `https://airvues-quote.vercel.app/?quoteId=${r.id}`,
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
       primaryEmail: first(f["Primary Email (from Prepared for)"] as string[] | undefined),
+      companyIds: Array.isArray(f["Existing Company? (from Form Submission)"])
+        ? (f["Existing Company? (from Form Submission)"] as string[])
+        : [],
     };
   });
 }

@@ -375,11 +375,13 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                 {projects.map((p) => (
                   <tr
                     key={p.id}
-                    onClick={() => setSelectedQuote(p)}
+                    onClick={() => { window.location.href = `/pipeline/${p.id}`; }}
                     className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
                   >
                     <td className="px-3 py-2 text-[13px] text-ink-strong">
-                      {p.projectName}
+                      <a href={`/pipeline/${p.id}`} className="hover:text-emerald hover:underline">
+                        {p.projectName}
+                      </a>
                       {p.autonumber && (
                         <span className="ml-1.5 text-[10px] font-mono text-ink-faint">#{p.autonumber}</span>
                       )}
@@ -395,6 +397,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                     <td className="px-3 py-2 text-right text-[12px] tabnum font-mono text-ink-muted">{p.storiesCount}</td>
                   </tr>
                 ))}
+
               </tbody>
             </table>
           </div>

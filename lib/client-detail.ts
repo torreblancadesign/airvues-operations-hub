@@ -44,6 +44,14 @@ export type ClientDetail = {
   businessDescription: string;
   logo: string | null;
   createdYear: number | null;
+  // Blueprint fields
+  industry: string | null;
+  leadSource: string | null;
+  relationshipNotes: string;
+  discountPct: number | null;
+  discountReason: string | null;
+  clientStartYearOverride: number | null;
+  clientStartYear: number | null; // override ?? createdYear
   airtableUrl: string;
   // Aggregates
   lifetimeRevenue: number;
@@ -81,6 +89,12 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
       "Legal Address"?: string;
       Logo?: Array<{ url?: string; thumbnails?: { small?: { url?: string } } }>;
       Created?: string;
+      Industry?: string;
+      "Lead Source"?: string;
+      "Relationship Notes"?: string;
+      "Discount %"?: number;
+      "Discount Reason"?: string;
+      "Client Start Year"?: number;
     }>(cT.id, companyId),
     listRecordsCached<{
       "Full Name"?: string;
@@ -199,6 +213,8 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
 
   const created = asStr(cf["Created"]);
   const createdYear = created ? new Date(created).getFullYear() : null;
+  const startYearOverride =
+    typeof cf["Client Start Year"] === "number" ? cf["Client Start Year"] : null;
 
   return {
     id: company.id,
@@ -216,6 +232,13 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     businessDescription: asStr(cf["Business Description"]),
     logo,
     createdYear,
+    industry: asStr(cf["Industry"]) || null,
+    leadSource: asStr(cf["Lead Source"]) || null,
+    relationshipNotes: asStr(cf["Relationship Notes"]),
+    discountPct: typeof cf["Discount %"] === "number" ? cf["Discount %"] : null,
+    discountReason: asStr(cf["Discount Reason"]) || null,
+    clientStartYearOverride: startYearOverride,
+    clientStartYear: startYearOverride ?? createdYear,
     airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${cT.id}/${company.id}`,
     lifetimeRevenue,
     outstandingAR,

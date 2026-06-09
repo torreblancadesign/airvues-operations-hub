@@ -645,6 +645,12 @@ export const Tables = {
       "Media Assets": { id: "fldWenrrEtJuQQjZ9", type: "singleLineText" },
       "Attachments (from Media Assets)": { id: "fldFHSJvNe6etyXwH", type: "multipleLookupValues" },
       "Legal Address": { id: "fld4d2HGpPFxQLSMR", type: "multilineText" },
+      "Industry": { id: "fld3e0FaA0gXc5Zl4", type: "singleSelect", options: { choices: [{"name":"SaaS"},{"name":"Marketplace"},{"name":"Fintech"},{"name":"Healthcare"},{"name":"E-commerce"},{"name":"Real Estate"},{"name":"Media"},{"name":"Education"},{"name":"Professional Services"},{"name":"Other"}] } },
+      "Lead Source": { id: "fld5XW4FM4mZGGHJl", type: "singleSelect", options: { choices: [{"name":"Fiverr"},{"name":"Word of Mouth"},{"name":"Referral"},{"name":"Inbound"},{"name":"Outbound"},{"name":"Other"}] } },
+      "Relationship Notes": { id: "fldah3zxxORJ8nb0g", type: "multilineText" },
+      "Discount %": { id: "fldLAAH0z9ugeDZVM", type: "number" },
+      "Discount Reason": { id: "fld1IzGWBaDpnSPaN", type: "singleSelect", options: { choices: [{"name":"Loyalty"},{"name":"Referral"},{"name":"Volume"},{"name":"Other"}] } },
+      "Client Start Year": { id: "fldRKfTHDWH1z2Kx5", type: "number" },
     },
   },
   People: {

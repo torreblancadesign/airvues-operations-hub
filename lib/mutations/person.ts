@@ -50,3 +50,42 @@ export async function updateAnnualEarningsGoal(args: {
     return { error: (e as Error).message };
   }
 }
+
+export type ContactPatch = {
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  type?: string | null;
+  status?: string | null;
+  notes?: string | null;
+  vip?: boolean;
+};
+
+export async function updateContact(
+  personId: string,
+  patch: ContactPatch,
+): Promise<MutationResult> {
+  if (!personId) return { error: "Missing personId" };
+
+  const canEdit = await canMutate();
+  if (!canEdit) return { error: "Not authorized" };
+
+  const fields: Record<string, unknown> = {};
+  if (patch.title !== undefined) fields["Role"] = patch.title ?? "";
+  if (patch.email !== undefined) fields["Primary Email"] = patch.email ?? "";
+  if (patch.phone !== undefined) fields["Phone Number"] = patch.phone ?? "";
+  if (patch.type !== undefined) fields["Type"] = patch.type || null;
+  if (patch.status !== undefined) fields["Status"] = patch.status || null;
+  if (patch.notes !== undefined) fields["Client Comments"] = patch.notes ?? "";
+  if (patch.vip !== undefined) fields["VIP Client"] = patch.vip;
+
+  try {
+    await patchRecords(Tables.People.id, [{ id: personId, fields }]);
+    revalidateTag("airtable");
+    revalidateTag("client-detail:people");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+

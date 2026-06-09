@@ -7,6 +7,9 @@ import type { MoneyInvoice } from "@/lib/money";
 import type { PersonOption } from "@/lib/quote-types";
 import { QuoteSheet } from "@/components/pipeline/QuoteSheet";
 import { InvoiceSheet } from "@/components/money/InvoiceSheet";
+import { InlineField } from "@/components/clients/InlineField";
+import { updateCompany, type CompanyPatch } from "@/lib/mutations/company";
+import { updateContact, type ContactPatch } from "@/lib/mutations/person";
 
 type SprintOption = { id: string; number: number | null; status: string | null };
 
@@ -32,6 +35,18 @@ const ENGAGEMENT_COLOR: Record<string, string> = {
   Archived: "bg-rule text-ink-faint",
 };
 
+const ENGAGEMENT_OPTIONS = ["Active", "Occasional", "Iddle", "Lost", "New", "Archived"];
+const CONTRACT_OPTIONS = ["Lump Sum", "Hourly", "Membership"];
+const PREFERRED_BUSINESS_OPTIONS = ["Fiverr", "Off-the-Grid"];
+const INDUSTRY_OPTIONS = [
+  "SaaS", "Marketplace", "Fintech", "Healthcare", "E-commerce",
+  "Real Estate", "Media", "Education", "Professional Services", "Other",
+];
+const LEAD_SOURCE_OPTIONS = ["Fiverr", "Word of Mouth", "Referral", "Inbound", "Outbound", "Other"];
+const DISCOUNT_REASON_OPTIONS = ["Loyalty", "Referral", "Volume", "Other"];
+const PERSON_TYPE_OPTIONS = ["Internal", "External", "External client/partner", "Internal team member"];
+const PERSON_STATUS_OPTIONS = ["Active", "Onboarding", "Innactive", "Unknown ", "Former"];
+
 const COMPLETED_STATUSES = new Set(["Paid", "Cancelled", "Rejected"]);
 
 function projectBucket(q: PipelineQuote): "active" | "completed" {
@@ -52,22 +67,11 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
   );
 }
 
-function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
-  return (
-    <div className="py-2 border-b border-rule last:border-0">
-      <div className="flex items-baseline justify-between">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-0.5">{label}</div>
-        {hint && <div className="text-[9px] text-ink-faint italic">{hint}</div>}
-      </div>
-      <div className="text-[13px] text-ink">{children}</div>
-    </div>
-  );
-}
-
 export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
   const [tab, setTab] = useState<Tab>("active");
   const [selectedQuote, setSelectedQuote] = useState<PipelineQuote | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<MoneyInvoice | null>(null);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
 
   const projects = useMemo(() => {
     if (tab === "all") return detail.projects;
@@ -75,8 +79,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
   }, [detail.projects, tab]);
 
   const counts = useMemo(() => {
-    let active = 0,
-      completed = 0;
+    let active = 0, completed = 0;
     for (const p of detail.projects) {
       if (projectBucket(p) === "active") active++;
       else completed++;
@@ -88,6 +91,10 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
     detail.engagement === "Active" &&
     detail.daysSinceLastInvoice != null &&
     detail.daysSinceLastInvoice > 90;
+
+  // Helper to bind one company-field save
+  const saveCompany = <K extends keyof CompanyPatch>(key: K) =>
+    (value: CompanyPatch[K]) => updateCompany(detail.id, { [key]: value } as CompanyPatch);
 
   return (
     <>
@@ -118,16 +125,24 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                   </span>
                 )}
                 {detail.contractType && <span>{detail.contractType}</span>}
-                {detail.createdYear && (
+                {detail.clientStartYear && (
                   <>
                     <span className="text-ink-faint">·</span>
-                    <span>Since {detail.createdYear}</span>
+                    <span>Since {detail.clientStartYear}</span>
                   </>
                 )}
                 {detail.hourlyRate != null && (
                   <>
                     <span className="text-ink-faint">·</span>
                     <span className="font-mono tabnum">{fmtCurrency(detail.hourlyRate)}/hr</span>
+                  </>
+                )}
+                {detail.discountPct != null && detail.discountPct > 0 && (
+                  <>
+                    <span className="text-ink-faint">·</span>
+                    <span className="px-1.5 py-0.5 bg-violet-soft text-violet rounded text-[10px] font-medium">
+                      {detail.discountPct}% {detail.discountReason ?? "discount"}
+                    </span>
                   </>
                 )}
                 {atRisk && (
@@ -140,42 +155,26 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
           <div className="flex gap-2 flex-wrap shrink-0">
             {detail.website && (
-              <a
-                href={detail.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
-              >
+              <a href={detail.website} target="_blank" rel="noopener noreferrer"
+                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors">
                 Website ↗
               </a>
             )}
             {detail.driveFolder && (
-              <a
-                href={detail.driveFolder}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
-              >
+              <a href={detail.driveFolder} target="_blank" rel="noopener noreferrer"
+                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors">
                 Drive ↗
               </a>
             )}
             {detail.miroFolder && (
-              <a
-                href={detail.miroFolder}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
-              >
+              <a href={detail.miroFolder} target="_blank" rel="noopener noreferrer"
+                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors">
                 Miro ↗
               </a>
             )}
             {detail.googleChat && (
-              <a
-                href={detail.googleChat}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors"
-              >
+              <a href={detail.googleChat} target="_blank" rel="noopener noreferrer"
+                className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-rule text-ink rounded hover:border-ink-muted transition-colors">
                 Chat ↗
               </a>
             )}
@@ -205,37 +204,88 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-2">
             Overview
           </h2>
-          <Field label="Industry" hint="Not in Airtable yet">—</Field>
-          <Field label="Lead source" hint="Not in Airtable yet">—</Field>
-          <Field label="Client start year">{detail.createdYear ?? "—"}</Field>
-          <Field label="Loyalty / referral discounts" hint="Not in Airtable yet">—</Field>
-          <Field label="NDA on file">{detail.hasNDA ? "Yes" : "No"}</Field>
-          <Field label="Preferred business">{detail.preferredBusiness ?? "—"}</Field>
-          <Field label="Legal address">
-            {detail.legalAddress ? (
-              <span className="whitespace-pre-wrap">{detail.legalAddress}</span>
-            ) : (
-              "—"
-            )}
-          </Field>
-          <Field label="Business description">
-            {detail.businessDescription ? (
-              <span className="whitespace-pre-wrap">{detail.businessDescription}</span>
-            ) : (
-              "—"
-            )}
-          </Field>
+          <InlineField
+            kind="select" label="Industry" value={detail.industry} options={INDUSTRY_OPTIONS}
+            readOnly={!canEdit} onSave={saveCompany("industry")}
+          />
+          <InlineField
+            kind="select" label="Lead source" value={detail.leadSource} options={LEAD_SOURCE_OPTIONS}
+            readOnly={!canEdit} onSave={saveCompany("leadSource")}
+          />
+          <InlineField
+            kind="number" label="Client start year"
+            value={detail.clientStartYearOverride}
+            step={1}
+            placeholder={detail.createdYear ? `auto: ${detail.createdYear}` : "—"}
+            hint={detail.createdYear && !detail.clientStartYearOverride ? `auto from created: ${detail.createdYear}` : undefined}
+            readOnly={!canEdit} onSave={saveCompany("clientStartYear")}
+          />
+          <InlineField
+            kind="number" label="Discount %" value={detail.discountPct} step={1} suffix="%"
+            readOnly={!canEdit} onSave={saveCompany("discountPct")}
+          />
+          <InlineField
+            kind="select" label="Discount reason" value={detail.discountReason} options={DISCOUNT_REASON_OPTIONS}
+            readOnly={!canEdit} onSave={saveCompany("discountReason")}
+          />
+          <InlineField
+            kind="select" label="Engagement frequency" value={detail.engagement} options={ENGAGEMENT_OPTIONS}
+            readOnly={!canEdit} onSave={saveCompany("engagementFrequency")}
+          />
+          <InlineField
+            kind="select" label="Contract type" value={detail.contractType} options={CONTRACT_OPTIONS}
+            readOnly={!canEdit} onSave={saveCompany("contractType")}
+          />
+          <InlineField
+            kind="number" label="Hourly rate" value={detail.hourlyRate} step={1} suffix=" USD"
+            readOnly={!canEdit} onSave={saveCompany("hourlyRate")}
+          />
+          <InlineField
+            kind="bool" label="NDA on file" value={detail.hasNDA}
+            readOnly={!canEdit} onSave={saveCompany("hasNDA")}
+          />
+          <InlineField
+            kind="select" label="Preferred business" value={detail.preferredBusiness} options={PREFERRED_BUSINESS_OPTIONS}
+            readOnly={!canEdit} onSave={saveCompany("preferredBusiness")}
+          />
+          <InlineField
+            kind="url" label="Website" value={detail.website}
+            readOnly={!canEdit} onSave={saveCompany("website")}
+          />
+          <InlineField
+            kind="url" label="Drive folder" value={detail.driveFolder}
+            readOnly={!canEdit} onSave={saveCompany("driveFolder")}
+          />
+          <InlineField
+            kind="url" label="Miro folder" value={detail.miroFolder}
+            readOnly={!canEdit} onSave={saveCompany("miroFolder")}
+          />
+          <InlineField
+            kind="url" label="Google Chat" value={detail.googleChat}
+            readOnly={!canEdit} onSave={saveCompany("googleChat")}
+          />
+          <InlineField
+            kind="textarea" label="Legal address" value={detail.legalAddress ?? ""} rows={2}
+            readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { legalAddress: v || null })}
+          />
+          <InlineField
+            kind="textarea" label="Business description" value={detail.businessDescription} rows={4}
+            readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { businessDescription: v })}
+          />
         </div>
 
         <div className="bg-surface border border-rule rounded-card p-5">
           <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-2">
             Relationship notes
           </h2>
-          <div className="text-[13px] text-ink-faint italic py-3">
-            No Relationship Notes field in Airtable yet. Add a long-text "Relationship Notes" field
-            to the Companies table to surface dynamics, communication preferences, and recurring
-            concerns here.
+          <div className="text-[11px] text-ink-faint mb-2">
+            Dynamics, communication preferences, recurring operational concerns, personality insights — keep this current.
           </div>
+          <InlineField
+            kind="textarea" label="Notes" value={detail.relationshipNotes} rows={14}
+            placeholder="Add context about how this client likes to be worked with…"
+            readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { relationshipNotes: v })}
+          />
         </div>
       </div>
 
@@ -263,28 +313,18 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Type</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Status</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Notes</th>
+                  {canEdit && <th className="px-3 py-2 w-10"></th>}
                 </tr>
               </thead>
               <tbody>
                 {detail.contacts.map((c) => (
-                  <tr key={c.id} className="border-b border-rule-soft last:border-0">
-                    <td className="px-3 py-2 text-[13px] text-ink-strong">
-                      {c.name}
-                      {c.vip && <span className="ml-1.5 px-1.5 py-0.5 bg-violet-soft text-violet rounded text-[9px] font-medium">VIP</span>}
-                    </td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{c.title ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">
-                      {c.email ? (
-                        <a href={`mailto:${c.email}`} className="hover:text-emerald">{c.email}</a>
-                      ) : "—"}
-                    </td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted font-mono">{c.phone ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{c.type ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{c.status ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted max-w-[260px] truncate" title={c.notes}>
-                      {c.notes || "—"}
-                    </td>
-                  </tr>
+                  <ContactRow
+                    key={c.id}
+                    contact={c}
+                    canEdit={canEdit}
+                    expanded={editingContactId === c.id}
+                    onToggle={() => setEditingContactId(editingContactId === c.id ? null : c.id)}
+                  />
                 ))}
               </tbody>
             </table>
@@ -428,6 +468,71 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
         onClose={() => setSelectedInvoice(null)}
         onFilterByPayer={() => setSelectedInvoice(null)}
       />
+    </>
+  );
+}
+
+function ContactRow({
+  contact,
+  canEdit,
+  expanded,
+  onToggle,
+}: {
+  contact: ClientDetail["contacts"][number];
+  canEdit: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const save = <K extends keyof ContactPatch>(key: K) =>
+    (value: ContactPatch[K]) => updateContact(contact.id, { [key]: value } as ContactPatch);
+
+  return (
+    <>
+      <tr className="border-b border-rule-soft">
+        <td className="px-3 py-2 text-[13px] text-ink-strong">
+          {contact.name}
+          {contact.vip && <span className="ml-1.5 px-1.5 py-0.5 bg-violet-soft text-violet rounded text-[9px] font-medium">VIP</span>}
+        </td>
+        <td className="px-3 py-2 text-[12px] text-ink-muted">{contact.title ?? "—"}</td>
+        <td className="px-3 py-2 text-[12px] text-ink-muted">
+          {contact.email ? (
+            <a href={`mailto:${contact.email}`} className="hover:text-emerald">{contact.email}</a>
+          ) : "—"}
+        </td>
+        <td className="px-3 py-2 text-[12px] text-ink-muted font-mono">{contact.phone ?? "—"}</td>
+        <td className="px-3 py-2 text-[12px] text-ink-muted">{contact.type ?? "—"}</td>
+        <td className="px-3 py-2 text-[12px] text-ink-muted">{contact.status ?? "—"}</td>
+        <td className="px-3 py-2 text-[12px] text-ink-muted max-w-[260px] truncate" title={contact.notes}>
+          {contact.notes || "—"}
+        </td>
+        {canEdit && (
+          <td className="px-3 py-2 text-right">
+            <button
+              onClick={onToggle}
+              className="text-[11px] text-ink-muted hover:text-emerald font-medium"
+            >
+              {expanded ? "Close" : "Edit"}
+            </button>
+          </td>
+        )}
+      </tr>
+      {expanded && canEdit && (
+        <tr className="border-b border-rule-soft bg-bg-elevated">
+          <td colSpan={8} className="px-5 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
+              <InlineField kind="text" label="Title / Role" value={contact.title} onSave={save("title")} />
+              <InlineField kind="text" label="Email" value={contact.email} onSave={save("email")} />
+              <InlineField kind="text" label="Phone" value={contact.phone} onSave={save("phone")} />
+              <InlineField kind="select" label="Type" value={contact.type} options={PERSON_TYPE_OPTIONS} onSave={save("type")} />
+              <InlineField kind="select" label="Status" value={contact.status} options={PERSON_STATUS_OPTIONS} onSave={save("status")} />
+              <InlineField kind="bool" label="VIP" value={contact.vip} onSave={save("vip")} />
+              <div className="md:col-span-2">
+                <InlineField kind="textarea" label="Notes" value={contact.notes} rows={3} onSave={save("notes")} />
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 }

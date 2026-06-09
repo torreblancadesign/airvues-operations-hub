@@ -89,6 +89,12 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
       "Legal Address"?: string;
       Logo?: Array<{ url?: string; thumbnails?: { small?: { url?: string } } }>;
       Created?: string;
+      Industry?: string;
+      "Lead Source"?: string;
+      "Relationship Notes"?: string;
+      "Discount %"?: number;
+      "Discount Reason"?: string;
+      "Client Start Year"?: number;
     }>(cT.id, companyId),
     listRecordsCached<{
       "Full Name"?: string;

@@ -2,6 +2,13 @@
 // already exist in Airtable today; blueprint extensions (Industry, Lead
 // Source, Discounts, Relationship Notes) are not added yet — the UI shows
 // "—" for those until the fields exist in the Companies table.
+//
+// IMPORTANT: We deliberately fetch People + Invoices via the same cached
+// reads used by `lib/clients.ts` and filter in JS. An earlier version used
+// `filterByFormula: FIND(companyId, ARRAYJOIN({Company}))` on People, but
+// ARRAYJOIN on a linked-record field returns the linked records' PRIMARY
+// FIELD (company name), not their recXXXX id — so the filter never matched
+// and the page rendered all zeros.
 import "server-only";
 
 import { getRecord, listRecordsCached } from "./airtable";
@@ -58,7 +65,7 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
   const cT = Tables.Companies;
   const pT = Tables.People;
 
-  const [company, people, quotes, invoices] = await Promise.all([
+  const [company, allPeople, allQuotes, allInvoices] = await Promise.all([
     getRecord<{
       Name?: string;
       Website?: string;
@@ -90,7 +97,6 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     }>(
       pT.id,
       {
-        filterByFormula: `FIND('${companyId}', ARRAYJOIN({Company}))`,
         fields: [
           pT.fields["Full Name"].id,
           pT.fields["First Name"].id,
@@ -105,17 +111,17 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
           pT.fields["Company"].id,
         ],
       },
-      [`client-detail:${companyId}:contacts`, "client-detail"],
-    ).catch(() => []),
+      ["client-detail:people"],
+    ),
     listAllQuotes(),
     listAllInvoices(),
   ]);
 
   const cf = company.fields;
+  const companyName = asStr(cf["Name"]);
 
-  // Contacts — keep only people whose Company actually contains this id
-  // (defensive in case filterByFormula misses an edge case).
-  const contacts: ClientContact[] = people
+  // Contacts — in-memory filter by linked Company recId.
+  const contacts: ClientContact[] = allPeople
     .filter((p) => {
       const arr = p.fields["Company"];
       return Array.isArray(arr) && (arr as string[]).includes(companyId);
@@ -141,17 +147,28 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Projects — quotes whose linked company includes this id
-  const projects = quotes
-    .filter((q) => q.companyIds.includes(companyId))
+  // Projects — quotes whose linked company includes this id, with a name
+  // fallback for quotes where the lookup didn't carry the recId through.
+  const projects = allQuotes
+    .filter(
+      (q) =>
+        q.companyIds.includes(companyId) ||
+        (companyName.length > 0 && q.client === companyName),
+    )
     .sort((a, b) => (b.preparedDate ?? "").localeCompare(a.preparedDate ?? ""));
 
-  // Invoices — payer is a Person; match Person.Company contains companyId.
-  // We already pulled all People for this company, so build a set of payer
-  // record IDs locally.
-  const payerIds = new Set(contacts.map((c) => c.id));
-  const companyInvoices = invoices
-    .filter((inv) => inv.payerRecordId && payerIds.has(inv.payerRecordId))
+  // Invoices — payer is a Person. Build personId→companyId map from the
+  // full People list (matches lib/clients.ts aggregation pattern).
+  const personToCompany = new Map<string, string>();
+  for (const p of allPeople) {
+    const arr = p.fields["Company"];
+    if (Array.isArray(arr) && arr[0]) personToCompany.set(p.id, arr[0] as string);
+  }
+  const companyInvoices = allInvoices
+    .filter((inv) => {
+      if (!inv.payerRecordId) return false;
+      return personToCompany.get(inv.payerRecordId) === companyId;
+    })
     .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
   // Aggregates from invoices
@@ -181,7 +198,7 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
 
   return {
     id: company.id,
-    name: asStr(cf["Name"]) || "(no name)",
+    name: companyName || "(no name)",
     website: asStr(cf["Website"]) || null,
     driveFolder: asStr(cf["Drive Folder"]) || null,
     miroFolder: asStr(cf["Miro Folder"]) || null,

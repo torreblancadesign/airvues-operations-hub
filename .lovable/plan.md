@@ -1,64 +1,59 @@
-## Phase 2 — Companies editing + blueprint fields
+## Scope
 
-Two-part change: (1) add the missing blueprint fields to the Airtable Companies table via the Meta API, (2) wire inline editing on `/clients/[id]` for both new and existing fields, plus contact (People) edit.
+Address team feedback across **My Scorecard**, **Sales Pipeline**, **Clients**, and **nav order**. Note: the "Status Funnel" / "By Source" feedback references components that live on the **Leads** page (not My Scorecard) — treating as Leads.
 
-### Part 1 — Airtable schema additions (Companies table)
+---
 
-Using the Airtable connector + Meta API (`POST /v0/meta/bases/{baseId}/tables/{tableId}/fields`). Fields to create:
+## 1. Nav reorder
 
-| Field name | Type | Options |
-|---|---|---|
-| `Industry` | singleSelect | SaaS, Marketplace, Fintech, Healthcare, E-commerce, Real Estate, Media, Other (editable later in Airtable) |
-| `Lead Source` | singleSelect | Fiverr, Word of Mouth, Referral, Inbound, Outbound, Other |
-| `Relationship Notes` | multilineText | — |
-| `Discount %` | number (precision 2) | — |
-| `Discount Reason` | singleSelect | Loyalty, Referral, Volume, Other |
-| `Client Start Year` | number (precision 0) | — manual override; falls back to existing `Created` year if empty |
+In `lib/nav.ts`, reorder revenue group: Leads → **Clients** → Sales Pipeline → Earnings. Sidebar, MobileNav, and Home jump-cards all derive from this file.
 
-After creation I'll re-run `scripts/verify-schema.ts` and update `lib/schema.ts` with the new field IDs/names so everything stays canonical.
+---
 
-If any of these names already exist on the table, I'll reuse the existing field instead of duplicating.
+## 2. My Scorecard
 
-### Part 2 — Code changes
+**a. "Open project" links go to Airvues One, not Airtable.**
+In `components/me/PersonScorecard.tsx`, the "Prepared quotes" table renders `<a href={q.airtableUrl}>`. Replace with a `Link` to the new `/pipeline/[id]` route (built in §4b). Fallback to `/clients/{companyId}` if no quote detail data.
 
-**New: `lib/mutations/company.ts`** — single `updateCompany(args)` server action following the exact pattern in `lib/mutations/person.ts` and `lib/mutations/story.ts`:
-- `requireRole("admin", "lead", "editor")` gate
-- Validates `companyId` + per-field shapes (URL fields are validated, numbers checked finite/≥0)
-- `patchRecords(Tables.Companies.id, [{id, fields}], { typecast: true })` so single-selects accept new values cleanly
-- `revalidateTag("airtable")` + `revalidateTag("client-detail:companies")`
-- Returns `{ ok: true } | { error }`
+**b. Delete stories from list.**
+Add a trash-icon button on each `StoryCard` (in `components/engineering/StoryCard.tsx`), gated by `canEdit`. Confirm dialog → new `deleteStory(id)` mutation in `lib/mutations/story.ts` calling a new `deleteRecords` wrapper in `lib/airtable.ts` (`DELETE /v0/{base}/{table}?records[]=...`, batched at 10) after `requireRole("admin","lead","editor")`. Then `revalidateTag("airtable")` + `router.refresh()`.
 
-Editable fields exposed by the mutation:
-- New: Industry, Lead Source, Relationship Notes, Discount %, Discount Reason, Client Start Year
-- Existing: Website, Engagement Frequency (preserve `"Iddle"` spelling), Contract Type, Hourly Rate, Preferred Business, Has NDA?, Legal Address, Business Description, Drive Folder, Miro Folder, Google Chat
+---
 
-**Edit: `lib/client-detail.ts`** — surface the new fields on `ClientDetail` (Industry, leadSource, relationshipNotes, discountPct, discountReason, startYearOverride). `createdYear` already exists; add `clientStartYear = startYearOverride ?? createdYear`.
+## 3. Leads page — Status Funnel + By Source react to MTD/YTD
 
-**Edit: `components/clients/ClientDetailView.tsx`**
-- Replace static `<Field>` rows in the Overview panel with inline-editable controls (text input, select, textarea, number). Per-field commit on blur; optimistic update + revert on error. Same UX as `StorySheet`'s field editors.
-- Replace the "No Relationship Notes field in Airtable yet" placeholder with an editable multiline textarea backed by the new field.
-- Add an "Edit" affordance on each Contact row that opens an inline editor for Title, Email, Phone, Notes, Type, Status via a new `lib/mutations/person.ts` export `updateContact(personId, patch)` (extends the existing file, mirroring `updateAnnualEarningsGoal`'s auth pattern but gated on `canMutate` only — contact edits are not self-edits).
-- All edit affordances hidden when `canEdit === false`.
+In `components/leads/LeadsDashboard.tsx`, compute `windowedLeads` once and pass to `<StatusFunnel>` and `<SourceBudgetBreakdown>` (today they receive the unfiltered list). Add a small `MTD/YTD` label in each card header.
 
-**New small component: `components/clients/InlineField.tsx`** — generic controlled wrapper (label + editable input/select/textarea + saving spinner + error tooltip) so the Overview panel stays readable instead of repeating 12 inline state hooks.
+---
 
-### Out of scope (deferred to later phases)
-- Adding/removing contacts (Phase 7 in the roadmap)
-- Logo upload, `Created` year edit
-- Project/invoice edits from the client page (those have their own sheets already)
-- Airtable formula automation for Discount % auto-apply on quotes — manual capture only
+## 4. Sales Pipeline
 
-### Verification
-1. Meta API field-creation calls return 200 and the new field IDs are recorded.
-2. `tsx scripts/verify-schema.ts` exits clean against the live base.
-3. Build runs clean (handled automatically).
-4. Load `/clients/[any-id]`, edit each new and existing field, refresh, confirm persistence.
-5. Hit the page as a non-mutating role — verify all editors are read-only.
+**a. KPIs react to filters.**
+In `PipelineDashboard.tsx`, switch `kpis` and `stageBreakdown` `useMemo` deps from `quotes` → `filtered`. Stage-bucket StatCards continue to drill further by stage.
 
-### Sequence when build mode opens
-1. Connect/verify Airtable connector → `POST` 6 new fields to Companies table → capture IDs.
-2. Update `lib/schema.ts` with new field IDs.
-3. Add `lib/mutations/company.ts` + extend `lib/mutations/person.ts`.
-4. Update `lib/client-detail.ts` to read new fields.
-5. Add `InlineField.tsx` + rework Overview + Relationship Notes + Contacts editors in `ClientDetailView.tsx`.
-6. Verify.
+**b. Full-page quote/project detail.**
+New route `app/(app)/pipeline/[id]/page.tsx` + new `components/pipeline/QuoteDetailView.tsx` with collapsible sections (Header, Financials, Stories, People, Sprint, Notes). New `getQuoteDetail(id)` in `lib/pipeline.ts`. `PipelineDashboard` row click → `router.push('/pipeline/${id}')` instead of opening the drawer. `QuoteSheet` stays in place (still used elsewhere) and can be removed later.
+
+---
+
+## 5. Clients
+
+**a. Nav order:** covered in §1.
+
+**b. Client detail shows associated projects.**
+In `lib/client-detail.ts`, fetch quotes filtered by `Company == clientId`. Render a new "Projects" table in `ClientDetailView` (Project, Status, Total Cost, Owed, Prepared, Deadline) — each row links to `/pipeline/[id]`.
+
+---
+
+## Files
+
+- New: `app/(app)/pipeline/[id]/page.tsx`, `components/pipeline/QuoteDetailView.tsx`
+- Edit: `lib/nav.ts`, `lib/airtable.ts` (+`deleteRecords`), `lib/mutations/story.ts` (+`deleteStory`), `lib/pipeline.ts` (+`getQuoteDetail`), `lib/client-detail.ts` (+projects), `components/me/PersonScorecard.tsx`, `components/engineering/StoryCard.tsx`, `components/leads/LeadsDashboard.tsx`, `components/pipeline/PipelineDashboard.tsx`, `components/clients/ClientDetailView.tsx`
+
+Verification: `npx tsc --noEmit` + `npm run build` + click-test each page.
+
+## Out of scope
+
+- Full Project-as-first-class record (Change Orders, Handoff section) — blueprint Phase 3
+- Removing `QuoteSheet` from other pages
+- Bulk delete on My Scorecard

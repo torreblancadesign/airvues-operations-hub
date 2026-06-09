@@ -63,6 +63,14 @@ export const NAV_ITEMS: NavItem[] = [
     showOnHome: true,
   },
   {
+    href: "/clients",
+    label: "Clients",
+    desc: "Active · at-risk · retainer tier · concentration risk",
+    group: "revenue",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+  {
     href: "/pipeline",
     label: "Sales Pipeline",
     desc: "Stalled quotes · funnel · goal tracker · stage breakdown",
@@ -78,14 +86,7 @@ export const NAV_ITEMS: NavItem[] = [
     showInSidebar: true,
     showOnHome: true,
   },
-  {
-    href: "/clients",
-    label: "Clients",
-    desc: "Active · at-risk · retainer tier · concentration risk",
-    group: "revenue",
-    showInSidebar: true,
-    showOnHome: true,
-  },
+
   {
     href: "/engineering",
     label: "Engineering",

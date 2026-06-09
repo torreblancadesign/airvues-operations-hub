@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Scorecard, ScorecardEngineer } from "@/lib/scorecard-types";
 import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
@@ -11,6 +12,7 @@ import { StorySheet } from "@/components/engineering/StorySheet";
 import { PersonPicker } from "./PersonPicker";
 import { EarningsChart } from "./EarningsChart";
 import { GoalEditor } from "./GoalEditor";
+
 
 type Props = {
   scorecard: Scorecard;
@@ -237,15 +239,16 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
                   {salesCommission.quotes.map((q) => (
                     <tr key={q.id} className="border-b border-rule-soft last:border-0 hover:bg-bg-elevated/50">
                       <td className="px-4 py-2 text-ink">
-                        <a href={q.airtableUrl} target="_blank" rel="noopener noreferrer" className="hover:text-emerald hover:underline">
+                        <Link href={`/pipeline/${q.id}`} className="hover:text-emerald hover:underline">
                           {q.projectName}
-                        </a>
+                        </Link>
                         {q.blueprint && (
                           <span className="ml-2 inline-flex items-center text-[9px] font-medium uppercase tracking-wider text-violet bg-violet/10 border border-violet/30 px-1.5 py-0.5 rounded">
                             Blueprint
                           </span>
                         )}
                       </td>
+
                       <td className="px-3 py-2 text-ink-muted">{q.client ?? "—"}</td>
                       <td className="px-3 py-2 text-ink-muted">
                         <span className={q.earned ? "text-emerald" : "text-amber"}>

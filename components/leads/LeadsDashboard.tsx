@@ -137,6 +137,11 @@ export function LeadsDashboard({ leads, initialFilter, canEdit = false, meetings
     }).length;
   }, [leads]);
 
+  const windowedLeads = useMemo(() => {
+    const cutoff = windowStart(win);
+    return leads.filter((l) => new Date(l.createdTime).getTime() >= cutoff);
+  }, [leads, win]);
+
   const filtered = useMemo(() => applyFilter(leads, filter), [leads, filter]);
   const sorted = useMemo(() => applySort(filtered, sort), [filtered, sort]);
 
@@ -212,10 +217,17 @@ export function LeadsDashboard({ leads, initialFilter, canEdit = false, meetings
 
       <UpcomingMeetings leads={leads} onSelect={setSelected} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <StatusFunnel leads={leads} onSelectStatus={setStatus} />
-        <SourceBudgetBreakdown leads={leads} />
+      <div className="mb-2 flex items-center justify-between">
+        <div className="eyebrow">Funnel & Sources · {windowLabel}</div>
+        <span className="text-[11px] font-mono text-ink-faint tabnum">
+          {windowedLeads.length.toLocaleString()} leads in window
+        </span>
       </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <StatusFunnel leads={windowedLeads} onSelectStatus={setStatus} />
+        <SourceBudgetBreakdown leads={windowedLeads} />
+      </div>
+
 
       <LeadsFilterBar
         filter={filter}

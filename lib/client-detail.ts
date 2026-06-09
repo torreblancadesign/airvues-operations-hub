@@ -90,7 +90,7 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     }>(
       pT.id,
       {
-        filterByFormula: `FIND('${companyId}', ARRAYJOIN({${pT.fields["Company"].name ?? "Company"}}))`,
+        filterByFormula: `FIND('${companyId}', ARRAYJOIN({Company}))`,
         fields: [
           pT.fields["Full Name"].id,
           pT.fields["First Name"].id,

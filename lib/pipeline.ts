@@ -29,6 +29,7 @@ export type PipelineQuote = {
   airtableUrl: string;
   primaryEmail: string | null;
   companyIds: string[];
+  preparedForIds: string[];
 };
 
 function first<T>(x: T[] | undefined): T | null {
@@ -58,6 +59,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     "Stories"?: string[];
     "Primary Email (from Prepared for)"?: string[];
     "Existing Company? (from Form Submission)"?: string[];
+    "Prepared for"?: string[];
   }>(
     t.id,
     {
@@ -82,6 +84,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         t.fields["Stories"].id,
         t.fields["Primary Email (from Prepared for)"].id,
         t.fields["Existing Company? (from Form Submission)"].id,
+        t.fields["Prepared for"].id,
       ],
     },
     ["pipeline:all-quotes"],
@@ -114,6 +117,9 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       primaryEmail: first(f["Primary Email (from Prepared for)"] as string[] | undefined),
       companyIds: Array.isArray(f["Existing Company? (from Form Submission)"])
         ? (f["Existing Company? (from Form Submission)"] as string[])
+        : [],
+      preparedForIds: Array.isArray(f["Prepared for"])
+        ? (f["Prepared for"] as string[])
         : [],
     };
   });

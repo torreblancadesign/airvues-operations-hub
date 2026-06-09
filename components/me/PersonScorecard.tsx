@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Scorecard, ScorecardEngineer } from "@/lib/scorecard-types";
 import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
@@ -11,6 +12,7 @@ import { StorySheet } from "@/components/engineering/StorySheet";
 import { PersonPicker } from "./PersonPicker";
 import { EarningsChart } from "./EarningsChart";
 import { GoalEditor } from "./GoalEditor";
+
 
 type Props = {
   scorecard: Scorecard;

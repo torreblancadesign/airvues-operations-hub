@@ -28,6 +28,7 @@ export type PipelineQuote = {
   webQuoteUrl: string;
   airtableUrl: string;
   primaryEmail: string | null;
+  companyIds: string[];
 };
 
 function first<T>(x: T[] | undefined): T | null {
@@ -56,6 +57,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     "Created"?: string;
     "Stories"?: string[];
     "Primary Email (from Prepared for)"?: string[];
+    "Existing Company? (from Form Submission)"?: string[];
   }>(
     t.id,
     {
@@ -79,6 +81,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         t.fields["Created"].id,
         t.fields["Stories"].id,
         t.fields["Primary Email (from Prepared for)"].id,
+        t.fields["Existing Company? (from Form Submission)"].id,
       ],
     },
     ["pipeline:all-quotes"],
@@ -109,6 +112,9 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       webQuoteUrl: `https://airvues-quote.vercel.app/?quoteId=${r.id}`,
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
       primaryEmail: first(f["Primary Email (from Prepared for)"] as string[] | undefined),
+      companyIds: Array.isArray(f["Existing Company? (from Form Submission)"])
+        ? (f["Existing Company? (from Form Submission)"] as string[])
+        : [],
     };
   });
 }

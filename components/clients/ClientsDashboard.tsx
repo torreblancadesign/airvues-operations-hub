@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ClientRow } from "@/lib/clients";
 import { StatCard } from "@/components/ui/StatCard";
-import { ClientSheet } from "./ClientSheet";
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -31,10 +31,10 @@ type SortKey = "name" | "lifetimeRevenue" | "outstandingAR" | "invoiceCount" | "
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
+  const router = useRouter();
   const [bucket, setBucket] = useState<Bucket>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>({ key: "lifetimeRevenue", dir: "desc" });
-  const [selected, setSelected] = useState<ClientRow | null>(null);
 
   const kpis = useMemo(() => {
     let activeCount = 0;
@@ -247,7 +247,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                 sorted.map((c) => {
                   const atRisk = c.engagement === "Active" && c.daysSinceLastInvoice != null && c.daysSinceLastInvoice > 90;
                   return (
-                    <tr key={c.id} onClick={() => setSelected(c)} className={`border-b border-rule-soft last:border-0 cursor-pointer transition-colors ${selected?.id === c.id ? "bg-emerald-soft" : "hover:bg-bg-elevated"}`}>
+                    <tr key={c.id} onClick={() => router.push(`/clients/${c.id}`)} className="border-b border-rule-soft last:border-0 cursor-pointer transition-colors hover:bg-bg-elevated">
                       <td className="px-3 py-2.5 text-[13px] text-ink-strong">{c.name}</td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${ENGAGEMENT_COLOR[c.engagement] ?? "bg-rule text-ink-muted"}`}>
@@ -271,8 +271,6 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
           </table>
         </div>
       </div>
-
-      <ClientSheet client={selected} onClose={() => setSelected(null)} />
     </>
   );
 }

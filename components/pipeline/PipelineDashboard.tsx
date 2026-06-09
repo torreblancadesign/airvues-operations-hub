@@ -101,6 +101,7 @@ type SprintOption = { id: string; number: number | null; status: string | null }
 type Props = { quotes: PipelineQuote[]; people: PersonOption[]; sprints: SprintOption[]; canEdit: boolean };
 
 export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>(EMPTY_FILTER);
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<PipelineQuote | null>(null);
@@ -117,6 +118,10 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
     return Array.from(s).sort();
   }, [quotes]);
 
+  const filtered = useMemo(() => applyFilter(quotes, filter), [quotes, filter]);
+  const sorted = useMemo(() => applySort(filtered, sort), [filtered, sort]);
+  const filteredTotal = filtered.reduce((s, r) => s + r.totalCost, 0);
+
   const kpis = useMemo(() => {
     const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10);
     let bookedYtd = 0, bookedYtdCount = 0;
@@ -128,7 +133,7 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
     // Paid = fully collected: Paid only. Both over sentWithLost (any quote that left Draft).
     let sentWithLost = 0, soldCount = 0, paidCount = 0, lostCount = 0;
 
-    for (const q of quotes) {
+    for (const q of filtered) {
       const days = daysSince(q.preparedDate);
       const isYtd = q.preparedDate && q.preparedDate >= yearStart;
       const isOpen = q.status ? OPEN_STATUSES.includes(q.status) : false;
@@ -184,23 +189,19 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
       sentWithLost, soldCount, paidCount, lostCount,
       soldRate, paidRate,
     };
-  }, [quotes]);
+  }, [filtered]);
 
 
   const stageBreakdown = useMemo(() => {
     const bins: Record<string, { count: number; total: number }> = {};
-    for (const q of quotes) {
+    for (const q of filtered) {
       const key = q.status ?? "—";
       if (!bins[key]) bins[key] = { count: 0, total: 0 };
       bins[key].count += 1;
       bins[key].total += q.totalCost;
     }
     return Object.entries(bins).map(([status, v]) => ({ status, ...v })).sort((a, b) => b.total - a.total);
-  }, [quotes]);
-
-  const filtered = useMemo(() => applyFilter(quotes, filter), [quotes, filter]);
-  const sorted = useMemo(() => applySort(filtered, sort), [filtered, sort]);
-  const filteredTotal = filtered.reduce((s, r) => s + r.totalCost, 0);
+  }, [filtered]);
 
   const setStage = (stage: StageBucket) => setFilter({ ...EMPTY_FILTER, stage });
   const setStalled = () => setFilter({ ...EMPTY_FILTER, stalledOnly: true });
@@ -219,6 +220,16 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
   };
   const stageMaxTotal = Math.max(1, ...stageBreakdown.map((b) => b.total));
 
+  const filterActive =
+    !!filter.search ||
+    filter.stage !== "all" ||
+    filter.proposalType !== "all" ||
+    !!filter.client ||
+    !!filter.preparedBy ||
+    !!filter.from ||
+    !!filter.to ||
+    filter.stalledOnly;
+
   return (
     <>
       <PipelineFilterBar
@@ -229,6 +240,12 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
         totalCount={quotes.length}
         filteredCount={filtered.length}
       />
+
+      {filterActive && (
+        <div className="mb-2 text-[11px] font-mono uppercase tracking-wider text-emerald">
+          KPIs reflect current filter ({filtered.length.toLocaleString()} of {quotes.length.toLocaleString()} quotes)
+        </div>
+      )}
 
       {/* KPIs row 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-3">
@@ -254,7 +271,7 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
         <div className="flex items-baseline justify-between mb-5">
           <h3 className="eyebrow">Stage breakdown — $ by status</h3>
           <div className="text-[12px] text-ink-muted tabnum font-mono">
-            <span className="text-ink-strong">{quotes.length}</span> total quotes
+            <span className="text-ink-strong">{filtered.length}</span> {filterActive ? "filtered" : "total"} quotes
           </div>
         </div>
         <div className="space-y-2">
@@ -275,13 +292,19 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
       </div>
 
       {/* Filter result total */}
-      {(filter.search || filter.stage !== "all" || filter.proposalType !== "all" || filter.client || filter.preparedBy || filter.from || filter.to || filter.stalledOnly) && (
+      {filterActive && (
         <div className="mb-3 text-[12px] text-ink-muted">
           Filtered total: <span className="text-ink-strong font-semibold tabnum">{fmtCurrency(filteredTotal)}</span>
         </div>
       )}
 
-      <QuoteTable rows={sorted} sort={sort} setSort={setSort} onRowClick={setSelected} selectedId={selected?.id ?? null} />
+      <QuoteTable
+        rows={sorted}
+        sort={sort}
+        setSort={setSort}
+        onRowClick={(q) => router.push(`/pipeline/${q.id}`)}
+        selectedId={selected?.id ?? null}
+      />
 
       <QuoteSheet
         quote={selected}
@@ -297,3 +320,4 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
     </>
   );
 }
+

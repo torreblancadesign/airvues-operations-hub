@@ -44,6 +44,44 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Obvious-affordance collapsible used for the long transcript field.
+ *  Chevron on the left + "Click to expand/collapse" microcopy on the right,
+ *  with a border-left accent so the header reads as interactive. */
+function CollapsibleNotes({
+  open,
+  onToggle,
+  charCount,
+  rightSlot,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  charCount: number;
+  rightSlot?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-rule rounded-md bg-bg-elevated/40 overflow-hidden">
+      <div className="flex items-stretch border-l-2 border-emerald/60">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left hover:bg-bg-elevated transition-colors"
+        >
+          <span className="text-ink-muted text-[11px] font-mono w-3 inline-block">{open ? "▾" : "▸"}</span>
+          <span className="text-[12px] font-medium text-ink-strong">Transcript / notes</span>
+          <span className="text-[10px] font-mono text-ink-faint">{charCount.toLocaleString()} chars</span>
+          <span className="ml-auto text-[10px] text-ink-faint">{open ? "Click to collapse" : "Click to expand"}</span>
+        </button>
+        {rightSlot && <div className="flex items-center pr-3">{rightSlot}</div>}
+      </div>
+      {open && <div className="px-3 py-2 border-t border-rule">{children}</div>}
+    </div>
+  );
+}
+
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="px-5 py-2.5 grid grid-cols-[140px_1fr] gap-3 border-b border-rule-soft last:border-0">

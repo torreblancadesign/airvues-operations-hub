@@ -44,6 +44,44 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Obvious-affordance collapsible used for the long transcript field.
+ *  Chevron on the left + "Click to expand/collapse" microcopy on the right,
+ *  with a border-left accent so the header reads as interactive. */
+function CollapsibleNotes({
+  open,
+  onToggle,
+  charCount,
+  rightSlot,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  charCount: number;
+  rightSlot?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-rule rounded-md bg-bg-elevated/40 overflow-hidden">
+      <div className="flex items-stretch border-l-2 border-emerald/60">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={open}
+          className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 text-left hover:bg-bg-elevated transition-colors"
+        >
+          <span className="text-ink-muted text-[11px] font-mono w-3 inline-block">{open ? "▾" : "▸"}</span>
+          <span className="text-[12px] font-medium text-ink-strong">Transcript / notes</span>
+          <span className="text-[10px] font-mono text-ink-faint">{charCount.toLocaleString()} chars</span>
+          <span className="ml-auto text-[10px] text-ink-faint">{open ? "Click to collapse" : "Click to expand"}</span>
+        </button>
+        {rightSlot && <div className="flex items-center pr-3">{rightSlot}</div>}
+      </div>
+      {open && <div className="px-3 py-2 border-t border-rule">{children}</div>}
+    </div>
+  );
+}
+
+
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="px-5 py-2.5 grid grid-cols-[140px_1fr] gap-3 border-b border-rule-soft last:border-0">
@@ -121,36 +159,62 @@ function TranscriptEditor({
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Auto-collapse long transcripts; expand short ones. Per-lead localStorage override.
+  const LONG_THRESHOLD = 400;
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return (current?.length ?? 0) <= LONG_THRESHOLD;
+    const v = window.localStorage.getItem(`lead:${leadId}:notes-open`);
+    if (v === "open") return true;
+    if (v === "closed") return false;
+    return (current?.length ?? 0) <= LONG_THRESHOLD;
+  });
 
   useEffect(() => { setValue(current ?? ""); setEditing(false); }, [current, leadId]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(`lead:${leadId}:notes-open`, open ? "open" : "closed");
+  }, [open, leadId]);
 
   if (!canEdit) {
-    return current ? (
-      <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
-    ) : <span className="text-ink-faint text-[12px]">—</span>;
+    if (!current) return <span className="text-ink-faint text-[12px]">—</span>;
+    return (
+      <CollapsibleNotes
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+        charCount={current.length}
+      >
+        <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
+      </CollapsibleNotes>
+    );
   }
 
   const save = () => {
     setError(null);
     startTransition(async () => {
       const res = await updateLeadTranscript({ leadId, transcript: value });
-      if ("error" in res) setError(res.error);
-      else setEditing(false);
+      if ("error" in res) { setError(res.error); }
+      else { setEditing(false); setOpen(true); }
     });
   };
 
   if (!editing && current) {
     return (
-      <div>
+      <CollapsibleNotes
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+        charCount={current.length}
+        rightSlot={
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setEditing(true); setOpen(true); }}
+            className="text-[11px] text-emerald hover:underline"
+          >
+            Edit
+          </button>
+        }
+      >
         <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="mt-1.5 text-[11px] text-emerald hover:underline"
-        >
-          Edit
-        </button>
-      </div>
+      </CollapsibleNotes>
     );
   }
 
@@ -158,7 +222,7 @@ function TranscriptEditor({
     return (
       <button
         type="button"
-        onClick={() => setEditing(true)}
+        onClick={() => { setEditing(true); setOpen(true); }}
         className="w-full text-left px-3 py-2 bg-bg-elevated border border-dashed border-rule rounded text-[12px] text-ink-muted hover:border-ink-muted hover:text-ink"
       >
         Paste the meeting transcript here or any other meeting notes or email communication. Anything that is relevant as discovery for creating a proposal.

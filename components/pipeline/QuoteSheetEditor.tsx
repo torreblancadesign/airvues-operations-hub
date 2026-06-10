@@ -511,23 +511,31 @@ function Section({
   }, [open, collapsible, storageKey]);
 
   return (
-    <section className="border-t border-rule">
+    <section className={`border-t ${collapsible ? "border-rule border-l-2 border-l-emerald/60" : "border-rule"}`}>
       <button
         type="button"
         onClick={() => collapsible && setOpen((o) => !o)}
         disabled={!collapsible}
-        className={`w-full flex items-center justify-between gap-2 px-5 py-3 ${
-          collapsible ? "cursor-pointer hover:bg-bg-elevated/40" : "cursor-default"
+        aria-expanded={collapsible ? open : undefined}
+        className={`w-full flex items-center justify-between gap-2 px-5 py-3 transition-colors ${
+          collapsible ? "cursor-pointer hover:bg-bg-elevated" : "cursor-default"
         }`}
       >
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {collapsible && (
+            <span className="text-ink-muted text-[12px] font-mono w-3 inline-block shrink-0">
+              {open ? "▾" : "▸"}
+            </span>
+          )}
           <h3 className="text-[12px] font-semibold uppercase tracking-wider text-ink-strong">
             {title}
           </h3>
           {chip}
         </div>
         {collapsible && (
-          <span className="text-ink-faint text-[12px]">{open ? "▾" : "▸"}</span>
+          <span className="text-[10px] text-ink-faint shrink-0">
+            {open ? "Click to collapse" : "Click to expand"}
+          </span>
         )}
       </button>
       {open && <div className="pb-2">{children}</div>}

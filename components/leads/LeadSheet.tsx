@@ -121,36 +121,62 @@ function TranscriptEditor({
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Auto-collapse long transcripts; expand short ones. Per-lead localStorage override.
+  const LONG_THRESHOLD = 400;
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return (current?.length ?? 0) <= LONG_THRESHOLD;
+    const v = window.localStorage.getItem(`lead:${leadId}:notes-open`);
+    if (v === "open") return true;
+    if (v === "closed") return false;
+    return (current?.length ?? 0) <= LONG_THRESHOLD;
+  });
 
   useEffect(() => { setValue(current ?? ""); setEditing(false); }, [current, leadId]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(`lead:${leadId}:notes-open`, open ? "open" : "closed");
+  }, [open, leadId]);
 
   if (!canEdit) {
-    return current ? (
-      <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
-    ) : <span className="text-ink-faint text-[12px]">—</span>;
+    if (!current) return <span className="text-ink-faint text-[12px]">—</span>;
+    return (
+      <CollapsibleNotes
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+        charCount={current.length}
+      >
+        <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
+      </CollapsibleNotes>
+    );
   }
 
   const save = () => {
     setError(null);
     startTransition(async () => {
       const res = await updateLeadTranscript({ leadId, transcript: value });
-      if ("error" in res) setError(res.error);
-      else setEditing(false);
+      if ("error" in res) { setError(res.error); }
+      else { setEditing(false); setOpen(true); }
     });
   };
 
   if (!editing && current) {
     return (
-      <div>
+      <CollapsibleNotes
+        open={open}
+        onToggle={() => setOpen((o) => !o)}
+        charCount={current.length}
+        rightSlot={
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setEditing(true); setOpen(true); }}
+            className="text-[11px] text-emerald hover:underline"
+          >
+            Edit
+          </button>
+        }
+      >
         <div className="text-[13px] text-ink whitespace-pre-wrap">{current}</div>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="mt-1.5 text-[11px] text-emerald hover:underline"
-        >
-          Edit
-        </button>
-      </div>
+      </CollapsibleNotes>
     );
   }
 
@@ -158,7 +184,7 @@ function TranscriptEditor({
     return (
       <button
         type="button"
-        onClick={() => setEditing(true)}
+        onClick={() => { setEditing(true); setOpen(true); }}
         className="w-full text-left px-3 py-2 bg-bg-elevated border border-dashed border-rule rounded text-[12px] text-ink-muted hover:border-ink-muted hover:text-ink"
       >
         Paste the meeting transcript here or any other meeting notes or email communication. Anything that is relevant as discovery for creating a proposal.

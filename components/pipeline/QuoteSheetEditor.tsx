@@ -122,6 +122,48 @@ function FieldRow({
   );
 }
 
+/** Obvious-affordance collapsible used for long-text fields inside a section.
+ *  Mirrors the LeadSheet CollapsibleNotes pattern (chevron-left + emerald accent
+ *  + "Click to expand/collapse" microcopy). */
+function CollapsibleField({
+  title,
+  open,
+  onToggle,
+  charCount,
+  emptyHint,
+  children,
+}: {
+  title: string;
+  open: boolean;
+  onToggle: () => void;
+  charCount: number;
+  emptyHint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="border border-rule rounded-md bg-bg-elevated/40 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-stretch border-l-2 border-emerald/60 text-left hover:bg-bg-elevated transition-colors"
+      >
+        <span className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2">
+          <span className="text-ink-muted text-[11px] font-mono w-3 inline-block">{open ? "▾" : "▸"}</span>
+          <span className="text-[12px] font-medium text-ink-strong">{title}</span>
+          {charCount > 0 ? (
+            <span className="text-[10px] font-mono text-ink-faint">{charCount.toLocaleString()} chars</span>
+          ) : (
+            emptyHint && <span className="text-[10px] text-ink-faint italic">{emptyHint}</span>
+          )}
+          <span className="ml-auto text-[10px] text-ink-faint">{open ? "Click to collapse" : "Click to expand"}</span>
+        </span>
+      </button>
+      {open && <div className="px-3 py-2 border-t border-rule">{children}</div>}
+    </div>
+  );
+}
+
 // Generic text field that autosaves on blur. Tracks its own dirty state so
 // re-renders from parent (after quote refresh) don't fight the user's typing.
 function TextField({

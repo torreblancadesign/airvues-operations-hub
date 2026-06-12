@@ -239,6 +239,7 @@ export const Tables = {
       // Swap to the real fldXXX once available without code changes.
       "Change Order Details": { id: "Change Order Details", type: "multilineText" },
       "Change Order Input Details": { id: "Change Order Input Details", type: "multilineText" },
+      "Change Order Estimate Cost": { id: "Change Order Estimate Cost", type: "singleLineText" },
     },
   },
   Invoices: {

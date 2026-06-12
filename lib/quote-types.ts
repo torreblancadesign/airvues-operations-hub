@@ -102,4 +102,5 @@ export type QuoteFieldPatch = Partial<{
   epicOwnerId: string | null;
   changeOrderDetails: string;
   changeOrderInputDetails: string;
+  changeOrderEstimateCost?: string;
 }>;

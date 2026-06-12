@@ -80,6 +80,9 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.changeOrderInputDetails !== undefined) {
     fields["Change Order Input Details"] = patch.changeOrderInputDetails;
   }
+  if (patch.changeOrderEstimateCost !== undefined) {
+    fields["Change Order Estimate Cost"] = patch.changeOrderEstimateCost;
+  }
   return fields;
 }
 

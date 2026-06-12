@@ -35,6 +35,7 @@ type QuoteFields = {
   "Total Cost"?: number;
   "Total Hours"?: number;
   "Run AI Proposal Agent"?: boolean;
+  "Run AI Change Order Agent"?: boolean;
   "Blueprint"?: boolean;
   "Epic Owner"?: string[];
   "Change Order Details"?: string;

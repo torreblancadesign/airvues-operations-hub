@@ -9,6 +9,7 @@ import {
   updateQuoteFields,
   attachQuoteDocuments,
   triggerAiProposalAgent,
+  triggerAiChangeOrderAgent,
 } from "@/lib/mutations/quote";
 import type { Story } from "@/lib/engineering-types";
 import { StorySheet } from "@/components/engineering/StorySheet";

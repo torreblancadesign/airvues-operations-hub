@@ -1282,6 +1282,17 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
                 patchAndRefresh("changeOrderInputDetails", { changeOrderInputDetails: v })
               }
             />
+            <CreateAiChangeOrderRow
+              canEdit={canEdit}
+              hasInput={quote.changeOrderInputDetails.trim().length > 0}
+              aiContentReady={quote.changeOrderDetails.trim().length > 0}
+              isAgentRunning={isCoAgentRunning}
+              isTriggering={coAiTriggering}
+              pollStartedAt={coPollStartedAt}
+              pollTick={coPollTick}
+              error={coAiError}
+              onClick={handleTriggerCoAi}
+            />
           </CollapsibleFieldWrapper>
         </FieldRow>
 

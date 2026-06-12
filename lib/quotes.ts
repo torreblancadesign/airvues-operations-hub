@@ -38,6 +38,7 @@ type QuoteFields = {
   "Blueprint"?: boolean;
   "Epic Owner"?: string[];
   "Change Order Details"?: string;
+  "Change Order Input Details"?: string;
 };
 
 type StoryFields = {

@@ -51,6 +51,8 @@ export type QuoteDetail = {
   blueprint: boolean;
   // Change orders (long-text block of details + flagged stories)
   changeOrderDetails: string;
+  // Estimated cost range string for the change orders (client-visible)
+  changeOrderEstimateCost: string;
   // Raw input passed to the AI agent that drafts the change order summary + stories
   changeOrderInputDetails: string;
   // Stories + totals

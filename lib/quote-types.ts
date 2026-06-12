@@ -99,4 +99,5 @@ export type QuoteFieldPatch = Partial<{
   blueprint: boolean;
   epicOwnerId: string | null;
   changeOrderDetails: string;
+  changeOrderInputDetails: string;
 }>;

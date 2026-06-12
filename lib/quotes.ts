@@ -201,6 +201,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     epicOwnerId: firstId(f["Epic Owner"]),
     epicOwnerName: null,
     changeOrderDetails: asStr(f["Change Order Details"]),
+    changeOrderInputDetails: asStr(f["Change Order Input Details"]),
     stories,
     totalCost: typeof f["Total Cost"] === "number" ? (f["Total Cost"] as number) : 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,

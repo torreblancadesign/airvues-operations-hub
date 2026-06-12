@@ -51,6 +51,8 @@ export type QuoteDetail = {
   blueprint: boolean;
   // Change orders (long-text block of details + flagged stories)
   changeOrderDetails: string;
+  // Raw input passed to the AI agent that drafts the change order summary + stories
+  changeOrderInputDetails: string;
   // Stories + totals
   stories: QuoteStoryRow[];
   totalCost: number;
@@ -97,4 +99,5 @@ export type QuoteFieldPatch = Partial<{
   blueprint: boolean;
   epicOwnerId: string | null;
   changeOrderDetails: string;
+  changeOrderInputDetails: string;
 }>;

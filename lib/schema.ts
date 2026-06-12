@@ -238,6 +238,7 @@ export const Tables = {
       // Airtable accepts field NAMES in place of fldXXX IDs for reads/writes.
       // Swap to the real fldXXX once available without code changes.
       "Change Order Details": { id: "Change Order Details", type: "multilineText" },
+      "Change Order Input Details": { id: "Change Order Input Details", type: "multilineText" },
     },
   },
   Invoices: {

@@ -1,41 +1,51 @@
 ## Goal
 
-Two related UX fixes for collapsible content:
-
-1. **Leads side panel** — the "Paste meeting transcript / notes" field can be enormous and pushes everything below it offscreen. Make it collapsible.
-2. **Quote editor + everywhere else** — collapsible sections exist but the affordance is invisible (a tiny `▾` / `▸` on the far right). Make it obvious.
+Add a new **Change Order Input Details** field to the Quote editor — a free-text input where the user feeds context to the AI agent that will draft change order summaries and stories. Render it inside the existing "Change orders" section as a collapsible block using the same chevron-left + microcopy affordance pattern we just shipped.
 
 ---
 
-## 1. Leads side panel — collapse the transcript
+## 1. Schema + types
 
-File: `components/leads/LeadSheet.tsx`
+- `lib/schema.ts` — add `"Change Order Input Details": { id: "Change Order Input Details", type: "multilineText" }` to the Quotes table fields (next to `"Change Order Details"`).
+- `lib/quote-types.ts` — add `changeOrderInputDetails: string` to `QuoteDetail`, and `changeOrderInputDetails?: string` to `QuoteFieldPatch`.
 
-The "More Context" section (line 612) contains the giant paste-target textarea. When content is present (line 142-155 — read-only view), wrap it in a collapsible shell:
+## 2. Read path
 
-- Default state: **collapsed** when the transcript is longer than ~400 chars; otherwise expanded.
-- Header bar shows: `▸ Transcript / notes` + a small meta count like `2,431 chars` so the user knows there's something inside without expanding.
-- Clicking the header toggles. Persist open/closed in `localStorage` per-lead (key: `lead:${id}:notes-open`).
-- When empty, keep the existing "Paste the meeting transcript here…" CTA as-is (no collapse needed).
-- When `editing` is true (textarea open), force expanded.
+- `lib/quotes.ts` — extend `QuoteFields` with `"Change Order Input Details"?: string`, then populate `changeOrderInputDetails: asStr(f["Change Order Input Details"])` in the returned `QuoteDetail`.
 
-## 2. Make the collapsible affordance obvious
+## 3. Write path
 
-File: `components/pipeline/QuoteSheetEditor.tsx`, the `Section` component (lines 482–536).
+- `lib/mutations/quote.ts` — in the field mapper, add:
+  ```ts
+  if (patch.changeOrderInputDetails !== undefined)
+    fields["Change Order Input Details"] = patch.changeOrderInputDetails;
+  ```
 
-Currently the only hint is a 12px `▾` / `▸` glyph on the far right of a 5-px-padded row — easy to miss. Upgrade the header for `collapsible` sections only (non-collapsible sections unchanged):
+## 4. UI — collapsible field inside "Change orders" section
 
-- **Left-side chevron** next to the title (lucide `ChevronDown` / `ChevronRight`, 14px, `text-ink-muted`) — eyes go there first, not the far right.
-- **Stronger hover state**: `bg-bg-elevated` (not /40) + ring on the chevron.
-- **"Click to expand / collapse" microcopy** in `text-[10px] text-ink-faint` on the right side when collapsible (replaces the lone glyph). Reads e.g. `Click to expand` / `Click to collapse`.
-- **Subtle border-left accent** (`border-l-2 border-rule`) on the header when collapsible, removed from non-collapsible — makes the row read as interactive.
-- Keep keyboard accessibility: button already, add `aria-expanded={open}`.
+File: `components/pipeline/QuoteSheetEditor.tsx`, just above the existing "Change Order Details" `FieldRow` (line 1053).
 
-## 3. Apply the same Section pattern to the new Leads collapse
+Add a new `FieldRow`:
+- **Label:** "Change Order Input Details"
+- **Hint:** "Raw context for the AI agent — paste meeting notes, scope deltas, client requests. The agent uses this to draft the summary + stories below."
+- **Body:** `TextField` multiline, `rows={8}`, placeholder `"Paste change order context for the AI agent here…"`, wired to `patchAndRefresh("changeOrderInputDetails", { changeOrderInputDetails: v })`.
 
-Reuse the visual language from step 2 for the Leads transcript collapse so the affordance reads identically across both pages (chevron-left + microcopy-right + hover). No need to extract a shared component yet — duplicate the small header markup inside `LeadSheet.tsx`. If a third surface needs it later, lift to `components/ui/CollapsibleSection.tsx`.
+Wrap the body in the same `CollapsibleNotes`-style shell used in `LeadSheet.tsx` so long pastes don't push the rest of the section offscreen:
+- Default **collapsed** when value length > 400 chars; expanded otherwise.
+- Header row: left chevron (`ChevronDown`/`ChevronRight` 14px, `text-ink-muted`), title "Change Order Input Details", char count on the right (`2,431 chars`), microcopy `Click to expand` / `Click to collapse`, `border-l-2 border-l-emerald/60`, `hover:bg-bg-elevated`, `aria-expanded`.
+- Persist open/closed in `localStorage` per-quote: `quote:${quote.id}:co-input-open`.
+- When the textarea is being edited, force expanded.
+- Empty state: keep header visible with a faint "Empty — click to add context" hint so users know the field exists.
 
-## Out of scope
+Since `QuoteSheetEditor` already uses the upgraded `Section` collapsible pattern, this nested collapse uses the same visual language (chevron-left, microcopy-right, emerald accent bar) for consistency.
 
-- Auditing every other page for hidden collapsibles (only Quote + Leads were called out). I can do a sweep in a follow-up if you want.
-- Changing which sections default open vs closed in the Quote editor — only the visual affordance changes.
+## 5. Out of scope
+
+- Wiring the AI agent itself (assumed to be triggered Airtable-side or via an existing automation against the new field).
+- Changing the existing "Change Order Details" field — it stays as the AI's output target.
+- Adding a separate "Run change order agent" button (no checkbox/trigger field was mentioned).
+
+## Technical notes
+
+- The new field is `multilineText` in Airtable; no choices to register.
+- `Section "Change orders"` itself is already a top-level section in the editor — the new collapsible lives *inside* it, so users get two levels of disclosure (section open → field open), matching how the Leads transcript collapse sits inside the "More Context" section.

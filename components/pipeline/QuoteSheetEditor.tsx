@@ -164,6 +164,47 @@ function CollapsibleField({
   );
 }
 
+/** Self-contained collapsible field — persists open/closed per (quote, key) in
+ *  localStorage. Default collapsed when initial content > 400 chars. */
+function CollapsibleFieldWrapper({
+  storageKey,
+  title,
+  initialContent,
+  emptyHint,
+  children,
+}: {
+  storageKey: string;
+  title: string;
+  initialContent: string;
+  emptyHint?: string;
+  children: React.ReactNode;
+}) {
+  const longThreshold = 400;
+  const [open, setOpen] = useState<boolean>(() => {
+    if (typeof window === "undefined") return initialContent.length <= longThreshold;
+    const stored = window.localStorage.getItem(storageKey);
+    if (stored === "1") return true;
+    if (stored === "0") return false;
+    return initialContent.length <= longThreshold;
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(storageKey, open ? "1" : "0");
+    }
+  }, [storageKey, open]);
+  return (
+    <CollapsibleField
+      title={title}
+      open={open}
+      onToggle={() => setOpen((v) => !v)}
+      charCount={initialContent.length}
+      emptyHint={emptyHint}
+    >
+      {children}
+    </CollapsibleField>
+  );
+}
+
 // Generic text field that autosaves on blur. Tracks its own dirty state so
 // re-renders from parent (after quote refresh) don't fight the user's typing.
 function TextField({

@@ -166,6 +166,27 @@ export async function triggerAiProposalAgent(
   }
 }
 
+// Flip the Airtable "Run AI Change Order Agent" checkbox so the automation runs.
+export async function triggerAiChangeOrderAgent(
+  quoteId: string,
+): Promise<MutationResult<{ quote: QuoteDetail }>> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    await patchRecords(Tables.Quotes.id, [
+      { id: quoteId, fields: { "Run AI Change Order Agent": true } },
+    ]);
+    invalidateQuote(quoteId);
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+
+
 export async function updateQuoteFields(
   quoteId: string,
   patch: QuoteFieldPatch,

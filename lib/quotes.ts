@@ -35,6 +35,7 @@ type QuoteFields = {
   "Total Cost"?: number;
   "Total Hours"?: number;
   "Run AI Proposal Agent"?: boolean;
+  "Run AI Change Order Agent"?: boolean;
   "Blueprint"?: boolean;
   "Epic Owner"?: string[];
   "Change Order Details"?: string;
@@ -198,6 +199,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     estimateCostRange: asStr(f["Estimate Cost Range"]),
 
     runAiProposalAgent: f["Run AI Proposal Agent"] === true,
+    runAiChangeOrderAgent: f["Run AI Change Order Agent"] === true,
     blueprint: f["Blueprint"] === true,
     epicOwnerId: firstId(f["Epic Owner"]),
     epicOwnerName: null,

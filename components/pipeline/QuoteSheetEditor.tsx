@@ -9,6 +9,7 @@ import {
   updateQuoteFields,
   attachQuoteDocuments,
   triggerAiProposalAgent,
+  triggerAiChangeOrderAgent,
 } from "@/lib/mutations/quote";
 import type { Story } from "@/lib/engineering-types";
 import { StorySheet } from "@/components/engineering/StorySheet";
@@ -718,6 +719,87 @@ function CreateAiProposalRow({
   );
 }
 
+function CreateAiChangeOrderRow({
+  canEdit,
+  hasInput,
+  aiContentReady,
+  isAgentRunning,
+  isTriggering,
+  pollStartedAt,
+  pollTick,
+  error,
+  onClick,
+}: {
+  canEdit: boolean;
+  hasInput: boolean;
+  aiContentReady: boolean;
+  isAgentRunning: boolean;
+  isTriggering: boolean;
+  pollStartedAt: number | null;
+  pollTick: number;
+  error: string | null;
+  onClick: () => void;
+}) {
+  void pollTick;
+
+  const disabledReason = !canEdit
+    ? "Read-only access"
+    : !hasInput
+      ? "Add change order input details first."
+      : null;
+
+  const label = isTriggering
+    ? "Starting…"
+    : isAgentRunning
+      ? "Generating change order…"
+      : aiContentReady
+        ? "Re-run Change Order"
+        : "Create Change Order";
+
+  const disabled = isTriggering || isAgentRunning || disabledReason !== null;
+
+  return (
+    <div className="mt-3 px-3 py-3 border border-rule-soft rounded bg-bg-elevated/40">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-[11px] text-ink-muted">
+          {isAgentRunning ? (
+            <>
+              <span className="text-sky font-medium">Generating change order…</span>{" "}
+              <span className="text-ink-faint">
+                usually 1–2 minutes
+                {pollStartedAt ? ` · ${formatElapsed(Date.now() - pollStartedAt)} elapsed` : ""}
+              </span>
+            </>
+          ) : aiContentReady ? (
+            <span className="text-emerald">Change order generated. Edits below override AI output.</span>
+          ) : (
+            "Run the AI agent to draft the change order summary + stories from the input above."
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          title={disabledReason ?? undefined}
+          className={`px-3.5 py-2 text-[12px] font-semibold rounded transition-colors inline-flex items-center gap-2 ${
+            disabled
+              ? "bg-bg-elevated text-ink-faint border border-rule cursor-not-allowed"
+              : aiContentReady
+                ? "bg-bg-elevated text-ink border border-rule hover:border-emerald hover:text-emerald"
+                : "bg-emerald text-bg hover:bg-emerald/80"
+          }`}
+        >
+          {isAgentRunning || isTriggering ? (
+            <span className="inline-block w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+          ) : null}
+          <span>{label}</span>
+        </button>
+      </div>
+      {error ? <div className="mt-2 text-[11px] text-red">⚠ {error}</div> : null}
+    </div>
+  );
+}
+
 // ---------- Main editor ----------
 
 
@@ -798,6 +880,52 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
       setPollStartedAt(Date.now());
     } else {
       setAiError(res.error);
+    }
+  };
+
+  // ---- AI change order trigger + polling ----
+  const [coAiTriggering, setCoAiTriggering] = useState(false);
+  const [coAiError, setCoAiError] = useState<string | null>(null);
+  const [coPollStartedAt, setCoPollStartedAt] = useState<number | null>(null);
+  const [coPollTick, setCoPollTick] = useState(0);
+  const isCoAgentRunning = quote?.runAiChangeOrderAgent === true;
+
+  useEffect(() => {
+    if (!isCoAgentRunning) {
+      setCoPollStartedAt(null);
+      return;
+    }
+    if (coPollStartedAt === null) setCoPollStartedAt(Date.now());
+    const startedAt = coPollStartedAt ?? Date.now();
+    let alive = true;
+    const tick = setInterval(() => {
+      if (!alive) return;
+      if (Date.now() - startedAt > 5 * 60_000) {
+        clearInterval(tick);
+        return;
+      }
+      loadQuoteDetail(quoteId).then((res) => {
+        if (!alive) return;
+        if ("ok" in res) setQuote(res.quote);
+        setCoPollTick((t) => t + 1);
+      });
+    }, 10_000);
+    return () => {
+      alive = false;
+      clearInterval(tick);
+    };
+  }, [isCoAgentRunning, quoteId, coPollStartedAt]);
+
+  const handleTriggerCoAi = async () => {
+    setCoAiError(null);
+    setCoAiTriggering(true);
+    const res = await triggerAiChangeOrderAgent(quoteId);
+    setCoAiTriggering(false);
+    if ("ok" in res) {
+      setQuote(res.quote);
+      setCoPollStartedAt(Date.now());
+    } else {
+      setCoAiError(res.error);
     }
   };
 
@@ -1153,6 +1281,17 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
               onSave={(v) =>
                 patchAndRefresh("changeOrderInputDetails", { changeOrderInputDetails: v })
               }
+            />
+            <CreateAiChangeOrderRow
+              canEdit={canEdit}
+              hasInput={quote.changeOrderInputDetails.trim().length > 0}
+              aiContentReady={quote.changeOrderDetails.trim().length > 0}
+              isAgentRunning={isCoAgentRunning}
+              isTriggering={coAiTriggering}
+              pollStartedAt={coPollStartedAt}
+              pollTick={coPollTick}
+              error={coAiError}
+              onClick={handleTriggerCoAi}
             />
           </CollapsibleFieldWrapper>
         </FieldRow>

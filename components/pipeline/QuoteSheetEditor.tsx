@@ -802,6 +802,52 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
     }
   };
 
+  // ---- AI change order trigger + polling ----
+  const [coAiTriggering, setCoAiTriggering] = useState(false);
+  const [coAiError, setCoAiError] = useState<string | null>(null);
+  const [coPollStartedAt, setCoPollStartedAt] = useState<number | null>(null);
+  const [coPollTick, setCoPollTick] = useState(0);
+  const isCoAgentRunning = quote?.runAiChangeOrderAgent === true;
+
+  useEffect(() => {
+    if (!isCoAgentRunning) {
+      setCoPollStartedAt(null);
+      return;
+    }
+    if (coPollStartedAt === null) setCoPollStartedAt(Date.now());
+    const startedAt = coPollStartedAt ?? Date.now();
+    let alive = true;
+    const tick = setInterval(() => {
+      if (!alive) return;
+      if (Date.now() - startedAt > 5 * 60_000) {
+        clearInterval(tick);
+        return;
+      }
+      loadQuoteDetail(quoteId).then((res) => {
+        if (!alive) return;
+        if ("ok" in res) setQuote(res.quote);
+        setCoPollTick((t) => t + 1);
+      });
+    }, 10_000);
+    return () => {
+      alive = false;
+      clearInterval(tick);
+    };
+  }, [isCoAgentRunning, quoteId, coPollStartedAt]);
+
+  const handleTriggerCoAi = async () => {
+    setCoAiError(null);
+    setCoAiTriggering(true);
+    const res = await triggerAiChangeOrderAgent(quoteId);
+    setCoAiTriggering(false);
+    if ("ok" in res) {
+      setQuote(res.quote);
+      setCoPollStartedAt(Date.now());
+    } else {
+      setCoAiError(res.error);
+    }
+  };
+
   useEffect(() => {
     let alive = true;
     setLoading(true);

@@ -1,51 +1,27 @@
 ## Goal
-
-Add a new **Change Order Input Details** field to the Quote editor — a free-text input where the user feeds context to the AI agent that will draft change order summaries and stories. Render it inside the existing "Change orders" section as a collapsible block using the same chevron-left + microcopy affordance pattern we just shipped.
-
----
+Add a "Run AI Change Order Agent" button that mirrors the existing Create AI Proposal button, but flips the Airtable `Run AI Change Order Agent` checkbox. Place it inside the collapsible **Change Order Input Details** block (the only collapsible in the Change orders section).
 
 ## 1. Schema + types
+- `lib/schema.ts` (Quotes table): add `"Run AI Change Order Agent": { id: "Run AI Change Order Agent", type: "checkbox" }`.
+- `lib/quote-types.ts`: add `runAiChangeOrderAgent: boolean` to `QuoteDetail`.
+- `lib/quotes.ts`: add `"Run AI Change Order Agent"?: boolean` to `QuoteFields` and populate `runAiChangeOrderAgent: f["Run AI Change Order Agent"] === true` in the returned detail.
 
-- `lib/schema.ts` — add `"Change Order Input Details": { id: "Change Order Input Details", type: "multilineText" }` to the Quotes table fields (next to `"Change Order Details"`).
-- `lib/quote-types.ts` — add `changeOrderInputDetails: string` to `QuoteDetail`, and `changeOrderInputDetails?: string` to `QuoteFieldPatch`.
+## 2. Mutation
+- `lib/mutations/quote.ts`: add `triggerAiChangeOrderAgent(quoteId)` mirroring `triggerAiProposalAgent` — patches `{ "Run AI Change Order Agent": true }`, invalidates, returns refreshed `QuoteDetail`.
 
-## 2. Read path
+## 3. UI — `components/pipeline/QuoteSheetEditor.tsx`
+- Import `triggerAiChangeOrderAgent`.
+- Add a small `CreateAiChangeOrderRow` component (or parameterize the existing `CreateAiProposalRow`; new component is simpler and keeps the proposal row untouched). Same visual shell: muted status copy on the left, emerald primary button on the right, spinner while running, elapsed timer, error line.
+  - Disabled reasons: read-only OR `changeOrderInputDetails` is empty (no context to feed the agent).
+  - Labels: `Create Change Order` (idle, no existing summary) / `Re-run Change Order` (existing summary present) / `Generating change order…` (running) / `Starting…` (triggering).
+  - "Ready" copy when summary exists: `Change order generated. Edits below override AI output.`
+- Add state + handler in the main editor: `coAiTriggering`, `coAiError`, `coPollStartedAt`, `coPollTick`, `isCoAgentRunning = quote?.runAiChangeOrderAgent === true`, plus a polling `useEffect` mirroring the proposal one (10s interval, 5-min cutoff).
+- Render `<CreateAiChangeOrderRow … />` **inside** the `CollapsibleFieldWrapper` for `Change Order Input Details`, below the `<TextField>`, so it appears only when the section is expanded. Pass `aiContentReady = quote.changeOrderDetails.trim().length > 0`.
 
-- `lib/quotes.ts` — extend `QuoteFields` with `"Change Order Input Details"?: string`, then populate `changeOrderInputDetails: asStr(f["Change Order Input Details"])` in the returned `QuoteDetail`.
-
-## 3. Write path
-
-- `lib/mutations/quote.ts` — in the field mapper, add:
-  ```ts
-  if (patch.changeOrderInputDetails !== undefined)
-    fields["Change Order Input Details"] = patch.changeOrderInputDetails;
-  ```
-
-## 4. UI — collapsible field inside "Change orders" section
-
-File: `components/pipeline/QuoteSheetEditor.tsx`, just above the existing "Change Order Details" `FieldRow` (line 1053).
-
-Add a new `FieldRow`:
-- **Label:** "Change Order Input Details"
-- **Hint:** "Raw context for the AI agent — paste meeting notes, scope deltas, client requests. The agent uses this to draft the summary + stories below."
-- **Body:** `TextField` multiline, `rows={8}`, placeholder `"Paste change order context for the AI agent here…"`, wired to `patchAndRefresh("changeOrderInputDetails", { changeOrderInputDetails: v })`.
-
-Wrap the body in the same `CollapsibleNotes`-style shell used in `LeadSheet.tsx` so long pastes don't push the rest of the section offscreen:
-- Default **collapsed** when value length > 400 chars; expanded otherwise.
-- Header row: left chevron (`ChevronDown`/`ChevronRight` 14px, `text-ink-muted`), title "Change Order Input Details", char count on the right (`2,431 chars`), microcopy `Click to expand` / `Click to collapse`, `border-l-2 border-l-emerald/60`, `hover:bg-bg-elevated`, `aria-expanded`.
-- Persist open/closed in `localStorage` per-quote: `quote:${quote.id}:co-input-open`.
-- When the textarea is being edited, force expanded.
-- Empty state: keep header visible with a faint "Empty — click to add context" hint so users know the field exists.
-
-Since `QuoteSheetEditor` already uses the upgraded `Section` collapsible pattern, this nested collapse uses the same visual language (chevron-left, microcopy-right, emerald accent bar) for consistency.
-
-## 5. Out of scope
-
-- Wiring the AI agent itself (assumed to be triggered Airtable-side or via an existing automation against the new field).
-- Changing the existing "Change Order Details" field — it stays as the AI's output target.
-- Adding a separate "Run change order agent" button (no checkbox/trigger field was mentioned).
+## Out of scope
+- The Airtable automation itself (assumed already wired to the new checkbox field, same pattern as the proposal agent).
+- Any change to the proposal agent button.
 
 ## Technical notes
-
-- The new field is `multilineText` in Airtable; no choices to register.
-- `Section "Change orders"` itself is already a top-level section in the editor — the new collapsible lives *inside* it, so users get two levels of disclosure (section open → field open), matching how the Leads transcript collapse sits inside the "More Context" section.
+- Two independent pollers will run when both agents are active; that's fine — each keys off its own checkbox.
+- Both pollers refresh the same `quote` state via `loadQuoteDetail`, so cross-agent updates stay in sync.

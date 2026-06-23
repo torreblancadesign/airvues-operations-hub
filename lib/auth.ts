@@ -58,13 +58,13 @@ function findRole(email: string | null | undefined): AppRole | null {
   if (!email) return null;
   const lower = email.toLowerCase();
   // 1. Exact email match wins
-  const emailMatch = allowedUsers.find((u) => u.kind === "email" && u.email === lower);
+  const emailMatch = getAllowedUsers().find((u) => u.kind === "email" && u.email === lower);
   if (emailMatch) return emailMatch.role;
   // 2. Domain match fallback (anyone on the Workspace gets the default role)
   const atIdx = lower.indexOf("@");
   if (atIdx === -1) return null;
   const domain = lower.slice(atIdx + 1);
-  const domainMatch = allowedUsers.find((u) => u.kind === "domain" && u.domain === domain);
+  const domainMatch = getAllowedUsers().find((u) => u.kind === "domain" && u.domain === domain);
   return domainMatch ? domainMatch.role : null;
 }
 

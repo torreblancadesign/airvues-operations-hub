@@ -33,6 +33,11 @@ const ENGAGEMENT_COLOR: Record<string, string> = {
   Archived: "bg-rule text-ink-faint",
 };
 
+const PARTNER_COLOR: Record<string, string> = {
+  Client: "bg-emerald-soft text-emerald",
+  Lead: "bg-violet-soft text-violet",
+};
+
 const TIER = (monthly: number): { label: string; cls: string } => {
   // monthly retainer signal from contract type is weak — fallback to revenue / activity
   if (monthly >= 12_000) return { label: "Diamond", cls: "bg-violet-soft text-violet" };
@@ -41,7 +46,7 @@ const TIER = (monthly: number): { label: string; cls: string } => {
   return { label: "Standard", cls: "bg-rule text-ink-muted" };
 };
 
-type SortKey = "name" | "lifetimeRevenue" | "outstandingAR" | "invoiceCount" | "daysSinceLastInvoice" | "engagement";
+type SortKey = "name" | "lifetimeRevenue" | "outstandingAR" | "invoiceCount" | "daysSinceLastInvoice" | "partnerStatus";
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
@@ -130,9 +135,9 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
           av = a.daysSinceLastInvoice ?? Number.MAX_SAFE_INTEGER;
           bv = b.daysSinceLastInvoice ?? Number.MAX_SAFE_INTEGER;
           break;
-        case "engagement":
-          av = a.engagement;
-          bv = b.engagement;
+        case "partnerStatus":
+          av = a.partnerStatus ?? "";
+          bv = b.partnerStatus ?? "";
           break;
       }
       if (av < bv) return -1 * dir;
@@ -260,8 +265,8 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                 <th onClick={() => toggleSort("name")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-left">
                   Client {sort.key === "name" && <span className="text-emerald text-[8px]">{sort.dir === "asc" ? "▲" : "▼"}</span>}
                 </th>
-                <th onClick={() => toggleSort("engagement")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-left">
-                  Engagement {sort.key === "engagement" && <span className="text-emerald text-[8px]">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                <th onClick={() => toggleSort("partnerStatus")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-left">
+                  Type {sort.key === "partnerStatus" && <span className="text-emerald text-[8px]">{sort.dir === "asc" ? "▲" : "▼"}</span>}
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Contract</th>
                 <th onClick={() => toggleSort("invoiceCount")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-right">
@@ -288,9 +293,13 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                     <tr key={c.id} onClick={() => router.push(`/clients/${c.id}`)} className="border-b border-rule-soft last:border-0 cursor-pointer transition-colors hover:bg-bg-elevated">
                       <td className="px-3 py-2.5 text-[13px] text-ink-strong">{c.name}</td>
                       <td className="px-3 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${ENGAGEMENT_COLOR[c.engagement] ?? "bg-rule text-ink-muted"}`}>
-                          {c.engagement}
-                        </span>
+                        {c.partnerStatus ? (
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${PARTNER_COLOR[c.partnerStatus] ?? "bg-rule text-ink-muted"}`}>
+                            {c.partnerStatus}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-ink-faint">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] text-ink-muted">{c.contractType ?? "—"}</td>
                       <td className="px-3 py-2.5 text-right text-[12px] font-mono tabnum text-ink-muted">{c.invoiceCount}</td>

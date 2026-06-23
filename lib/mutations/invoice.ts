@@ -148,7 +148,14 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CreateIn
   try {
     const created = await createRecords(Tables.Invoices.id, [{ fields }]);
     invalidate();
-    return { ok: true, id: created[0]?.id ?? "" };
+    const id = created[0]?.id ?? "";
+    await logEventInternal({
+      accountId: data.payerId,
+      projectId: data.quoteId ?? null,
+      eventType: "Invoice created",
+      detail: `${data.type} · $${data.amount} · ${data.date}`,
+    });
+    return { ok: true, id };
   } catch (e) {
     return { error: (e as Error).message };
   }

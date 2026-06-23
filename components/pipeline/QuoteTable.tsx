@@ -142,14 +142,15 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <th
                 onClick={() => toggle("uninvoiced")}
                 className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer select-none text-right"
-                title="Committed but not yet invoiced: Quote Total minus invoices linked to this quote. Excludes void invoices."
+                title="Committed but not yet invoiced. Only shown for deals the client has agreed to pay (Approved and Signed, Awaiting Payment, Project In Progress, Paid). Excludes void invoices."
               >
                 <span className="inline-flex items-center gap-1">
-                  Uninvoiced
+                  Committed Uninvoiced
                   <span className="text-ink-faint text-[10px]">ⓘ</span>
                   {sort.key === "uninvoiced" && <span className="text-[8px] text-emerald">{sort.dir === "asc" ? "▲" : "▼"}</span>}
                 </span>
               </th>
+
             </tr>
           </thead>
           <tbody>

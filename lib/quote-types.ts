@@ -27,6 +27,7 @@ export type QuoteDetail = {
   preparedById: string | null;
   preparedByName: string | null;
   preparedDate: string | null;
+  deliveryDueDate: string | null;
   preparedForId: string | null;
   preparedForName: string | null;
   projectStatus: string | null;

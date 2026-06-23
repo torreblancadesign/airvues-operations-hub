@@ -28,7 +28,9 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
     filter.preparedBy !== null ||
     filter.from !== null ||
     filter.to !== null ||
-    filter.stalledOnly;
+    filter.stalledOnly ||
+    filter.deadlineRisk !== "all" ||
+    filter.showRejected;
 
   return (
     <div className="mb-4">

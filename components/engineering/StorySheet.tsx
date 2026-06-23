@@ -125,10 +125,11 @@ export function StorySheet({
 
   const current: Story = { ...story, ...local };
 
-  const pct = current.hours && current.hours > 0
-    ? Math.round(((current.hoursWorked ?? 0) / current.hours) * 100)
-    : null;
-  const over = pct != null && pct > 100;
+  // Status-driven progress (0/50/100 per blueprint), not hours-derived.
+  const progressPct = statusProgressPct(current.status);
+  const progressTone = statusProgressTone(current.status);
+  const actual = current.hoursWorked ?? null;
+  const estimated = current.hours ?? null;
   const sprintNum = current.sprintNumbers[0];
   const sprintStatus = current.sprintStatuses[0];
 

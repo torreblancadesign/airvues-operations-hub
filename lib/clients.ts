@@ -182,6 +182,7 @@ export async function listAllClients(): Promise<ClientRow[]> {
       primaryContactId: primaryByCompany.get(c.id)?.personId ?? null,
       partnerStatus: (primaryByCompany.get(c.id)?.partner as PartnerStatusValue | null) ?? null,
       leadStatus: (primaryByCompany.get(c.id)?.lead as LeadStatusValue | null) ?? null,
+      communicationStartDate: primaryByCompany.get(c.id)?.commStart ?? null,
     };
   });
 }

@@ -249,6 +249,12 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       activeDollars += q.totalCost;
       activeCount += 1;
       activeUnpaid += q.amountOwed;
+      const invoiced = invoicedByQuote.get(q.id) ?? 0;
+      const remaining = Math.max(0, q.totalCost - invoiced);
+      if (remaining > 0) {
+        uninvoicedValue += remaining;
+        uninvoicedCount += 1;
+      }
     }
     if (isWon && inYtd) { bookedYtd += q.totalCost; bookedYtdCount += 1; }
     if (isWon && inMtd) { bookedMtd += q.totalCost; bookedMtdCount += 1; }

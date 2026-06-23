@@ -214,9 +214,19 @@ export async function getFirmPulse(): Promise<FirmPulse> {
   let bookedMtd = 0, bookedMtdCount = 0;
   let openDollars = 0, openCount = 0, stalledDollars = 0, stalledCount = 0;
   let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
+  let uninvoicedValue = 0, uninvoicedCount = 0;
   let sentYtd = 0, soldYtd = 0, paidQYtd = 0;
   let sentMtd = 0, soldMtd = 0, paidQMtd = 0;
   let lostYtd = 0, lostMtd = 0;
+
+  // Sum invoiced dollars per quote (exclude void invoices).
+  const invoicedByQuote = new Map<string, number>();
+  for (const inv of invoices) {
+    if (inv.status === "void") continue;
+    for (const qid of inv.quoteRecordIds) {
+      invoicedByQuote.set(qid, (invoicedByQuote.get(qid) ?? 0) + (inv.amount ?? 0));
+    }
+  }
 
   for (const q of quotes) {
     const days = daysSince(q.preparedDate);

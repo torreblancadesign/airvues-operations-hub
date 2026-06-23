@@ -31,7 +31,12 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
   if (patch.name !== undefined) fields["Story Name"] = patch.name;
   if (patch.description !== undefined) fields["Description"] = patch.description;
-  if (patch.invoice !== undefined) fields["Invoice"] = patch.invoice;
+  if (patch.invoice !== undefined) {
+    // Stories have two currency fields ("Cost" and "Invoice"). Reads come from
+    // "Cost"; createQuoteStory writes both. Keep them in sync on update too.
+    fields["Invoice"] = patch.invoice;
+    fields["Cost"] = patch.invoice;
+  }
   if (patch.status !== undefined) fields["Story Status"] = patch.status;
   if (patch.priority !== undefined) fields["Priority"] = patch.priority;
   if (patch.hours !== undefined) fields["Hours"] = patch.hours;

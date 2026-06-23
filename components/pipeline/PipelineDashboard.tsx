@@ -95,6 +95,10 @@ function applySort(rows: PipelineQuote[], s: Sort): PipelineQuote[] {
         av = a.uninvoiced;
         bv = b.uninvoiced;
         break;
+      case "invoiced":
+        av = a.invoiced;
+        bv = b.invoiced;
+        break;
     }
     if (av < bv) return -1 * dir;
     if (av > bv) return 1 * dir;

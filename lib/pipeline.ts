@@ -36,6 +36,7 @@ export type PipelineQuote = {
   companyIds: string[];
   preparedForIds: string[];
   uninvoiced: number;
+  invoiced: number;
 };
 
 
@@ -216,6 +217,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         : [],
       preparedForIds,
       uninvoiced,
+      invoiced,
     };
   });
 }

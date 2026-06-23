@@ -193,7 +193,7 @@ async function buildRevenueSeries(): Promise<{ ytd: TrendPoint[]; mtd: TrendPoin
 }
 
 export async function getFirmPulse(): Promise<FirmPulse> {
-  const [revYtd, revMtd, mrrRes, ar, quotes, series, leads, invoices] = await Promise.all([
+  const [revYtd, revMtd, mrrRes, ar, quotes, series, leads, invoices, clientRows] = await Promise.all([
     revenueYtd(),
     revenueMtd(),
     mrr(),
@@ -202,6 +202,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     buildRevenueSeries(),
     listAllLeads().catch(() => []),
     listAllInvoices().catch(() => []),
+    listAllClients().catch(() => []),
   ]);
 
   const now = new Date();
@@ -214,6 +215,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
   let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
   let sentYtd = 0, soldYtd = 0, paidQYtd = 0;
   let sentMtd = 0, soldMtd = 0, paidQMtd = 0;
+  let lostYtd = 0, lostMtd = 0;
 
   for (const q of quotes) {
     const days = daysSince(q.preparedDate);
@@ -225,31 +227,20 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     const isSold = q.status ? SOLD_STATUSES.includes(q.status) : false;
     const isWon = isActive || isPaid;
     const isLost = q.status === "Cancelled" || q.status === "Rejected";
-    // "Sent" = quote left Draft (includes lost)
-    const isSent =
-      q.status === "Sent. Awaiting Approval." || isWon || isLost;
+    const isSent = q.status === "Sent. Awaiting Approval." || isWon || isLost;
 
     if (isOpen) {
       openDollars += q.totalCost;
       openCount += 1;
-      if (days > 14) {
-        stalledDollars += q.totalCost;
-        stalledCount += 1;
-      }
+      if (days > 14) { stalledDollars += q.totalCost; stalledCount += 1; }
     }
     if (isActive) {
       activeDollars += q.totalCost;
       activeCount += 1;
       activeUnpaid += q.amountOwed;
     }
-    if (isWon && inYtd) {
-      bookedYtd += q.totalCost;
-      bookedYtdCount += 1;
-    }
-    if (isWon && inMtd) {
-      bookedMtd += q.totalCost;
-      bookedMtdCount += 1;
-    }
+    if (isWon && inYtd) { bookedYtd += q.totalCost; bookedYtdCount += 1; }
+    if (isWon && inMtd) { bookedMtd += q.totalCost; bookedMtdCount += 1; }
     if (isSent && inYtd) {
       sentYtd += 1;
       if (isSold) soldYtd += 1;
@@ -260,26 +251,70 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       if (isSold) soldMtd += 1;
       if (isPaid) paidQMtd += 1;
     }
+    if (isLost && inYtd) lostYtd += 1;
+    if (isLost && inMtd) lostMtd += 1;
   }
 
-  // ── Leads: YTD + MTD + conversion ─────────────────────────
-  let leadsYtdCount = 0, leadsYtdSold = 0;
-  let leadsMtdCount = 0, leadsMtdSold = 0;
+  // ── Leads: windowed counts, conversion, cadence, time-to-meeting ──
+  let leadsYtdCount = 0, leadsYtdSold = 0, leadsYtdNotSold = 0;
+  let leadsMtdCount = 0, leadsMtdSold = 0, leadsMtdNotSold = 0;
+  let earliestYtd = Infinity, earliestMtd = Infinity;
+  let ttmYtdSum = 0, ttmYtdN = 0;
+  let ttmMtdSum = 0, ttmMtdN = 0;
+  let inProposal = 0;
   for (const l of leads) {
+    if (l.status === "In Proposal Stage") inProposal += 1;
     if (!l.createdTime) continue;
+    const created = new Date(l.createdTime).getTime();
     const d = l.createdTime.slice(0, 10);
+    const ttm = l.meetingDate
+      ? (new Date(l.meetingDate).getTime() - created) / 86_400_000
+      : null;
     if (d >= yearStart) {
       leadsYtdCount += 1;
       if (l.status === "Sold") leadsYtdSold += 1;
+      if (l.status === "Not Sold") leadsYtdNotSold += 1;
+      if (created < earliestYtd) earliestYtd = created;
+      if (ttm != null && ttm >= 0) { ttmYtdSum += ttm; ttmYtdN += 1; }
     }
     if (d >= monthStart) {
       leadsMtdCount += 1;
       if (l.status === "Sold") leadsMtdSold += 1;
+      if (l.status === "Not Sold") leadsMtdNotSold += 1;
+      if (created < earliestMtd) earliestMtd = created;
+      if (ttm != null && ttm >= 0) { ttmMtdSum += ttm; ttmMtdN += 1; }
     }
   }
+  const avgGapYtd =
+    leadsYtdCount >= 2 ? ((Date.now() - earliestYtd) / 86_400_000) / leadsYtdCount : null;
+  const avgGapMtd =
+    leadsMtdCount >= 2 ? ((Date.now() - earliestMtd) / 86_400_000) / leadsMtdCount : null;
 
-  // ── Projects (from Quote.projectStatus) ───────────────────
-  // `active` is a snapshot — same in either window. `completed` is windowed.
+  // ── Upcoming meetings (next 14 days, capped) ──────────────
+  const horizon = Date.now() + 14 * 86_400_000;
+  const upcomingMeetings: UpcomingMeeting[] = leads
+    .filter((l) => {
+      if (!l.meetingDate) return false;
+      const m = new Date(l.meetingDate).getTime();
+      const end = l.endMeetingDate ? new Date(l.endMeetingDate).getTime() : m + 30 * 60_000;
+      return end >= Date.now() && m <= horizon;
+    })
+    .sort((a, b) => new Date(a.meetingDate!).getTime() - new Date(b.meetingDate!).getTime())
+    .slice(0, 20)
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      company: l.company,
+      meetingDate: l.meetingDate!,
+      endMeetingDate: l.endMeetingDate,
+      meetingLink: l.meetingLink,
+      status: l.status,
+      budget: l.budget,
+      source: l.source,
+      whatToBuild: l.whatToBuild,
+    }));
+
+  // ── Projects ──────────────────────────────────────────────
   const PROJECT_ACTIVE = new Set([
     "Proposal Signed",
     "Commencement Invoice Paid",
@@ -315,7 +350,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     if (d >= monthStart) newClientsMtd += 1;
   }
 
-  // ── Revenue by invoice source, paid, per window ───────────
+  // ── Revenue by source ─────────────────────────────────────
   const tallySource = (since: string): SourceSlice[] => {
     const totals = new Map<string, { revenue: number; count: number }>();
     for (const inv of invoices) {
@@ -332,6 +367,20 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       .sort((a, b) => b.revenue - a.revenue);
   };
   const revenueBySource = { ytd: tallySource(yearStart), mtd: tallySource(monthStart) };
+
+  // ── Clients snapshot ──────────────────────────────────────
+  let clientsActive = 0, clientsAtRisk = 0, clientsOutstandingAR = 0, clientsTotalRevenue = 0;
+  for (const c of clientRows) {
+    clientsOutstandingAR += c.outstandingAR;
+    clientsTotalRevenue += c.lifetimeRevenue;
+    if (c.engagement === "Active") {
+      clientsActive += 1;
+      if (c.daysSinceLastInvoice != null && c.daysSinceLastInvoice > 90) clientsAtRisk += 1;
+    }
+  }
+  const topRev = [...clientRows].sort((a, b) => b.lifetimeRevenue - a.lifetimeRevenue).slice(0, 10);
+  const top10Total = topRev.reduce((s, c) => s + c.lifetimeRevenue, 0);
+  const top10Pct = clientsTotalRevenue > 0 ? top10Total / clientsTotalRevenue : 0;
 
   const annualTarget = revYtd.target ?? 500_000;
   const monthlyTarget = revMtd.target ?? annualTarget / 12;
@@ -355,6 +404,8 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       count: openCount,
       stalledValue: stalledDollars,
       stalledCount,
+      lostYtd,
+      lostMtd,
     },
     mrr: { value: mrrValue, target: mrrTarget, pct: mrrTarget > 0 ? mrrValue / mrrTarget : 0, subs },
     active: { value: activeDollars, count: activeCount, unpaid: activeUnpaid },
@@ -363,29 +414,32 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       ytd: {
         soldPct: sentYtd > 0 ? soldYtd / sentYtd : 0,
         paidPct: sentYtd > 0 ? paidQYtd / sentYtd : 0,
-        sold: soldYtd,
-        paid: paidQYtd,
-        sent: sentYtd,
+        sold: soldYtd, paid: paidQYtd, sent: sentYtd,
       },
       mtd: {
         soldPct: sentMtd > 0 ? soldMtd / sentMtd : 0,
         paidPct: sentMtd > 0 ? paidQMtd / sentMtd : 0,
-        sold: soldMtd,
-        paid: paidQMtd,
-        sent: sentMtd,
+        sold: soldMtd, paid: paidQMtd, sent: sentMtd,
       },
     },
     leads: {
       ytd: {
         count: leadsYtdCount,
         sold: leadsYtdSold,
+        notSold: leadsYtdNotSold,
         conversionPct: leadsYtdCount > 0 ? leadsYtdSold / leadsYtdCount : 0,
+        avgDaysBetween: avgGapYtd,
+        avgTimeToMeeting: ttmYtdN > 0 ? ttmYtdSum / ttmYtdN : null,
       },
       mtd: {
         count: leadsMtdCount,
         sold: leadsMtdSold,
+        notSold: leadsMtdNotSold,
         conversionPct: leadsMtdCount > 0 ? leadsMtdSold / leadsMtdCount : 0,
+        avgDaysBetween: avgGapMtd,
+        avgTimeToMeeting: ttmMtdN > 0 ? ttmMtdSum / ttmMtdN : null,
       },
+      inProposal,
     },
     newClients: { ytd: { count: newClientsYtd }, mtd: { count: newClientsMtd } },
     projects: {
@@ -393,5 +447,15 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       mtd: { active: projectsActive, completed: projectsCompletedMtd },
     },
     revenueBySource,
+    clients: {
+      total: clientRows.length,
+      active: clientsActive,
+      atRisk: clientsAtRisk,
+      outstandingAR: clientsOutstandingAR,
+      top10Pct,
+      top10Total,
+    },
+    upcomingMeetings,
   };
 }
+

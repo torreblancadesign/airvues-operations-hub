@@ -733,6 +733,7 @@ export const Tables = {
       "\u26aa\ufe0f Leads": { id: "fldISlK7qaJ9FRvvt", type: "multipleRecordLinks" },
       "Lead Status": { id: "fldLDjNQ476AiNpk0", type: "singleSelect", options: { choices: [{"name": "New Lead"}, {"name": "Discovery"}, {"name": "Proposal Drafting"}, {"name": "Proposal Sent"}, {"name": "Won"}, {"name": "Lost"}, {"name": "On Hold"}] } },
       "Partner Status": { id: "fldzh5UDOdaktSTwh", type: "singleSelect", options: { choices: [{"name": "Lead"}, {"name": "Client"}] } },
+      "Communication Start Date": { id: "fldTXfAlUgjfAvJbp", type: "createdTime" },
     },
   },
   ProjectLog: {

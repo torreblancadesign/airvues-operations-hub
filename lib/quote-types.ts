@@ -92,6 +92,7 @@ export type QuoteFieldPatch = Partial<{
   projectName: string;
   preparedById: string | null;
   preparedDate: string | null;
+  deliveryDueDate: string | null;
   preparedForId: string | null;
   projectStatus: string | null;
   proposalType: string | null;

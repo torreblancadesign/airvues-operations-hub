@@ -5,6 +5,7 @@ import "server-only";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { computeDeadlineRisk } from "./deadline";
+import { listAllInvoices } from "./money";
 import type { DeadlineRisk } from "@/components/pipeline/types";
 
 export type PipelineQuote = {

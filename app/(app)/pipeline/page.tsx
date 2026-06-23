@@ -8,7 +8,9 @@ import { PipelineDashboard } from "@/components/pipeline/PipelineDashboard";
 import { assertCanAccess } from "@/lib/page-guard";
 import { canMutate } from "@/lib/authz";
 
-export default async function PipelinePage() {
+type SP = { deadlineRisk?: string; stage?: string; stalled?: string };
+
+export default async function PipelinePage({ searchParams }: { searchParams?: SP }) {
   await assertCanAccess("/pipeline");
   let quotes: Awaited<ReturnType<typeof listAllQuotes>> = [];
   let people: Awaited<ReturnType<typeof listPeopleOptions>> = [];

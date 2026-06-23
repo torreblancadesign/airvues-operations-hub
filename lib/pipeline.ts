@@ -4,6 +4,8 @@ import "server-only";
 
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
+import { computeDeadlineRisk } from "./deadline";
+import type { DeadlineRisk } from "@/components/pipeline/types";
 
 export type PipelineQuote = {
   id: string;
@@ -22,6 +24,7 @@ export type PipelineQuote = {
   signedDate: string | null;
   expirationDate: string | null;
   deliveryDueDate: string | null;
+  deadlineRisk: DeadlineRisk;
   quoteLastAccess: string | null;
   created: string | null;
   storiesCount: number;
@@ -31,6 +34,7 @@ export type PipelineQuote = {
   companyIds: string[];
   preparedForIds: string[];
 };
+
 
 function first<T>(x: T[] | undefined): T | null {
   return Array.isArray(x) && x.length > 0 ? x[0] : null;
@@ -109,6 +113,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       signedDate: (f["Signed Date"] as string) ?? null,
       expirationDate: (f["Quote Expiration Date"] as string) ?? null,
       deliveryDueDate: (f["Client Delivery Due Date"] as string) ?? null,
+      deadlineRisk: computeDeadlineRisk((f["Client Delivery Due Date"] as string) ?? null),
       quoteLastAccess: (f["Quote Last Access"] as string) ?? null,
       created: (f["Created"] as string) ?? null,
       storiesCount: Array.isArray(f["Stories"]) ? (f["Stories"] as string[]).length : 0,

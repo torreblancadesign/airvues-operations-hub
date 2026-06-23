@@ -28,7 +28,9 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
     filter.preparedBy !== null ||
     filter.from !== null ||
     filter.to !== null ||
-    filter.stalledOnly;
+    filter.stalledOnly ||
+    filter.deadlineRisk !== "all" ||
+    filter.showRejected;
 
   return (
     <div className="mb-4">
@@ -83,6 +85,19 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
           {preparers.map((p) => <option key={p} value={p}>{p}</option>)}
         </select>
 
+        <select
+          value={filter.deadlineRisk}
+          onChange={(e) => update("deadlineRisk", e.target.value as Filter["deadlineRisk"])}
+          className={selectCls}
+          title="Filter by Client Delivery Due Date risk"
+        >
+          <option value="all">All deadlines</option>
+          <option value="needs-attention">Needs attention</option>
+          <option value="overdue">Overdue</option>
+          <option value="red">≤3 days</option>
+          <option value="yellow">≤7 days</option>
+        </select>
+
         <label className="flex items-center gap-1.5 text-[12px] text-ink-muted cursor-pointer">
           <input
             type="checkbox"
@@ -91,6 +106,16 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
             className="accent-amber"
           />
           Stalled only
+        </label>
+
+        <label className="flex items-center gap-1.5 text-[12px] text-ink-muted cursor-pointer">
+          <input
+            type="checkbox"
+            checked={filter.showRejected}
+            onChange={(e) => update("showRejected", e.target.checked)}
+            className="accent-red"
+          />
+          Show rejected
         </label>
 
         {hasActive && (

@@ -1,6 +1,7 @@
 "use client";
 
 import { PipelineQuote } from "@/lib/pipeline";
+import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
 import { Sort, SortKey } from "./types";
 
 type Props = {
@@ -124,13 +125,14 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                   <span className="text-ink-faint text-[10px]">ⓘ</span>
                 </span>
               </th>
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left" title="Client Delivery Due Date risk">Deadline</th>
               <SortHeader label="Days" align="right" active={sort.key === "daysSinceSent"} dir={sort.dir} onClick={() => toggle("daysSinceSent")} />
               <SortHeader label="Amount" align="right" active={sort.key === "totalCost"} dir={sort.dir} onClick={() => toggle("totalCost")} />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
               rows.map((q) => {
                 const days = daysSince(q.preparedDate);
@@ -149,6 +151,18 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                     </td>
                     <td className="px-3 py-2.5">
                       <ProjectProgress status={q.projectStatus} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {q.deliveryDueDate ? (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${deadlineRiskClass(q.deadlineRisk)}`}
+                          title={`Client Delivery Due Date: ${new Date(q.deliveryDueDate).toLocaleDateString()}`}
+                        >
+                          {deadlineRiskLabel(q.deadlineRisk, q.deliveryDueDate)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-ink-faint">—</span>
+                      )}
                     </td>
                     <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${stale ? "text-red font-semibold" : "text-ink-muted"}`}>
                       {days != null ? `${days}d` : "—"}

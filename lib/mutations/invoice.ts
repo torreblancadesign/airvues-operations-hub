@@ -8,6 +8,7 @@ import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
+import { logEventInternal } from "./project-log";
 
 export type CreateInvoiceResult = { ok: true; id: string } | { error: string };
 export type MutationResult = { ok: true } | { error: string };
@@ -148,7 +149,14 @@ export async function createInvoice(input: CreateInvoiceInput): Promise<CreateIn
   try {
     const created = await createRecords(Tables.Invoices.id, [{ fields }]);
     invalidate();
-    return { ok: true, id: created[0]?.id ?? "" };
+    const id = created[0]?.id ?? "";
+    await logEventInternal({
+      accountId: data.payerId,
+      projectId: data.quoteId ?? null,
+      eventType: "Invoice created",
+      detail: `${data.type} · $${data.amount} · ${data.date}`,
+    });
+    return { ok: true, id };
   } catch (e) {
     return { error: (e as Error).message };
   }

@@ -7,8 +7,11 @@ import { notFound } from "next/navigation";
 import { listAllQuotes } from "@/lib/pipeline";
 import { listPeopleOptions } from "@/lib/quotes";
 import { listSprintOptions } from "@/lib/sprints";
+import { listProjectLogForProject } from "@/lib/project-log";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { QuoteSheetEditor } from "@/components/pipeline/QuoteSheetEditor";
+import { ProjectLogTimeline } from "@/components/projects/ProjectLogTimeline";
+import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
 import { assertCanAccess } from "@/lib/page-guard";
 import { canMutate } from "@/lib/authz";
 
@@ -27,11 +30,12 @@ type Params = { params: { id: string } };
 
 export default async function QuoteDetailPage({ params }: Params) {
   await assertCanAccess("/pipeline");
-  const [quotes, people, sprints, canEdit] = await Promise.all([
+  const [quotes, people, sprints, canEdit, logEntries] = await Promise.all([
     listAllQuotes(),
     listPeopleOptions(),
     listSprintOptions(),
     canMutate(),
+    listProjectLogForProject(params.id),
   ]);
 
   const quote = quotes.find((q) => q.id === params.id);
@@ -83,6 +87,14 @@ export default async function QuoteDetailPage({ params }: Params) {
             {quote.totalHours}h
           </span>
         )}
+        {quote.deliveryDueDate && (
+          <span
+            className={`px-2.5 py-1 rounded font-medium ${deadlineRiskClass(quote.deadlineRisk)}`}
+            title={`Client Delivery Due Date: ${new Date(quote.deliveryDueDate).toLocaleDateString()}`}
+          >
+            {deadlineRiskLabel(quote.deadlineRisk, quote.deliveryDueDate)}
+          </span>
+        )}
         {stale && (
           <span className="px-2.5 py-1 bg-red-soft text-red border border-red/30 rounded font-medium">
             Stalled {days}d
@@ -115,6 +127,10 @@ export default async function QuoteDetailPage({ params }: Params) {
           sprints={sprints}
           canEdit={canEdit}
         />
+      </div>
+
+      <div className="mt-6">
+        <ProjectLogTimeline entries={logEntries} />
       </div>
     </main>
   );

@@ -7,11 +7,11 @@ import { ClientRow } from "@/lib/clients";
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
-const fmtMonthYear = (iso: string | null): string => {
+const fmtFullDate = (iso: string | null): string => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
 const PARTNER_OPTIONS = ["all", "Lead", "Client"] as const;

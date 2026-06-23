@@ -128,6 +128,10 @@ export default async function QuoteDetailPage({ params }: Params) {
           canEdit={canEdit}
         />
       </div>
+
+      <div className="mt-6">
+        <ProjectLogTimeline entries={logEntries} />
+      </div>
     </main>
   );
 }

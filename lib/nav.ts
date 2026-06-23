@@ -9,7 +9,7 @@
 export type NavGroup =
   | "overview"
   | "delivery"
-  | "stories"
+  | "engineering"
   | "earnings"
   | "operations"
   | "founder";
@@ -26,7 +26,7 @@ export type NavItem = {
 export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "delivery", label: "Delivery" },
-  { id: "stories", label: "Stories" },
+  { id: "engineering", label: "Engineering" },
   { id: "earnings", label: "Earnings" },
   { id: "operations", label: "Operations" },
   { id: "founder", label: "Founder" },

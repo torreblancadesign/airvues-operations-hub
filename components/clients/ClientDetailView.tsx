@@ -223,7 +223,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
 
       {/* Overview + Relationship */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
-        <div className="lg:col-span-8 bg-surface border border-rule rounded-card p-4 [&_.if-group_>div]:border-0">
+        <div className="lg:col-span-8 bg-surface border border-rule rounded-card p-4 [&_.if-group_.border-b]:border-b-0">
           <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-3">
             Overview
           </h2>

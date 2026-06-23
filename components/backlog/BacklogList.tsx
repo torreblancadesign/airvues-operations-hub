@@ -8,6 +8,7 @@ import { BacklogRow } from "./BacklogRow";
 import { BulkBar } from "./BulkBar";
 import { NewStoryModal } from "./NewStoryModal";
 import { BacklogFilter, EMPTY_BACKLOG_FILTER, SCOPE_TO_STATUSES } from "./types";
+import { useSearchParamsFilter } from "@/lib/use-search-params-filter";
 
 type EngineerOption = { id: string; name: string };
 type SprintOption = { id: string; number: number | null; status: string | null };
@@ -55,7 +56,10 @@ function matches(s: Story, f: BacklogFilter): boolean {
 }
 
 export function BacklogList({ stories, engineers, assignableEngineers, clients, quotes, sprints, canEdit, initialFilter }: Props) {
-  const [filter, setFilter] = useState<BacklogFilter>({ ...EMPTY_BACKLOG_FILTER, ...initialFilter });
+  const [filter, setFilter] = useSearchParamsFilter<BacklogFilter>({
+    defaults: { ...EMPTY_BACKLOG_FILTER, ...initialFilter },
+    keys: ["search", "scope", "engineerId", "client", "priority"],
+  });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [openStory, setOpenStory] = useState<Story | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);

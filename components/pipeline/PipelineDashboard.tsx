@@ -34,6 +34,10 @@ function daysSince(iso: string | null): number {
 
 function applyFilter(rows: PipelineQuote[], f: Filter): PipelineQuote[] {
   return rows.filter((r) => {
+    if (!f.showRejected && (r.status === "Rejected" || r.status === "Cancelled")) {
+      // Allow if user explicitly filtered into the lost bucket
+      if (f.stage !== "lost") return false;
+    }
     if (f.search) {
       const q = f.search.toLowerCase();
       const hay = `${r.projectName} ${r.client} ${r.preparedBy} ${r.autonumber ?? ""}`.toLowerCase();
@@ -52,6 +56,13 @@ function applyFilter(rows: PipelineQuote[], f: Filter): PipelineQuote[] {
       const days = daysSince(r.preparedDate);
       const isOpen = r.status === "Sent. Awaiting Approval." || r.status === "Draft" || r.status === "Auditing 🚩";
       if (!(isOpen && days > 14)) return false;
+    }
+    if (f.deadlineRisk !== "all") {
+      if (f.deadlineRisk === "needs-attention") {
+        if (r.deadlineRisk === "ok") return false;
+      } else if (r.deadlineRisk !== f.deadlineRisk) {
+        return false;
+      }
     }
     return true;
   });

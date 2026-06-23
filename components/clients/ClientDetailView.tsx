@@ -222,116 +222,144 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
       </div>
 
       {/* Overview + Relationship */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="bg-surface border border-rule rounded-card p-5">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-4">
+        <div className="lg:col-span-8 bg-surface border border-rule rounded-card p-4 [&_.if-group_>div]:border-0">
+          <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-3">
             Overview
           </h2>
-          <InlineField
-            kind="select" label="Industry" value={detail.industry} options={INDUSTRY_OPTIONS}
-            readOnly={!canEdit} onSave={saveCompany("industry")}
-          />
-          <InlineField
-            kind="select" label="Lead source" value={detail.leadSource} options={LEAD_SOURCE_OPTIONS}
-            readOnly={!canEdit} onSave={saveCompany("leadSource")}
-          />
-          <InlineField
-            kind="number" label="Client start year"
-            value={detail.clientStartYearOverride}
-            step={1}
-            placeholder={detail.createdYear ? `auto: ${detail.createdYear}` : "—"}
-            hint={detail.createdYear && !detail.clientStartYearOverride ? `auto from created: ${detail.createdYear}` : undefined}
-            readOnly={!canEdit} onSave={saveCompany("clientStartYear")}
-          />
-          <InlineField
-            kind="number" label="Discount %" value={detail.discountPct} step={1} suffix="%"
-            readOnly={!canEdit} onSave={saveCompany("discountPct")}
-          />
-          <InlineField
-            kind="select" label="Discount reason" value={detail.discountReason} options={DISCOUNT_REASON_OPTIONS}
-            readOnly={!canEdit} onSave={saveCompany("discountReason")}
-          />
-          <InlineField
-            kind="select" label="Engagement frequency" value={detail.engagement} options={ENGAGEMENT_OPTIONS}
-            readOnly={!canEdit} onSave={saveCompany("engagementFrequency")}
-          />
-          <InlineField
-            kind="select" label="Partner status" value={detail.partnerStatus}
-            options={PARTNER_STATUS_OPTIONS as unknown as string[]}
-            readOnly={!canEdit || !detail.primaryContactId}
-            hint={!detail.primaryContactId ? "no primary contact" : `on ${detail.contacts[0]?.name ?? "contact"}`}
-            onSave={async (v) => {
-              if (!detail.primaryContactId) return { error: "No primary contact to update" };
-              return updateClientStatuses({
-                clientId: detail.primaryContactId,
-                partnerStatus: (v as PartnerStatus | null) ?? null,
-              });
-            }}
-          />
-          <InlineField
-            kind="select" label="Lead status" value={detail.leadStatus}
-            options={LEAD_STATUS_OPTIONS as unknown as string[]}
-            readOnly={!canEdit || !detail.primaryContactId}
-            hint={!detail.primaryContactId ? "no primary contact" : undefined}
-            onSave={async (v) => {
-              if (!detail.primaryContactId) return { error: "No primary contact to update" };
-              return updateClientStatuses({
-                clientId: detail.primaryContactId,
-                leadStatus: (v as LeadStatus | null) ?? null,
-              });
-            }}
-          />
-          <InlineField
-            kind="select" label="Contract type" value={detail.contractType} options={CONTRACT_OPTIONS}
-            readOnly={!canEdit} onSave={saveCompany("contractType")}
-          />
-          <InlineField
-            kind="number" label="Hourly rate" value={detail.hourlyRate} step={1} suffix=" USD"
-            readOnly={!canEdit} onSave={saveCompany("hourlyRate")}
-          />
-          <InlineField
-            kind="bool" label="NDA on file" value={detail.hasNDA}
-            readOnly={!canEdit} onSave={saveCompany("hasNDA")}
-          />
-          <InlineField
-            kind="select" label="Preferred business" value={detail.preferredBusiness} options={PREFERRED_BUSINESS_OPTIONS}
-            readOnly={!canEdit} onSave={saveCompany("preferredBusiness")}
-          />
-          <InlineField
-            kind="url" label="Website" value={detail.website}
-            readOnly={!canEdit} onSave={saveCompany("website")}
-          />
-          <InlineField
-            kind="url" label="Drive folder" value={detail.driveFolder}
-            readOnly={!canEdit} onSave={saveCompany("driveFolder")}
-          />
-          <InlineField
-            kind="url" label="Miro folder" value={detail.miroFolder}
-            readOnly={!canEdit} onSave={saveCompany("miroFolder")}
-          />
-          <InlineField
-            kind="url" label="Google Chat" value={detail.googleChat}
-            readOnly={!canEdit} onSave={saveCompany("googleChat")}
-          />
-          <InlineField
-            kind="textarea" label="Legal address" value={detail.legalAddress ?? ""} rows={2}
-            readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { legalAddress: v || null })}
-          />
-          <InlineField
-            kind="textarea" label="Business description" value={detail.businessDescription} rows={4}
-            readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { businessDescription: v })}
-          />
+
+          <div className="if-group">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Identity</div>
+            <div className="grid sm:grid-cols-2 gap-x-4">
+              <InlineField
+                kind="select" label="Industry" value={detail.industry} options={INDUSTRY_OPTIONS}
+                readOnly={!canEdit} onSave={saveCompany("industry")}
+              />
+              <InlineField
+                kind="select" label="Lead source" value={detail.leadSource} options={LEAD_SOURCE_OPTIONS}
+                readOnly={!canEdit} onSave={saveCompany("leadSource")}
+              />
+              <InlineField
+                kind="number" label="Client start year"
+                value={detail.clientStartYearOverride}
+                step={1}
+                placeholder={detail.createdYear ? `auto: ${detail.createdYear}` : "—"}
+                hint={detail.createdYear && !detail.clientStartYearOverride ? `auto from created: ${detail.createdYear}` : undefined}
+                readOnly={!canEdit} onSave={saveCompany("clientStartYear")}
+              />
+              <InlineField
+                kind="select" label="Preferred business" value={detail.preferredBusiness} options={PREFERRED_BUSINESS_OPTIONS}
+                readOnly={!canEdit} onSave={saveCompany("preferredBusiness")}
+              />
+            </div>
+          </div>
+
+          <div className="if-group mt-3 pt-3 border-t border-rule">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Commercial</div>
+            <div className="grid sm:grid-cols-2 gap-x-4">
+              <InlineField
+                kind="select" label="Contract type" value={detail.contractType} options={CONTRACT_OPTIONS}
+                readOnly={!canEdit} onSave={saveCompany("contractType")}
+              />
+              <InlineField
+                kind="number" label="Hourly rate" value={detail.hourlyRate} step={1} suffix=" USD"
+                readOnly={!canEdit} onSave={saveCompany("hourlyRate")}
+              />
+              <InlineField
+                kind="number" label="Discount %" value={detail.discountPct} step={1} suffix="%"
+                readOnly={!canEdit} onSave={saveCompany("discountPct")}
+              />
+              <InlineField
+                kind="select" label="Discount reason" value={detail.discountReason} options={DISCOUNT_REASON_OPTIONS}
+                readOnly={!canEdit} onSave={saveCompany("discountReason")}
+              />
+              <InlineField
+                kind="bool" label="NDA on file" value={detail.hasNDA}
+                readOnly={!canEdit} onSave={saveCompany("hasNDA")}
+              />
+            </div>
+          </div>
+
+          <div className="if-group mt-3 pt-3 border-t border-rule">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Status</div>
+            <div className="grid sm:grid-cols-2 gap-x-4">
+              <InlineField
+                kind="select" label="Engagement frequency" value={detail.engagement} options={ENGAGEMENT_OPTIONS}
+                readOnly={!canEdit} onSave={saveCompany("engagementFrequency")}
+              />
+              <InlineField
+                kind="select" label="Partner status" value={detail.partnerStatus}
+                options={PARTNER_STATUS_OPTIONS as unknown as string[]}
+                readOnly={!canEdit || !detail.primaryContactId}
+                hint={!detail.primaryContactId ? "no primary contact" : `on ${detail.contacts[0]?.name ?? "contact"}`}
+                onSave={async (v) => {
+                  if (!detail.primaryContactId) return { error: "No primary contact to update" };
+                  return updateClientStatuses({
+                    clientId: detail.primaryContactId,
+                    partnerStatus: (v as PartnerStatus | null) ?? null,
+                  });
+                }}
+              />
+              <InlineField
+                kind="select" label="Lead status" value={detail.leadStatus}
+                options={LEAD_STATUS_OPTIONS as unknown as string[]}
+                readOnly={!canEdit || !detail.primaryContactId}
+                hint={!detail.primaryContactId ? "no primary contact" : undefined}
+                onSave={async (v) => {
+                  if (!detail.primaryContactId) return { error: "No primary contact to update" };
+                  return updateClientStatuses({
+                    clientId: detail.primaryContactId,
+                    leadStatus: (v as LeadStatus | null) ?? null,
+                  });
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="if-group mt-3 pt-3 border-t border-rule">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Links</div>
+            <div className="grid sm:grid-cols-2 gap-x-4">
+              <InlineField
+                kind="url" label="Website" value={detail.website}
+                readOnly={!canEdit} onSave={saveCompany("website")}
+              />
+              <InlineField
+                kind="url" label="Drive folder" value={detail.driveFolder}
+                readOnly={!canEdit} onSave={saveCompany("driveFolder")}
+              />
+              <InlineField
+                kind="url" label="Miro folder" value={detail.miroFolder}
+                readOnly={!canEdit} onSave={saveCompany("miroFolder")}
+              />
+              <InlineField
+                kind="url" label="Google Chat" value={detail.googleChat}
+                readOnly={!canEdit} onSave={saveCompany("googleChat")}
+              />
+            </div>
+          </div>
+
+          <div className="if-group mt-3 pt-3 border-t border-rule">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Address & description</div>
+            <InlineField
+              kind="textarea" label="Legal address" value={detail.legalAddress ?? ""} rows={2}
+              readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { legalAddress: v || null })}
+            />
+            <InlineField
+              kind="textarea" label="Business description" value={detail.businessDescription} rows={4}
+              readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { businessDescription: v })}
+            />
+          </div>
         </div>
 
-        <div className="bg-surface border border-rule rounded-card p-5">
+        <div className="lg:col-span-4 bg-surface border border-rule rounded-card p-4 lg:sticky lg:top-4 self-start">
           <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-2">
             Relationship notes
           </h2>
           <div className="text-[11px] text-ink-faint mb-2">
-            Dynamics, communication preferences, recurring operational concerns, personality insights — keep this current.
+            How they like to be worked with — communication, dynamics, recurring concerns.
           </div>
           <InlineField
-            kind="textarea" label="Notes" value={detail.relationshipNotes} rows={14}
+            kind="textarea" label="Notes" value={detail.relationshipNotes} rows={10}
             placeholder="Add context about how this client likes to be worked with…"
             readOnly={!canEdit} onSave={(v) => updateCompany(detail.id, { relationshipNotes: v })}
           />

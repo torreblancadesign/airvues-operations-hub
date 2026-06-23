@@ -1,72 +1,47 @@
-# Slim ops pages + beef up Firm Pulse
+# Compact Overview + Relationship notes
 
-Accounts (`/clients`) and Projects (`/pipeline`) become operational list views. All metrics consolidate into a redesigned Firm Pulse on the home page, grouped into clear bands and joined by the lead KPIs and upcoming-meetings widget.
+Today both sections sit in a 50/50 grid. Overview stacks 17 single-column `InlineField`s vertically, so its column is ~3× taller than the Relationship notes textarea. That leaves a huge empty rail on the right and pushes Contacts/Projects/Invoices far down the page. The fix is structural, not stylistic.
 
-## 1. `/clients` — pure operational list
+## Layout shift
 
-`components/clients/ClientsDashboard.tsx`:
-- Remove both KPI grids (Active / At-risk / Total revenue / Outstanding / Whale, plus Misclassified / Occasional / Iddle / Lost / New).
-- Remove the "Engagement frequency — revenue distribution" bar chart.
-- Remove the `kpis` and `engagementDist` `useMemo` blocks (and `TIER` if unused).
-- Keep: filter row (search, partner, lead status, count), Type column, table.
-- Bucket filter pills (`active`, `at-risk`, etc.) are no longer reachable from KPI tiles — remove the `bucket` state and the `switch (bucket)` arm in `applyFilter`, since the dropdowns cover the operational cuts.
+`components/clients/ClientDetailView.tsx`, the block around lines 224–339:
 
-`app/(app)/clients/page.tsx`: change subtitle from "engagement, lifetime revenue, at-risk" to something operational like "Find any account fast. Filter by type or stage."
+- Change the wrapper from `lg:grid-cols-2` to `lg:grid-cols-12 gap-4`.
+- **Overview** card: `lg:col-span-8` — gets a denser internal layout.
+- **Relationship notes** card: `lg:col-span-4` with `lg:sticky lg:top-4 self-start` so the note stays in view as the overview scrolls beside it.
 
-## 2. `/pipeline` — pure operational list
+## Overview card — grouped + 2-column fields
 
-`components/pipeline/PipelineDashboard.tsx`:
-- Remove both KPI rows (Booked / Delivered / Open / Active / Sold / Paid, and the stage-bucket pills row).
-- Remove the "Stage breakdown — $ by status" bar chart.
-- Remove the `kpis` and `stageBreakdown` `useMemo`s and helpers (`goalTarget`, `goalPct`, `stageBarColor`, `stageMaxTotal`).
-- Keep: filter bar, "filtered total" line, `QuoteTable`, `QuoteSheet`.
-- Keep the `setStage` / `setStalled` capability via the existing filter bar (stage dropdown already exists there).
+Replace the flat list of 17 `InlineField`s with five labeled subsections. Each subsection is its own block; fields inside render in a `sm:grid-cols-2 gap-x-4` grid so heights roughly halve. Long-form fields (Legal address, Business description) span the full subsection width.
 
-## 3. Firm Pulse — redesign + absorb the migrated metrics
-
-`lib/firm-pulse.ts` — add the few aggregates not already exposed:
-- `clients`: `{ total, active, atRisk, outstandingAR, top10Pct }` from `listAllClients()`.
-- `pipeline`: extend with `bookedYtd/Mtd` already there; add `lostYtd`, `lostMtd`.
-- `leads`: extend each window with `inProposal` (lifetime snapshot is fine), `avgDaysBetween`, `avgTimeToMeeting`, `notSold`. Source from `listAllLeads()` already loaded.
-- `upcomingMeetings`: top N leads with `meetingDate` in next 14 days (id, name, company, meetingDate, endMeetingDate, meetingLink, status, budget, source, whatToBuild) — server-shaped so the client widget stays pure presentation.
-
-`components/home/FirmPulse.tsx` — restructure into labeled bands so density reads cleanly:
-
-```text
-[ Window toggle YTD | MTD ]                                  (top-right)
-
-BAND 1 — Money
-  Hero revenue tile (col-span-7)   |  MRR · Open AR · Active work (stack, col-span-5)
-
-BAND 2 — Sales funnel
-  Leads (count + conv.) · In Proposal · Booked · Quote→Sold % · Quote→Paid % · Lost
-
-BAND 3 — Accounts
-  Total clients · Active · At-risk (>90d) · Outstanding AR · Whale exposure %
-
-BAND 4 — Projects
-  Active projects · Completed (window) · New clients (window) · Revenue by source
-
-BAND 5 — Upcoming meetings
-  Full-width card reusing UpcomingMeetings rendering (read-only on home — clicking a
-  row deep-links to /leads?lead=<id> instead of opening the lead sheet).
+```
+Identity         | Industry · Lead source · Client start year · Preferred business
+Commercial       | Contract type · Hourly rate · Discount % · Discount reason · NDA on file
+Status           | Engagement frequency · Partner status · Lead status
+Links            | Website · Drive · Miro · Google Chat
+Address          | Legal address (full width, rows 2)
+Description      | Business description (full width, rows 4)
 ```
 
-Each band gets a tiny `<SectionTitle>`-style eyebrow ("Money", "Sales funnel", "Accounts", "Projects", "Schedule") so the wall of tiles parses at a glance. Tone dots stay (emerald/amber/red/sky/violet) for fast scanning. The window toggle continues to re-scope only time-bound tiles.
+Subsection headers use the existing eyebrow style (`text-[10px] font-semibold uppercase tracking-wider text-ink-muted`) and a subtle divider above each group after the first. Drop the per-field bottom border from `FieldShell` only inside this card by wrapping these fields with a parent class that resets `border-b` (tailwind arbitrary selector `[&_.border-b]:border-0`) — keeps `InlineField` untouched elsewhere.
 
-Extract the meeting row markup from `components/leads/UpcomingMeetings.tsx` into a small shared `MeetingRow` component, then build `components/home/UpcomingMeetingsCard.tsx` that consumes the server-shaped payload from `firm-pulse.ts` and uses links instead of the `onSelect` callback. Leave the leads-page widget intact (it still uses `onSelect`).
+Card padding `p-5` → `p-4` to reclaim vertical space.
 
-`app/(app)/page.tsx`: no structural change — `FirmPulse` already receives `pulse`; just pass the augmented object. The standalone "Needs attention" block stays.
+## Relationship notes — slim companion
+
+Stays a single card. Adjustments:
+
+- `rows={14}` → `rows={10}` (still tall, but no longer dwarfed by Overview).
+- Helper line shortens to one phrase: "How they like to be worked with — communication, dynamics, recurring concerns."
+- Card padding `p-5` → `p-4`.
+- Card becomes `lg:sticky lg:top-4 self-start` so as Overview's column grows, the note rail stays anchored beside it instead of leaving dead space at the bottom of the right column.
+
+## Result
+
+Overview and Relationship end at roughly the same point on the page, the right rail is no longer dead, and Contacts / Projects / Invoices come up sooner without losing any data fields.
 
 ## Out of scope
 
-- Removing KPIs from `/leads` (user said they were already removed; if any remain, they keep working — only home gets the consolidated view).
-- Schema/Airtable changes. All new aggregates derive from existing cached reads.
-- Mutations, auth, routing changes.
-
-## Technical notes
-
-- `getFirmPulse()` already fetches quotes, leads, invoices, AR. Add one parallel `listAllClients()` call.
-- Keep `revalidateTag("airtable")` semantics — no new cache tags needed beyond the existing `kpi:*` / `pipeline:*` umbrellas.
-- Preserve `NumberTicker` usage on hero/satellite tiles for visual continuity.
-- After edits, run `npx tsc --noEmit` and `npm run build` per CLAUDE.md before declaring done.
+- `InlineField` internals, save logic, field set, or any data layer.
+- The header / KPI strip above and the Contacts/Projects/Invoices sections below.
+- Visual restyling beyond grouping, density, and stickiness.

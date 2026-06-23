@@ -42,12 +42,36 @@ export default async function HomePage() {
   const personName =
     person && "firstName" in person ? person.firstName : firstName(sessionName, sessionEmail);
 
-  const [day, boards, pulse, activity] = await Promise.all([
+  const [day, boards, pulse, activity, quotesForDeadline] = await Promise.all([
     safe(() => getPersonalDay(personId)),
     safe(getLandingBoards),
     safe(getFirmPulse),
     safe(() => getRecentActivity(12)),
+    safe(listAllQuotes),
   ]);
+
+  // Active-only projects with deadline pressure (overdue/red/yellow).
+  const ACTIVE_FOR_DEADLINE = new Set([
+    "Sent. Awaiting Approval.",
+    "Approved and Signed",
+    "Awaiting Payment",
+    "Project In Progress",
+  ]);
+  type RiskTotals = { overdue: number; red: number; yellow: number };
+  const deadlineTotals: RiskTotals = Array.isArray(quotesForDeadline)
+    ? quotesForDeadline.reduce<RiskTotals>(
+        (acc, q) => {
+          if (!q.status || !ACTIVE_FOR_DEADLINE.has(q.status)) return acc;
+          if (q.deadlineRisk === "overdue") acc.overdue += 1;
+          else if (q.deadlineRisk === "red") acc.red += 1;
+          else if (q.deadlineRisk === "yellow") acc.yellow += 1;
+          return acc;
+        },
+        { overdue: 0, red: 0, yellow: 0 },
+      )
+    : { overdue: 0, red: 0, yellow: 0 };
+  const needsAttentionCount =
+    deadlineTotals.overdue + deadlineTotals.red + deadlineTotals.yellow;
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", {

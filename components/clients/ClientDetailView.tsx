@@ -85,6 +85,16 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
   const [selectedQuote, setSelectedQuote] = useState<PipelineQuote | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<MoneyInvoice | null>(null);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const highlightId = searchParams?.get("highlight") ?? null;
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.getElementById(`project-row-${highlightId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightId]);
 
   const projects = useMemo(() => {
     if (tab === "all") return detail.projects;

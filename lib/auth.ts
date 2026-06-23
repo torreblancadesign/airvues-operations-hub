@@ -22,8 +22,10 @@ type AllowedEntry =
 function loadAllowedUsers(): AllowedEntry[] {
   const raw = process.env.ALLOWED_USERS;
   if (!raw) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("ALLOWED_USERS env must be set in production. JSON array of {email|domain, role}.");
+    // Throwing at module scope crashes Next's prerender pass (page-data collection).
+    // Allow empty in build/dev; sign-in is gated separately by findRole returning null.
+    if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
+      console.error("[auth] ALLOWED_USERS env is not set — all sign-ins will be denied.");
     }
     return [];
   }
@@ -41,23 +43,28 @@ function loadAllowedUsers(): AllowedEntry[] {
     }
     return entries;
   } catch (err) {
-    throw new Error(`ALLOWED_USERS is not valid JSON: ${(err as Error).message}`);
+    console.error(`[auth] ALLOWED_USERS is not valid JSON: ${(err as Error).message}`);
+    return [];
   }
 }
 
-const allowedUsers = loadAllowedUsers();
+let _allowedUsers: AllowedEntry[] | null = null;
+function getAllowedUsers(): AllowedEntry[] {
+  if (_allowedUsers === null) _allowedUsers = loadAllowedUsers();
+  return _allowedUsers;
+}
 
 function findRole(email: string | null | undefined): AppRole | null {
   if (!email) return null;
   const lower = email.toLowerCase();
   // 1. Exact email match wins
-  const emailMatch = allowedUsers.find((u) => u.kind === "email" && u.email === lower);
+  const emailMatch = getAllowedUsers().find((u) => u.kind === "email" && u.email === lower);
   if (emailMatch) return emailMatch.role;
   // 2. Domain match fallback (anyone on the Workspace gets the default role)
   const atIdx = lower.indexOf("@");
   if (atIdx === -1) return null;
   const domain = lower.slice(atIdx + 1);
-  const domainMatch = allowedUsers.find((u) => u.kind === "domain" && u.domain === domain);
+  const domainMatch = getAllowedUsers().find((u) => u.kind === "domain" && u.domain === domain);
   return domainMatch ? domainMatch.role : null;
 }
 

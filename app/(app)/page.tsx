@@ -5,6 +5,7 @@ import { getLandingBoards } from "@/lib/landing";
 import { resolvePersonByEmail } from "@/lib/people";
 import { getPersonalDay } from "@/lib/personal-landing";
 import { getFirmPulse } from "@/lib/firm-pulse";
+import { listAllQuotes } from "@/lib/pipeline";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StationBoard } from "@/components/home/DeparturesBoard";
 import { TheStack } from "@/components/home/TheStack";
@@ -41,12 +42,36 @@ export default async function HomePage() {
   const personName =
     person && "firstName" in person ? person.firstName : firstName(sessionName, sessionEmail);
 
-  const [day, boards, pulse, activity] = await Promise.all([
+  const [day, boards, pulse, activity, quotesForDeadline] = await Promise.all([
     safe(() => getPersonalDay(personId)),
     safe(getLandingBoards),
     safe(getFirmPulse),
     safe(() => getRecentActivity(12)),
+    safe(listAllQuotes),
   ]);
+
+  // Active-only projects with deadline pressure (overdue/red/yellow).
+  const ACTIVE_FOR_DEADLINE = new Set([
+    "Sent. Awaiting Approval.",
+    "Approved and Signed",
+    "Awaiting Payment",
+    "Project In Progress",
+  ]);
+  type RiskTotals = { overdue: number; red: number; yellow: number };
+  const deadlineTotals: RiskTotals = Array.isArray(quotesForDeadline)
+    ? quotesForDeadline.reduce<RiskTotals>(
+        (acc, q) => {
+          if (!q.status || !ACTIVE_FOR_DEADLINE.has(q.status)) return acc;
+          if (q.deadlineRisk === "overdue") acc.overdue += 1;
+          else if (q.deadlineRisk === "red") acc.red += 1;
+          else if (q.deadlineRisk === "yellow") acc.yellow += 1;
+          return acc;
+        },
+        { overdue: 0, red: 0, yellow: 0 },
+      )
+    : { overdue: 0, red: 0, yellow: 0 };
+  const needsAttentionCount =
+    deadlineTotals.overdue + deadlineTotals.red + deadlineTotals.yellow;
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", {
@@ -143,6 +168,52 @@ export default async function HomePage() {
           </div>
         )}
       </div>
+
+      {/* ── Needs attention (deadline pressure) ───────────────── */}
+      {needsAttentionCount > 0 && (
+        <div className="mb-10">
+          <SectionTitle
+            title="Needs attention"
+            aside={
+              <a
+                href="/pipeline?deadlineRisk=needs-attention"
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline whitespace-nowrap"
+              >
+                Open filtered view →
+              </a>
+            }
+          />
+          <a
+            href="/pipeline?deadlineRisk=needs-attention"
+            className="block bg-surface border border-rule rounded-card p-4 hover:border-amber transition-colors"
+          >
+            <div className="flex items-baseline justify-between gap-4 flex-wrap">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
+                  Projects needing attention
+                </div>
+                <div className="text-[28px] font-semibold tabnum text-ink-strong leading-none">
+                  {needsAttentionCount}
+                </div>
+                <div className="text-[11px] text-ink-faint mt-1">
+                  Active projects with a Client Delivery Due Date pressing or past.
+                </div>
+              </div>
+              <div className="flex gap-2 text-[11px] font-mono">
+                <span className="px-2 py-1 rounded bg-red-soft text-red border border-red/30">
+                  {deadlineTotals.overdue} overdue
+                </span>
+                <span className="px-2 py-1 rounded bg-red-soft/60 text-red border border-red/20">
+                  {deadlineTotals.red} ≤3d
+                </span>
+                <span className="px-2 py-1 rounded bg-amber-soft text-amber border border-amber/30">
+                  {deadlineTotals.yellow} ≤7d
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
+      )}
 
       {/* ── The Board ────────────────────────────────────────── */}
       {"departures" in boards && (

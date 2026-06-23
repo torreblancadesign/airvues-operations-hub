@@ -212,9 +212,28 @@ export async function updateQuoteFields(
   }
 
   try {
+    // Capture previous values for status-change logging.
+    const before = patch.projectStatus !== undefined ? await getQuoteDetail(quoteId).catch(() => null) : null;
     await patchRecords(Tables.Quotes.id, [{ id: quoteId, fields }]);
     invalidateQuote(quoteId);
     const quote = await getQuoteDetail(quoteId);
+
+    // Project log: project-status transitions + proposal-type changes.
+    const accountId = quote.preparedForId ?? null;
+    if (patch.projectStatus !== undefined && before && before.projectStatus !== patch.projectStatus) {
+      const ev =
+        patch.projectStatus === "Proposal Signed"
+          ? "Proposal signed"
+          : patch.projectStatus === "Commencement Invoice Paid"
+            ? "Payment received"
+            : "Project status changed";
+      await logEventInternal({
+        accountId,
+        projectId: quoteId,
+        eventType: ev,
+        detail: `Project Status: ${before.projectStatus ?? "—"} → ${patch.projectStatus}`,
+      });
+    }
     return { ok: true, quote };
   } catch (e) {
     return { error: (e as Error).message };

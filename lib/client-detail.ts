@@ -63,6 +63,10 @@ export type ClientDetail = {
   contacts: ClientContact[];
   projects: PipelineQuote[];
   invoices: MoneyInvoice[];
+  // Account status (sourced from the company's primary contact)
+  primaryContactId: string | null;
+  partnerStatus: string | null;
+  leadStatus: string | null;
 };
 
 function asStr(v: unknown): string {

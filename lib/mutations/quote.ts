@@ -47,6 +47,9 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.preparedDate !== undefined) {
     fields["Prepared Date"] = patch.preparedDate || null;
   }
+  if (patch.deliveryDueDate !== undefined) {
+    fields["Client Delivery Due Date"] = patch.deliveryDueDate || null;
+  }
   if (patch.preparedForId !== undefined) {
     fields["Prepared for"] = patch.preparedForId ? [patch.preparedForId] : [];
   }

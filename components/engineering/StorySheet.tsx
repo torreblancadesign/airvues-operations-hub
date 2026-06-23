@@ -217,18 +217,23 @@ export function StorySheet({
 
         <div className="px-5 py-5 bg-bg-elevated border-b border-rule">
           <div className="text-[10px] font-mono uppercase tracking-wider text-ink-muted mb-1">
-            Hours scoped
+            Hours worked
           </div>
           <div className="text-[34px] font-semibold text-ink-strong tabnum leading-none">
-            {current.hours ?? "—"}<span className="text-[20px] text-ink-muted">h</span>
+            {actual ?? 0}<span className="text-[20px] text-ink-muted">h</span>
+            {estimated != null && (
+              <span className="ml-2 text-[14px] text-ink-faint font-normal tabnum">
+                / {estimated}h est
+              </span>
+            )}
           </div>
           <div className="mt-3 flex items-center justify-between gap-3">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint">
-                Hours worked
+                Progress
               </div>
               <div className="text-[20px] font-semibold text-ink-strong tabnum">
-                {current.hoursWorked ?? 0}h
+                {progressPct}%
               </div>
             </div>
             <div className="text-right">

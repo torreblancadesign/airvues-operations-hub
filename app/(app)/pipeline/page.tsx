@@ -30,8 +30,8 @@ export default async function PipelinePage({ searchParams }: { searchParams?: SP
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <PageHeader
-        title="Pipeline"
-        subtitle="All quotes · stages, conversion, stalled deals. Click any row to drill in."
+        title="Projects"
+        subtitle="All quotes & projects. Filter to find anything fast. Click any row to drill in."
         meta={
           <>
             <div className="font-mono tabnum">

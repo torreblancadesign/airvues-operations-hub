@@ -265,8 +265,8 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                 <th onClick={() => toggleSort("name")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-left">
                   Client {sort.key === "name" && <span className="text-emerald text-[8px]">{sort.dir === "asc" ? "▲" : "▼"}</span>}
                 </th>
-                <th onClick={() => toggleSort("engagement")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-left">
-                  Engagement {sort.key === "engagement" && <span className="text-emerald text-[8px]">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                <th onClick={() => toggleSort("partnerStatus")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-left">
+                  Type {sort.key === "partnerStatus" && <span className="text-emerald text-[8px]">{sort.dir === "asc" ? "▲" : "▼"}</span>}
                 </th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Contract</th>
                 <th onClick={() => toggleSort("invoiceCount")} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer text-right">

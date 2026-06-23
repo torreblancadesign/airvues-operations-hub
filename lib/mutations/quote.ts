@@ -15,6 +15,7 @@ import {
   PROJECT_STATUS_CHOICES,
   PROPOSAL_TYPE_CHOICES,
 } from "../quote-types";
+import { logEventInternal } from "./project-log";
 
 export type MutationResult<T = void> = ({ ok: true } & T) | { error: string };
 

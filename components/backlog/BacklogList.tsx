@@ -8,6 +8,7 @@ import { BacklogRow } from "./BacklogRow";
 import { BulkBar } from "./BulkBar";
 import { NewStoryModal } from "./NewStoryModal";
 import { BacklogFilter, EMPTY_BACKLOG_FILTER, SCOPE_TO_STATUSES } from "./types";
+import { useSearchParamsFilter } from "@/lib/use-search-params-filter";
 
 type EngineerOption = { id: string; name: string };
 type SprintOption = { id: string; number: number | null; status: string | null };

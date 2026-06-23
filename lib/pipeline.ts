@@ -167,6 +167,13 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     }
   }
 
+  const COMMITTED_STATUSES = new Set([
+    "Approved and Signed",
+    "Awaiting Payment",
+    "Project In Progress",
+    "Paid",
+  ]);
+
   return records.map((r) => {
     const f = r.fields;
     const preparedForIds = asIdArray(f["Prepared for"]);
@@ -175,6 +182,9 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     const resolvedCompanyName = resolvedCompanyId ? companyIdToName.get(resolvedCompanyId) ?? null : null;
     const totalCost = (f["Total Cost"] as number) ?? 0;
     const invoiced = invoicedByQuote.get(r.id) ?? 0;
+    const status = (f["Status"] as string) ?? null;
+    const uninvoiced = status && COMMITTED_STATUSES.has(status) ? Math.max(0, totalCost - invoiced) : 0;
+
 
     return {
       id: r.id,
@@ -205,7 +215,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         ? (f["Existing Company? (from Form Submission)"] as string[])
         : [],
       preparedForIds,
-      uninvoiced: Math.max(0, totalCost - invoiced),
+      uninvoiced,
     };
   });
 }

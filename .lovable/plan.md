@@ -1,30 +1,35 @@
 ## Goal
-On `/pipeline`, surface the per-project "committed but not yet invoiced" amount and clarify what the existing money column represents.
+Scope the per-quote "uninvoiced" amount to deals the client has actually committed to, and rename the column so its meaning matches the Firm Pulse tile.
+
+## Committed deal stages
+Treat these `Status` values as "committed" (client has agreed to pay):
+- `Approved and Signed`
+- `Awaiting Payment`
+- `Project In Progress`
+- `Paid`
+
+Excluded (no commitment yet, or dead): `Draft`, `Sent. Awaiting Approval.`, `Auditing 🚩`, `Cancelled`, `Rejected`, and `null`.
+
+Note: `Paid` stays in — a Paid deal will normally compute to 0 uninvoiced, but if Total Cost > invoiced for any reason we still want to see it rather than hide it.
 
 ## Changes
 
-### 1. `lib/pipeline.ts` — add `uninvoiced` per quote
-- Import `listAllInvoices` from `lib/money.ts` (already used by Firm Pulse, cached).
-- In `listAllQuotes`, after loading quotes, build `invoicedByQuote: Map<quoteId, number>` from invoices (skip `status === "void"`, iterate `inv.quoteRecordIds`, sum `inv.amount`) — same logic as the Firm Pulse tile so the numbers reconcile.
-- Add `uninvoiced: number` to `PipelineQuote` and compute `max(0, totalCost - (invoicedByQuote.get(q.id) ?? 0))` for every quote (not just active — keeps the column meaningful when filters change; a Paid/Lost quote will simply be 0).
+### 1. `lib/pipeline.ts`
+- Add a local `COMMITTED_STATUSES` set with the four values above.
+- When mapping each record, compute `uninvoiced` as `Math.max(0, totalCost - invoiced)` **only when `status` is in the set**; otherwise `uninvoiced = 0`.
+- Keep the `listAllInvoices` fetch and `invoicedByQuote` map as-is so the math still reconciles with the Firm Pulse "Committed · uninvoiced" tile.
 
-### 2. `components/pipeline/QuoteTable.tsx` — rename + new column
-- Rename the existing **Amount** header to **Quote Total** with a tooltip: "Total contracted value of the quote (Airtable: Total Cost). Not the amount paid."
-- Add a new sortable right-aligned column **Uninvoiced** to the right of Quote Total, with tooltip: "Committed but not yet invoiced: Quote Total minus invoices linked to this quote. Excludes void invoices."
-  - Render `fmtCurrency(q.uninvoiced)` when > 0; render a muted "—" when 0 so the eye lands on the projects with outstanding work-to-invoice.
-  - Update the empty-state `colSpan` from 11 → 12.
-
-### 3. `components/pipeline/types.ts` — sort key
-- Add `"uninvoiced"` to `SortKey`.
-
-### 4. `components/pipeline/PipelineDashboard.tsx` — sort handler
-- Add a `case "uninvoiced"` branch in `applySort` returning `a.uninvoiced` / `b.uninvoiced`.
+### 2. `components/pipeline/QuoteTable.tsx`
+- Rename column header from **Uninvoiced** to **Committed Uninvoiced**.
+- Update the header tooltip to: "Committed but not yet invoiced. Only shown for deals the client has agreed to pay (Approved and Signed, Awaiting Payment, Project In Progress, Paid). Excludes void invoices."
+- Cell rendering unchanged: amber + bold when > 0, muted `—` when 0 (which now also covers all pre-commitment stages).
 
 ## Out of scope
-- No filter for "has uninvoiced > 0" (can add later if you want; current sort handles discovery).
-- No changes to QuoteSheet, FilterBar, or Firm Pulse math.
-- No changes to mutations or Airtable writes.
+- No changes to sort key name (`"uninvoiced"` stays as the internal key).
+- No changes to Firm Pulse — it already filters to active/committed quotes upstream, so totals continue to reconcile.
+- No filter chip for "has committed uninvoiced".
 
 ## Verify
 - `npx tsc --noEmit`
-- Visual check on `/pipeline`: sort by Uninvoiced desc, confirm the top rows are active in-progress projects with a 50% deposit invoiced, and that totals reconcile against the Firm Pulse "Committed · uninvoiced" tile.
+- On `/pipeline`, sort by Committed Uninvoiced desc: top rows should all be `Project In Progress` / `Awaiting Payment` / `Approved and Signed`; Draft and Awaiting Approval rows show `—`.
+- Sum of the column matches the Firm Pulse "Committed · uninvoiced" tile.

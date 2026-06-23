@@ -47,6 +47,9 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.preparedDate !== undefined) {
     fields["Prepared Date"] = patch.preparedDate || null;
   }
+  if (patch.deliveryDueDate !== undefined) {
+    fields["Client Delivery Due Date"] = patch.deliveryDueDate || null;
+  }
   if (patch.preparedForId !== undefined) {
     fields["Prepared for"] = patch.preparedForId ? [patch.preparedForId] : [];
   }
@@ -115,6 +118,9 @@ function validatePatch(patch: QuoteFieldPatch): string | null {
   }
   if (patch.preparedDate && !/^\d{4}-\d{2}-\d{2}$/.test(patch.preparedDate)) {
     return "Prepared date must be YYYY-MM-DD";
+  }
+  if (patch.deliveryDueDate && !/^\d{4}-\d{2}-\d{2}$/.test(patch.deliveryDueDate)) {
+    return "Delivery due date must be YYYY-MM-DD";
   }
   return null;
 }

@@ -12,6 +12,7 @@ type QuoteFields = {
   "Prepared by"?: string[];
   "Prepared By Name"?: string[];
   "Prepared Date"?: string;
+  "Client Delivery Due Date"?: string;
   "Prepared for"?: string[];
   "Client Name"?: string[];
   "Project Status"?: string;
@@ -184,6 +185,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     preparedById: firstId(f["Prepared by"]),
     preparedByName: asStringArray(f["Prepared By Name"])[0] ?? null,
     preparedDate: asStr(f["Prepared Date"]) || null,
+    deliveryDueDate: asStr(f["Client Delivery Due Date"]) || null,
     preparedForId: firstId(f["Prepared for"]),
     preparedForName: asStringArray(f["Client Name"])[0] ?? null,
     projectStatus: asStr(f["Project Status"]) || null,

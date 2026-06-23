@@ -1032,6 +1032,23 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
+        <FieldRow
+          label="Delivery due date"
+          hint="Client Delivery Due Date — drives the deadline badge on the Projects page."
+          chip={<PortalChip />}
+          state={stateFor("deliveryDueDate")}
+        >
+          <input
+            type="date"
+            value={quote.deliveryDueDate ?? ""}
+            disabled={!canEdit}
+            onChange={(e) =>
+              void patchAndRefresh("deliveryDueDate", { deliveryDueDate: e.target.value || null })
+            }
+            className={`${inputCls} font-mono w-auto`}
+          />
+        </FieldRow>
+
         <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")}>
           <PersonPicker
             value={quote.preparedForId}

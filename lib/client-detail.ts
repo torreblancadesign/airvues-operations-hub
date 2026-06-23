@@ -256,5 +256,17 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     contacts,
     projects,
     invoices: companyInvoices,
+    ...((): { primaryContactId: string | null; partnerStatus: string | null; leadStatus: string | null } => {
+      const companyPeople = allPeople.filter((p) => {
+        const arr = p.fields["Company"];
+        return Array.isArray(arr) && (arr as string[]).includes(companyId);
+      });
+      let chosen = companyPeople.find((p) => p.fields["Partner Status"]) ?? companyPeople[0] ?? null;
+      return {
+        primaryContactId: chosen?.id ?? null,
+        partnerStatus: (chosen?.fields["Partner Status"] as string | undefined) ?? null,
+        leadStatus: (chosen?.fields["Lead Status"] as string | undefined) ?? null,
+      };
+    })(),
   };
 }

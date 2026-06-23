@@ -4,6 +4,16 @@ import "server-only";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 
+export type PartnerStatusValue = "Lead" | "Client";
+export type LeadStatusValue =
+  | "New Lead"
+  | "Discovery"
+  | "Proposal Drafting"
+  | "Proposal Sent"
+  | "Won"
+  | "Lost"
+  | "On Hold";
+
 export type ClientRow = {
   id: string;
   name: string;
@@ -19,6 +29,10 @@ export type ClientRow = {
   lastInvoiceDate: string | null;
   daysSinceLastInvoice: number | null;
   airtableUrl: string;
+  // Status fields — sourced from the primary contact (People record).
+  primaryContactId: string | null;
+  partnerStatus: PartnerStatusValue | null;
+  leadStatus: LeadStatusValue | null;
 };
 
 export async function listAllClients(): Promise<ClientRow[]> {

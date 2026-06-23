@@ -152,6 +152,18 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                     <td className="px-3 py-2.5">
                       <ProjectProgress status={q.projectStatus} />
                     </td>
+                    <td className="px-3 py-2.5">
+                      {q.deliveryDueDate ? (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${deadlineRiskClass(q.deadlineRisk)}`}
+                          title={`Client Delivery Due Date: ${new Date(q.deliveryDueDate).toLocaleDateString()}`}
+                        >
+                          {deadlineRiskLabel(q.deadlineRisk, q.deliveryDueDate)}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-ink-faint">—</span>
+                      )}
+                    </td>
                     <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${stale ? "text-red font-semibold" : "text-ink-muted"}`}>
                       {days != null ? `${days}d` : "—"}
                     </td>

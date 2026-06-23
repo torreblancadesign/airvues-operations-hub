@@ -87,6 +87,7 @@ export async function listAllClients(): Promise<ClientRow[]> {
       Company?: string[];
       "Partner Status"?: string;
       "Lead Status"?: string;
+      "Communication Start Date"?: string;
     }>(
       pT.id,
       {
@@ -94,6 +95,7 @@ export async function listAllClients(): Promise<ClientRow[]> {
           pT.fields["Company"].id,
           pT.fields["Partner Status"].id,
           pT.fields["Lead Status"].id,
+          pT.fields["Communication Start Date"].id,
         ],
       },
       ["clients:people"],
@@ -101,9 +103,9 @@ export async function listAllClients(): Promise<ClientRow[]> {
   ]);
 
   // People → Company. Also pick a primary contact per Company:
-  //   prefer a person with Partner Status set; else the first one we see.
+  //   prefer a person with Partner Status set; among ties, prefer earliest Communication Start Date.
   const personIdToCompanyId = new Map<string, string>();
-  type Primary = { personId: string; partner: string | null; lead: string | null };
+  type Primary = { personId: string; partner: string | null; lead: string | null; commStart: string | null };
   const primaryByCompany = new Map<string, Primary>();
   for (const p of people) {
     const companyArr = (p.fields["Company"] as string[] | undefined) ?? [];
@@ -112,9 +114,18 @@ export async function listAllClients(): Promise<ClientRow[]> {
     personIdToCompanyId.set(p.id, companyId);
     const partner = (p.fields["Partner Status"] as string | undefined) ?? null;
     const lead = (p.fields["Lead Status"] as string | undefined) ?? null;
+    const commStart = (p.fields["Communication Start Date"] as string | undefined) ?? null;
     const existing = primaryByCompany.get(companyId);
-    if (!existing || (!existing.partner && partner)) {
-      primaryByCompany.set(companyId, { personId: p.id, partner, lead });
+    const candidate: Primary = { personId: p.id, partner, lead, commStart };
+    if (!existing) {
+      primaryByCompany.set(companyId, candidate);
+    } else if (!existing.partner && partner) {
+      primaryByCompany.set(companyId, candidate);
+    } else if (Boolean(existing.partner) === Boolean(partner)) {
+      // tie on partner status — prefer earliest commStart
+      if (commStart && (!existing.commStart || commStart < existing.commStart)) {
+        primaryByCompany.set(companyId, candidate);
+      }
     }
   }
 

@@ -293,9 +293,13 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                     <tr key={c.id} onClick={() => router.push(`/clients/${c.id}`)} className="border-b border-rule-soft last:border-0 cursor-pointer transition-colors hover:bg-bg-elevated">
                       <td className="px-3 py-2.5 text-[13px] text-ink-strong">{c.name}</td>
                       <td className="px-3 py-2.5">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${ENGAGEMENT_COLOR[c.engagement] ?? "bg-rule text-ink-muted"}`}>
-                          {c.engagement}
-                        </span>
+                        {c.partnerStatus ? (
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${PARTNER_COLOR[c.partnerStatus] ?? "bg-rule text-ink-muted"}`}>
+                            {c.partnerStatus}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-ink-faint">—</span>
+                        )}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] text-ink-muted">{c.contractType ?? "—"}</td>
                       <td className="px-3 py-2.5 text-right text-[12px] font-mono tabnum text-ink-muted">{c.invoiceCount}</td>

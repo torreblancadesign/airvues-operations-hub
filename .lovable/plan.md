@@ -1,39 +1,57 @@
-## Question 1: yes
+## Fix: Projects "Company" column is empty
 
-The "Days left" badge in the Projects table is computed from the **Client Delivery Due Date** field on the Quote (Airtable column → `deliveryDueDate` in code). `lib/deadline.ts › computeDeadlineRisk()` does `floor((dueDate − now) / 1 day)` and buckets it: `overdue < 0 ≤ red ≤ 3 < yellow ≤ 7 < ok`. The label ("Due today", "5d left", "Overdue by 2d") comes from `deadlineRiskLabel()`. If the date is empty, it shows "—". So editing the new field on the quote page will directly move the Projects-page badge.
+The current source is `Tables.Quotes.fields["Company Name"]` — a stale lookup on the Quotes table that's mostly empty. Replace it with a resolved value derived from the quote's **Prepared for** (People) → People.**Company** (Companies) → Companies.**Name**.
 
-## Question 2: add Delivery Due Date to the quote details editor
+### Where it's used
 
-Wire the same `Client Delivery Due Date` field already used on the Projects list into the editable header on the quote detail page.
+`lib/pipeline.ts › listAllQuotes()` sets `company: first(f["Company Name"] as string[])`. That `company` string is rendered in the Projects table (`components/pipeline/QuoteTable.tsx`) and in the quote detail header (`app/(app)/pipeline/[id]/page.tsx`).
 
 ### Changes
 
-**1. `lib/quote-types.ts`**
-- Add `deliveryDueDate: string | null` to `QuoteDetail`.
-- Add `deliveryDueDate?: string | null` to `QuoteFieldPatch`.
+**1. `lib/pipeline.ts`** — resolve company server-side in `listAllQuotes()`:
 
-**2. `lib/quotes.ts` (`getQuoteDetail`)**
-- Include `Tables.Quotes.fields["Client Delivery Due Date"].id` in the requested fields.
-- Map `f["Client Delivery Due Date"]` → `deliveryDueDate` on the returned object.
+- Stop requesting / reading `t.fields["Company Name"]` (the deprecated lookup). Keep the `companyIds` field exactly as-is (still used elsewhere for `?companyId=` deep-link filtering).
+- After the quotes fetch, collect `preparedForIds` across all quotes (dedupe). If empty, skip. Otherwise, one cached batch read:
+  ```
+  listRecordsCached(Tables.People.id, {
+    filterByFormula: OR(RECORD_ID()='rec1', ...),
+    fields: [Tables.People.fields["Company"].id],
+  }, ["pipeline:prepared-for-people"])
+  ```
+  → build `personId → companyId` map (first id from the `Company` link array).
+- Collect unique companyIds from that map, then one cached batch read:
+  ```
+  listRecordsCached(Tables.Companies.id, {
+    filterByFormula: OR(...),
+    fields: [Tables.Companies.fields["Name"].id],
+  }, ["pipeline:companies"])
+  ```
+  → `companyId → name` map.
+- For each quote: pick the first `preparedForIds[0]`, look up its companyId, then companyName. Fall back to `null` (renders as "—") when missing. Do NOT fall back to the deprecated lookup.
 
-**3. `lib/mutations/quote.ts` (`updateQuoteFields`)**
-- Validate: if provided and non-empty, must match `^\d{4}-\d{2}-\d{2}$` (same shape as `preparedDate`).
-- Patch mapping: `fields["Client Delivery Due Date"] = patch.deliveryDueDate || null`.
-- Include the key in the allow-list / `if (patch.deliveryDueDate !== undefined)` branch.
+**2. Type cleanup**
 
-**4. `components/pipeline/QuoteSheetEditor.tsx`**
-- Add a new `<FieldRow label="Delivery due date" hint="Client Delivery Due Date — drives the deadline badge on the Projects page.">` directly after the existing "Prepared date" row (line ~1033).
-- Same `<input type="date">` pattern as Prepared date, bound to `quote.deliveryDueDate`, calling `patchAndRefresh("deliveryDueDate", { deliveryDueDate: e.target.value || null })`.
-- Disabled when `!canEdit`.
+- Remove `"Company Name"?: string[]` from the inline `QuoteFields` type in `lib/pipeline.ts`.
+- `PipelineQuote.company` stays `string | null` — no consumer changes.
 
-**5. `app/(app)/pipeline/[id]/page.tsx`** — no change. The page already shows the deadline pill from `quote.deliveryDueDate` (from `listAllQuotes`); after the edit and `revalidateTag("airtable")`, both the detail header chip and the Projects list row update on next render.
+**3. Nothing else changes**
+
+- `QuoteTable` still renders `q.company ?? "—"`.
+- Quote detail header still shows the resolved name.
+- Airtable caching: 5-min cache (same as quotes), so the extra two reads are amortized.
+
+### Out of scope
+
+- Don't touch `companyIds` semantics, deep-link filters, `/clients` page, or the deprecated lookup field in Airtable.
+- Don't fix multi-contact quotes specially; first `Prepared for` wins (matches today's behavior for the email/name).
+
+### About the `dist-check failed` notice
+
+Local `npx tsc --noEmit` exits clean and `npm run build:dev` is just `tsc --noEmit`. Nothing in the current source tree triggers the failure — it was almost certainly a stale signal from the previous run before the delivery-due-date edits landed (those resolved the only outstanding TS error: `Property 'deliveryDueDate' is missing`). I'll re-run typecheck + `npm run build` after the pipeline change to confirm green.
 
 ### Verify
 
 - `npx tsc --noEmit`
 - `npm run build`
-- Open a quote detail page → new "Delivery due date" row appears below Prepared date → change the date → the orange/red "Deadline" pill above updates after refresh, and the Projects page row reflects the new value.
-
-### Out of scope
-
-Filters, KPI tiles, deadline-risk thresholds, any other field, mobile-specific styling.
+- Load `/pipeline` → Company column populated for quotes whose Prepared-for person has a Company linked.
+- Load a quote detail page → header subtitle still renders.

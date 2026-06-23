@@ -1,109 +1,78 @@
-# Airvues One — Blueprint Upgrade Plan (revised)
 
-Scope: Phases 1–2 in full, Phase 3 limited to the Stories upgrade only. Built on existing stack (Next.js 14 App Router + Airtable via `lib/airtable.ts`, Server Actions in `lib/mutations/`, schema in `lib/schema.ts`). Surgical changes, no rewrites.
+# Remaining work — Airvues One upgrade
 
----
+Schema is now wired (`Lead Status`, `Partner Status` on People; `Client Delivery Due Date` on Quotes; new `ProjectLog` table). Nav restructure and story-progress logic already landed. Below is what's left.
 
-## Phase 1 — Blockers (data + nav foundation)
+## Phase 1 — finish data layer + UI
 
-### 1.1 Unify Leads + Clients into Accounts
-- **Airtable** (you've done this):
-  - `Partner Status` on Clients — values: `Lead, Client`.
-  - `Lead Status` on Clients — values: `New Lead, Discovery, Proposal Drafting, Proposal Sent, Won, Lost, On Hold`.
-  - Lead-creation automation will be repointed to fire when a Lead is *started*, so every Lead exists as a Client row from day one.
-- **App**:
-  - Update `lib/schema.ts` Clients entry with the two new field IDs (`Lead Status`, `Partner Status`).
-  - Rename `/clients` to **Accounts** in `lib/nav.ts` (label only; route stays `/clients` to avoid breaking links — or rename route + redirect, decide in build).
-  - `ClientsDashboard` + `ClientSheet`: add Lead Status and Partner Status pickers; filter chips for both; search by name/contact/company; quick-jump to proposals, projects (quotes), invoices, contacts.
-  - Remove `/leads` from sidebar nav (`showInSidebar: false`). Keep the page + `lib/leads.ts` for one deploy cycle as fallback, then delete.
-  - Migrate any lead-only signals (intro meetings, funnel YTD/MTD) into `/clients`. Lead Status filter set to non-final values drives the funnel.
+### 1.1 Accounts (Clients page) — status pickers & filters
+- Extend `lib/clients.ts` to read `Lead Status` and `Partner Status` and expose them on the `Client` type.
+- `components/clients/ClientsDashboard.tsx`: add filter chips for Partner Status (Lead/Client/All) and Lead Status (7 values + All), plus a search field that hits name/email/company. Persist via `useSearchParamsFilter` (new shared hook in `lib/use-search-params-filter.ts`).
+- `components/clients/ClientSheet.tsx` (and `InlineField`): add inline pickers for both statuses, writing through a new `lib/mutations/client.ts` (`updateClientStatuses`) that calls `requireRole("admin","lead")`, patches the People table, and `revalidateTag("airtable")` + `accounts:all`.
+- Migrate lead-only widgets (intro meetings, funnel) onto `/clients`, driven by `Lead Status`. Hide `/leads` from sidebar (`showInSidebar:false`) — keep page code for one deploy cycle.
 
 ### 1.2 Pipeline → Projects
-- **Airtable** (already in place):
-  - Deadline field exists as `Client Delivery Due Date` on Quotes.
-  - Proposal Type values are `Airtable Solutions Proposal` and `Retainer Agreement` — drop the legacy `Web Development Proposal` / `Airtable Solutions` options from `components/pipeline/types.ts`.
-- **App**:
-  - Rename `/pipeline` route + nav entry to `/projects`, label **Projects**. Keep Quote records as the project records (one Quote = one Project).
-  - Add `Client Delivery Due Date` to `lib/schema.ts` (Quotes) and to `QuoteFields` / `QuoteDetail` as `clientDeliveryDueDate: string | null`.
-  - Wire it into the signed-contract template output (need to confirm template location — open question below).
-  - List ordering in `QuoteTable`: `Sent / Awaiting Approval` → `In Progress` → others → `Rejected` filtered out by default, toggle to show.
-  - Sort + filter by deadline risk (overdue, ≤3d red, ≤7d yellow) based on `clientDeliveryDueDate`.
+- Rename route: `app/(app)/pipeline/` → `app/(app)/projects/` (keep `[id]` subroute). Add a redirect from `/pipeline` → `/projects` in `next.config.js`.
+- Update nav label to **Projects** in `lib/nav.ts`; update `PageHeader` copy.
+- Extend `lib/pipeline.ts` (rename file to `lib/projects.ts`, re-export old names for one deploy):
+  - Read `Client Delivery Due Date` (`fldMC7hyVxocpwFUC`) into `QuoteFields` / `QuoteDetail` as `clientDeliveryDueDate: string | null`.
+  - Compute `deadlineRisk: "ok" | "yellow" | "red" | "overdue"` from due date vs today.
+- `components/pipeline/QuoteTable.tsx`: new Deadline column with risk-colored badge; default sort puts `Sent / Awaiting Approval` → `In Progress` first; **rejected hidden by default** with a "Show rejected" toggle (per blueprint default).
+- `components/pipeline/FilterBar.tsx`: wire `deadlineRisk` filter chips (All / Needs attention / Overdue / ≤3d / ≤7d) and `showRejected` toggle, already in `types.ts`.
+- `QuoteSheetEditor.tsx`: editable date input for Client Delivery Due Date; write through existing `lib/mutations/quote.ts` (add field to patch).
+- Wire `clientDeliveryDueDate` into whichever signed-contract render surface exists — needs confirmation (see open question).
 
-### 1.3 Navigation + UX baseline
-- `lib/nav.ts`: regroup into the spec's 6 tabs — **Overview · Accounts · Projects · Stories · Proposals · Earnings**.
-  - **Stories** umbrella combines current Engineering / Backlog / Sprints as sub-views.
-  - **Proposals** is a new top-level surface — initially a filtered view over Quotes (Proposal Type set) until/if proposals split off; for now Projects and Proposals point to the same underlying Quotes data with different default filters.
-- Only `/` (Overview) keeps dashboard widgets. Strip overview / release-notes blocks from `/accounts`, `/projects`, `/me`, `/engineering`, `/money`, etc. Operational table at the top; summary chips collapsed in a header strip.
-- Hierarchy pass in `components/ui/PageHeader.tsx` + tables: stronger page titles, clearer section headers, weight contrast between labels and body, JetBrains Mono only on numerics, alternating row backgrounds on key tables.
-- Persistent filters: shared `useSearchParamsFilter` hook so filter state survives cross-tab navigation (Accounts, Projects, Stories, Earnings).
-
----
-
-## Phase 2 — Workflow continuity
+## Phase 2 — workflow continuity
 
 ### 2.1 In-context proposal creation
-- Replace side-panel-only proposal create with anchored entry points:
-  - From `/clients/[id]` → "New Proposal" routes to a full-page editor pre-linked to that account (`/clients/[id]/proposals/new`).
-  - From `/projects` → "New Proposal" requires account selection first, then routes into the same editor.
-- After save, redirect back to `/clients/[id]` with the new proposal highlighted in the proposal history timeline — no dead end.
-- Proposal Type select stays as the two existing Airtable values (`Airtable Solutions Proposal`, `Retainer Agreement`).
-- `Client Delivery Due Date` is required in the new-proposal form.
+- New full-page editor route `app/(app)/clients/[id]/proposals/new/page.tsx` reusing `QuoteSheetEditor` in "create" mode. Pre-link `Prepared for` to the account.
+- From `/projects` (formerly pipeline) "New Proposal" button: require account selection (lightweight account picker modal) → redirect into `/clients/[accountId]/proposals/new`.
+- After save, redirect to `/clients/[id]?highlight=<quoteId>`; `ClientDetailView` reads `?highlight` and scrolls/highlights that row in the proposal history.
+- Proposal Type select is already cleaned up to the two Airtable values.
 
-### 2.2 Project log / audit trail
-- **Airtable** (table already created): `Project Log` with `Account` link → Clients. You opted out of an Actor field, so the app will not write or render Actor.
-- **App**:
-  - Update `lib/schema.ts` with the Project Log table + field IDs.
-  - New helpers in `lib/mutations/project-log.ts`: `logEvent({ account, project?, eventType, timestamp, detail })`.
-  - Event types to record: `Lead created, Discovery notes added, Proposal sent, Proposal signed, Payment received, Deadline changed, Story created, Story completed, Invoice created`.
-  - Existing mutations (`lib/mutations/lead.ts`, `quote.ts`, `story.ts`, `invoice.ts`) get a `logEvent(...)` call after their successful patch.
-  - Render the timeline inside `/projects/[id]` (existing `pipeline/[id]/page.tsx`) and as a collapsed section on `/clients/[id]`.
+### 2.2 Project Log / audit trail
+- New `lib/project-log-types.ts` (client-safe) and `lib/project-log.ts` (server reader, cached, tag `project-log:{projectId}`).
+- New `lib/mutations/project-log.ts` exposing `logEvent({ accountId, projectId?, eventType, detail, timestamp? })`. Uses `createRecords(Tables.ProjectLog.id, [...])` with field IDs. No Actor field (per spec).
+- Add `logEvent(...)` after successful patch in:
+  - `lib/mutations/quote.ts` — `Proposal sent`, `Proposal signed`, `Deadline changed`, `Project status changed`.
+  - `lib/mutations/story.ts` — `Story created`, `Story completed`.
+  - `lib/mutations/invoice.ts` — `Invoice created`, `Payment received`.
+  - `lib/mutations/lead.ts` / new client mutation — `Lead created`, `Partner status → Client`.
+- Render timeline component `components/projects/ProjectLogTimeline.tsx` on `/projects/[id]` and a collapsed version on `/clients/[id]`.
 
-### 2.3 Deadline warnings
-- `lib/pipeline.ts` (or new `lib/projects.ts`) derives `deadlineRisk` per project from `clientDeliveryDueDate`: `overdue | red (≤3d) | yellow (≤7d) | ok`.
-- Surfaces: badges on project rows, a "Needs attention" saved view on `/projects`, and an Overview KPI tile.
+### 2.3 Deadline warnings surface
+- Overview KPI tile on home: "Projects needing attention" count.
+- Saved view on `/projects`: filter preset `deadlineRisk=needs-attention`.
+- Row-level deadline badge (Phase 1.2).
 
----
+## Phase 3 — Stories upgrade (only remaining bits)
+- `StoryCard` already updated with status-driven Progress %. Apply same to `StorySheet` header + `BacklogRow`.
+- Show `actual` (Hours Worked) as the primary number, `estimated` (Hours) as muted reference, across StoryCard, StorySheet, BacklogRow. No cost mutation.
+- Persistent filter state on `/engineering`, `/backlog`, `/sprints` via the shared `useSearchParamsFilter` hook (engineer · project · status).
 
-## Phase 3 — Stories upgrade only
-
-(Loom + Slack and Retainer Monthly Rollups are explicitly out of scope this round.)
-
-- Schema audit: confirm Stories has `Assignee`, `Hours` (estimated), `Hours Worked` (actual), `Story Status`. Add fields only if absent.
-- Add a computed `Progress %` derived purely from status (no time math):
-  - `Todo = 0`, `In progress = 50`, `QA Review = 50`, `Completed = 100`, `On Hold = 50`, `Incomplete = 50`, `Analysis Required = 0`, `Archived = 100`.
-- `StoryCard` + `StorySheet`: render the progress bar, show `actual` as the primary number with `estimated` as muted reference. Actual never mutates cost fields (display/reporting only, preserves existing `Cost`/`Invoice` rules in CLAUDE.md).
-- Filters: engineer · project · status, persistent via the shared filter hook from 1.3.
-
----
-
-## Technical notes (for engineers)
-
-- **No framework swap.** Next.js 14 App Router on Vercel (per CLAUDE.md). Ignore any TanStack/Supabase scaffolding context.
-- **All writes go through `lib/mutations/*` Server Actions** with `requireRole(...)` first. New mutations follow the existing try/catch `AuthzError`, `revalidateTag("airtable")`, specific-tag pattern.
-- **Schema additions** are done in Airtable UI; after each change update `lib/schema.ts` with the real field IDs (no guessing).
-- **New cache tags**: `accounts:all`, `projects:all`, `project-log:{projectId}`.
-- **Nav single source of truth** stays `lib/nav.ts` — sidebar / mobile / home consume it; do not fork.
-- **Don't delete the Leads page code** until Accounts ships; hide via `showInSidebar: false` first.
+## Technical notes
+- All writes through `lib/mutations/*` with `requireRole(...)`; existing try/catch + `revalidateTag` pattern preserved.
+- New cache tags: `accounts:all`, `projects:all`, `project-log:{projectId}`.
+- Single nav source `lib/nav.ts` — sidebar/mobile/home consume it.
+- `next.config.js` permanent redirect `/pipeline` → `/projects` (and `/pipeline/:id` → `/projects/:id`) so old links don't 404.
+- Verify each phase with `npx tsc --noEmit` + `npm run build` + curl smoke (`/`, `/clients`, `/projects`, `/engineering`, `/money`).
 
 ## Rollout order
+1. Shared `useSearchParamsFilter` hook + `lib/projects.ts` extensions (deadline fields + risk).
+2. Phase 1.2 Projects rename + deadline UI.
+3. Phase 1.1 Accounts status pickers + filters + `lib/mutations/client.ts`.
+4. Phase 2.2 Project Log (table reader, mutation helper, write hooks in existing mutations, timeline component).
+5. Phase 2.1 In-context proposal flow.
+6. Phase 2.3 Deadline KPI tile + needs-attention preset.
+7. Phase 3 Stories actual/estimated display + persistent filters.
 
-1. Update `lib/schema.ts` with Partner Status, Lead Status, `Client Delivery Due Date`, and Project Log field IDs.
-2. Phase 1 code: nav restructure, Accounts page (status pickers + filters), Projects rename, deadline display, proposal-type cleanup.
-3. Phase 2 code: in-context proposal flow, project-log writes from existing mutations, deadline warnings.
-4. Phase 3 code: Stories progress + filters.
-5. Each phase ends with `npx tsc --noEmit` + `npm run build` + curl smoke of `/`, `/clients`, `/projects`, `/me`, `/engineering`, `/money` (per CLAUDE.md).
+## Open questions to answer in build mode
+1. **Contract generator** — where does the signed contract render today (PandaDoc? Airtable Page Designer button `fldvBUKNOnYc8EI7N`? a Next.js route?) so we know where to inject `Client Delivery Due Date`.
+2. **Proposals tab** — keep as a filtered view of Quotes (current plan), or defer until proposals split from projects? If keep, what default filter — all non-Draft, or just `Sent. Awaiting Approval.`?
 
-## Out of scope / explicit non-goals (this round)
-
+## Out of scope (unchanged)
 - Loom on projects + Slack notify (3.2).
-- RetainerMonth table + monthly rollups (3.3).
+- RetainerMonth + monthly rollups (3.3).
 - Actor field on Project Log.
-- Drag-and-drop kanban, Cmd+K, automated actual-hours → cost mutation, Time Entries logging UI.
+- Drag-and-drop kanban, Cmd+K, automated actual→cost, Time Entries UI.
 
-## Open questions still worth answering before build
-
-1. **Contract generator** — where does the signed contract get rendered today? Need the template surface to wire `Client Delivery Due Date` into it.
-2. **Rejected projects** — confirm hide-by-default with a toggle (plan's current assumption) vs. collapsed "Rejected" section at the bottom.
-3. **Proposals tab** — keep it as a filtered Quotes view, or wait until proposals truly split from projects?
-
-Answer these in build mode and we wire them in as we hit each step.

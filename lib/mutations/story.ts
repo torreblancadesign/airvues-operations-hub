@@ -195,7 +195,14 @@ export async function createStory(input: CreateStoryInput): Promise<CreateStoryR
   try {
     const created = await createRecords(Tables.Stories.id, [{ fields }]);
     invalidateStoryCaches();
-    return { ok: true, id: created[0]?.id ?? "" };
+    const id = created[0]?.id ?? "";
+    const projectId = input.quoteIds?.[0] ?? null;
+    await logEventInternal({
+      projectId,
+      eventType: "Story created",
+      detail: `${input.name.trim()} · ${input.hours}h`,
+    });
+    return { ok: true, id };
   } catch (e) {
     return { error: (e as Error).message };
   }

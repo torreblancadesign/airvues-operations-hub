@@ -22,8 +22,10 @@ type AllowedEntry =
 function loadAllowedUsers(): AllowedEntry[] {
   const raw = process.env.ALLOWED_USERS;
   if (!raw) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("ALLOWED_USERS env must be set in production. JSON array of {email|domain, role}.");
+    // Throwing at module scope crashes Next's prerender pass (page-data collection).
+    // Allow empty in build/dev; sign-in is gated separately by findRole returning null.
+    if (process.env.NODE_ENV === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
+      console.error("[auth] ALLOWED_USERS env is not set — all sign-ins will be denied.");
     }
     return [];
   }
@@ -41,11 +43,16 @@ function loadAllowedUsers(): AllowedEntry[] {
     }
     return entries;
   } catch (err) {
-    throw new Error(`ALLOWED_USERS is not valid JSON: ${(err as Error).message}`);
+    console.error(`[auth] ALLOWED_USERS is not valid JSON: ${(err as Error).message}`);
+    return [];
   }
 }
 
-const allowedUsers = loadAllowedUsers();
+let _allowedUsers: AllowedEntry[] | null = null;
+function getAllowedUsers(): AllowedEntry[] {
+  if (_allowedUsers === null) _allowedUsers = loadAllowedUsers();
+  return _allowedUsers;
+}
 
 function findRole(email: string | null | undefined): AppRole | null {
   if (!email) return null;

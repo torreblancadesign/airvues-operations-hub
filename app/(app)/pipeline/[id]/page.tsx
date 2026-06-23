@@ -26,9 +26,12 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 }
 
-type Params = { params: { id: string } };
+type Params = {
+  params: { id: string };
+  searchParams?: { fromClient?: string };
+};
 
-export default async function QuoteDetailPage({ params }: Params) {
+export default async function QuoteDetailPage({ params, searchParams }: Params) {
   await assertCanAccess("/pipeline");
   const [quotes, people, sprints, canEdit, logEntries] = await Promise.all([
     listAllQuotes(),
@@ -47,10 +50,18 @@ export default async function QuoteDetailPage({ params }: Params) {
     days > 14 &&
     (quote.status === "Sent. Awaiting Approval." || quote.status === "Draft");
 
+  const fromClient = searchParams?.fromClient ?? null;
+
   return (
     <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
-      <div className="mb-3 text-[11px] font-mono text-ink-faint">
-        <Link href="/pipeline" className="hover:text-emerald">← All quotes</Link>
+      <div className="mb-3 text-[11px] font-mono text-ink-faint flex items-center gap-3">
+        {fromClient ? (
+          <Link href={`/clients/${fromClient}?highlight=${quote.id}`} className="hover:text-emerald">
+            ← Back to client
+          </Link>
+        ) : (
+          <Link href="/pipeline" className="hover:text-emerald">← All quotes</Link>
+        )}
       </div>
 
       <PageHeader

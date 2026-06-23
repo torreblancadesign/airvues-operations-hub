@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { ClientDetail } from "@/lib/client-detail";
 import type { PipelineQuote } from "@/lib/pipeline";
 import type { MoneyInvoice } from "@/lib/money";
@@ -84,6 +85,16 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
   const [selectedQuote, setSelectedQuote] = useState<PipelineQuote | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<MoneyInvoice | null>(null);
   const [editingContactId, setEditingContactId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const highlightId = searchParams?.get("highlight") ?? null;
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const el = document.getElementById(`project-row-${highlightId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [highlightId]);
 
   const projects = useMemo(() => {
     if (tab === "all") return detail.projects;
@@ -371,25 +382,36 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
       </div>
 
       {/* Projects */}
-      <div className="bg-surface border border-rule rounded-card mb-4 overflow-hidden">
+      <div id="projects-section" className="bg-surface border border-rule rounded-card mb-4 overflow-hidden">
         <div className="px-5 py-3 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
           <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted">
             Projects
           </h2>
-          <div className="flex gap-1">
-            {(["active", "completed", "all"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-2.5 py-1 text-[11px] rounded font-medium uppercase tracking-wider ${
-                  tab === t
-                    ? "bg-emerald text-bg"
-                    : "bg-bg-elevated border border-rule text-ink-muted hover:text-ink"
-                }`}
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1">
+              {(["active", "completed", "all"] as Tab[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`px-2.5 py-1 text-[11px] rounded font-medium uppercase tracking-wider ${
+                    tab === t
+                      ? "bg-emerald text-bg"
+                      : "bg-bg-elevated border border-rule text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {t} <span className="font-mono ml-1">{counts[t]}</span>
+                </button>
+              ))}
+            </div>
+            {canEdit && (
+              <a
+                href={`/clients/${detail.id}/proposals/new`}
+                className="px-3 py-1 text-[11px] rounded font-medium uppercase tracking-wider bg-emerald text-bg hover:bg-emerald/80"
+                title="Create a new proposal for this account"
               >
-                {t} <span className="font-mono ml-1">{counts[t]}</span>
-              </button>
-            ))}
+                + New proposal
+              </a>
+            )}
           </div>
         </div>
         {projects.length === 0 ? (
@@ -413,8 +435,11 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                 {projects.map((p) => (
                   <tr
                     key={p.id}
+                    id={`project-row-${p.id}`}
                     onClick={() => { window.location.href = `/pipeline/${p.id}`; }}
-                    className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
+                    className={`border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors ${
+                      highlightId === p.id ? "bg-emerald-soft/40 ring-1 ring-emerald" : ""
+                    }`}
                   >
                     <td className="px-3 py-2 text-[13px] text-ink-strong">
                       <a href={`/pipeline/${p.id}`} className="hover:text-emerald hover:underline">

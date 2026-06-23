@@ -38,6 +38,15 @@ export default async function PipelinePage() {
             <div className="text-[11px] text-ink-faint mt-0.5">
               {quotes.length.toLocaleString()} quotes loaded · 5-min cache
             </div>
+            {canEdit && (
+              <a
+                href="/clients"
+                className="mt-2 inline-block px-3 py-1 text-[11px] rounded font-medium uppercase tracking-wider bg-emerald text-bg hover:bg-emerald/80"
+                title="Open the Clients page and click 'New proposal' on the account"
+              >
+                + New proposal
+              </a>
+            )}
           </>
         }
       />

@@ -7,8 +7,11 @@ import { notFound } from "next/navigation";
 import { listAllQuotes } from "@/lib/pipeline";
 import { listPeopleOptions } from "@/lib/quotes";
 import { listSprintOptions } from "@/lib/sprints";
+import { listProjectLogForProject } from "@/lib/project-log";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { QuoteSheetEditor } from "@/components/pipeline/QuoteSheetEditor";
+import { ProjectLogTimeline } from "@/components/projects/ProjectLogTimeline";
+import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
 import { assertCanAccess } from "@/lib/page-guard";
 import { canMutate } from "@/lib/authz";
 

@@ -63,6 +63,10 @@ export type ClientDetail = {
   contacts: ClientContact[];
   projects: PipelineQuote[];
   invoices: MoneyInvoice[];
+  // Account status (sourced from the company's primary contact)
+  primaryContactId: string | null;
+  partnerStatus: string | null;
+  leadStatus: string | null;
 };
 
 function asStr(v: unknown): string {
@@ -108,6 +112,8 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
       "VIP Client"?: boolean;
       "Client Comments"?: string;
       Company?: string[];
+      "Partner Status"?: string;
+      "Lead Status"?: string;
     }>(
       pT.id,
       {
@@ -123,6 +129,8 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
           pT.fields["VIP Client"].id,
           pT.fields["Client Comments"].id,
           pT.fields["Company"].id,
+          pT.fields["Partner Status"].id,
+          pT.fields["Lead Status"].id,
         ],
       },
       ["client-detail:people"],
@@ -248,5 +256,17 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     contacts,
     projects,
     invoices: companyInvoices,
+    ...((): { primaryContactId: string | null; partnerStatus: string | null; leadStatus: string | null } => {
+      const companyPeople = allPeople.filter((p) => {
+        const arr = p.fields["Company"];
+        return Array.isArray(arr) && (arr as string[]).includes(companyId);
+      });
+      let chosen = companyPeople.find((p) => p.fields["Partner Status"]) ?? companyPeople[0] ?? null;
+      return {
+        primaryContactId: chosen?.id ?? null,
+        partnerStatus: (chosen?.fields["Partner Status"] as string | undefined) ?? null,
+        leadStatus: (chosen?.fields["Lead Status"] as string | undefined) ?? null,
+      };
+    })(),
   };
 }

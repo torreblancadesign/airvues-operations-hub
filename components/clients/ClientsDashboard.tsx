@@ -10,6 +10,20 @@ const fmtCurrency = (n: number) =>
 
 type Bucket = "all" | "active" | "at-risk" | "occasional" | "iddle" | "lost" | "new" | "misclassified";
 
+const PARTNER_OPTIONS = ["all", "Lead", "Client"] as const;
+const LEAD_STATUS_OPTIONS = [
+  "all",
+  "New Lead",
+  "Discovery",
+  "Proposal Drafting",
+  "Proposal Sent",
+  "Won",
+  "Lost",
+  "On Hold",
+] as const;
+type PartnerFilter = (typeof PARTNER_OPTIONS)[number];
+type LeadStatusFilter = (typeof LEAD_STATUS_OPTIONS)[number];
+
 const ENGAGEMENT_COLOR: Record<string, string> = {
   Active: "bg-emerald-soft text-emerald",
   Occasional: "bg-sky-soft text-sky",
@@ -34,6 +48,8 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
   const router = useRouter();
   const [bucket, setBucket] = useState<Bucket>("all");
   const [search, setSearch] = useState("");
+  const [partner, setPartner] = useState<PartnerFilter>("all");
+  const [leadStatus, setLeadStatus] = useState<LeadStatusFilter>("all");
   const [sort, setSort] = useState<Sort>({ key: "lifetimeRevenue", dir: "desc" });
 
   const kpis = useMemo(() => {
@@ -65,6 +81,8 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
         const q = search.toLowerCase();
         if (!c.name.toLowerCase().includes(q)) return false;
       }
+      if (partner !== "all" && c.partnerStatus !== partner) return false;
+      if (leadStatus !== "all" && c.leadStatus !== leadStatus) return false;
       switch (bucket) {
         case "all":
           return true;
@@ -84,7 +102,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
           return c.engagement === "New" && c.lifetimeRevenue > 1000;
       }
     });
-  }, [clients, bucket, search]);
+  }, [clients, bucket, search, partner, leadStatus]);
 
   const sorted = useMemo(() => {
     const dir = sort.dir === "asc" ? 1 : -1;
@@ -158,6 +176,26 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
             className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none pl-8 w-full"
           />
         </div>
+        <select
+          value={partner}
+          onChange={(e) => setPartner(e.target.value as PartnerFilter)}
+          className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
+          aria-label="Partner status filter"
+        >
+          {PARTNER_OPTIONS.map((o) => (
+            <option key={o} value={o}>{o === "all" ? "All partner statuses" : o}</option>
+          ))}
+        </select>
+        <select
+          value={leadStatus}
+          onChange={(e) => setLeadStatus(e.target.value as LeadStatusFilter)}
+          className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
+          aria-label="Lead status filter"
+        >
+          {LEAD_STATUS_OPTIONS.map((o) => (
+            <option key={o} value={o}>{o === "all" ? "All lead stages" : o}</option>
+          ))}
+        </select>
         <div className="text-[11px] font-mono text-ink-faint tabnum">
           Showing <span className="text-ink">{filtered.length.toLocaleString()}</span> of {clients.length.toLocaleString()} clients
         </div>

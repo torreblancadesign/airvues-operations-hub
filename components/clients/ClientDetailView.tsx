@@ -10,6 +10,18 @@ import { InvoiceSheet } from "@/components/money/InvoiceSheet";
 import { InlineField } from "@/components/clients/InlineField";
 import { updateCompany, type CompanyPatch } from "@/lib/mutations/company";
 import { updateContact, type ContactPatch } from "@/lib/mutations/person";
+import { updateClientStatuses, type PartnerStatus, type LeadStatus } from "@/lib/mutations/client";
+
+const PARTNER_STATUS_OPTIONS: PartnerStatus[] = ["Lead", "Client"];
+const LEAD_STATUS_OPTIONS: LeadStatus[] = [
+  "New Lead",
+  "Discovery",
+  "Proposal Drafting",
+  "Proposal Sent",
+  "Won",
+  "Lost",
+  "On Hold",
+];
 
 type SprintOption = { id: string; number: number | null; status: string | null };
 
@@ -231,6 +243,32 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           <InlineField
             kind="select" label="Engagement frequency" value={detail.engagement} options={ENGAGEMENT_OPTIONS}
             readOnly={!canEdit} onSave={saveCompany("engagementFrequency")}
+          />
+          <InlineField
+            kind="select" label="Partner status" value={detail.partnerStatus}
+            options={PARTNER_STATUS_OPTIONS as unknown as string[]}
+            readOnly={!canEdit || !detail.primaryContactId}
+            hint={!detail.primaryContactId ? "no primary contact" : `on ${detail.contacts[0]?.name ?? "contact"}`}
+            onSave={async (v) => {
+              if (!detail.primaryContactId) return { error: "No primary contact to update" };
+              return updateClientStatuses({
+                clientId: detail.primaryContactId,
+                partnerStatus: (v as PartnerStatus | null) ?? null,
+              });
+            }}
+          />
+          <InlineField
+            kind="select" label="Lead status" value={detail.leadStatus}
+            options={LEAD_STATUS_OPTIONS as unknown as string[]}
+            readOnly={!canEdit || !detail.primaryContactId}
+            hint={!detail.primaryContactId ? "no primary contact" : undefined}
+            onSave={async (v) => {
+              if (!detail.primaryContactId) return { error: "No primary contact to update" };
+              return updateClientStatuses({
+                clientId: detail.primaryContactId,
+                leadStatus: (v as LeadStatus | null) ?? null,
+              });
+            }}
           />
           <InlineField
             kind="select" label="Contract type" value={detail.contractType} options={CONTRACT_OPTIONS}

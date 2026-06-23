@@ -12,6 +12,7 @@ type QuoteFields = {
   "Prepared by"?: string[];
   "Prepared By Name"?: string[];
   "Prepared Date"?: string;
+  "Client Delivery Due Date"?: string;
   "Prepared for"?: string[];
   "Client Name"?: string[];
   "Project Status"?: string;

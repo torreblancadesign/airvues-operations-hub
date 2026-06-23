@@ -215,7 +215,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         ? (f["Existing Company? (from Form Submission)"] as string[])
         : [],
       preparedForIds,
-      uninvoiced: Math.max(0, totalCost - invoiced),
+      uninvoiced,
     };
   });
 }

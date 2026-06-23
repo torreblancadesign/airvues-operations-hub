@@ -1,6 +1,7 @@
 "use client";
 
 import { Story } from "@/lib/engineering-types";
+import { statusProgressPct, statusProgressTone } from "@/lib/story-progress";
 
 type Props = {
   story: Story;
@@ -40,10 +41,12 @@ function payStatusTone(s: string): string {
 }
 
 export function StoryCard({ story, onClick, selected = false }: Props) {
-  const pct = story.hours && story.hours > 0
-    ? Math.min(999, Math.round(((story.hoursWorked ?? 0) / story.hours) * 100))
-    : null;
-  const over = pct != null && pct > 100;
+  // Progress is driven by Story Status (0/50/100 per blueprint), not by hours.
+  // Hours are still shown — actual as the primary number, estimated as a muted reference.
+  const progressPct = statusProgressPct(story.status);
+  const progressTone = statusProgressTone(story.status);
+  const actual = story.hoursWorked ?? null;
+  const estimated = story.hours ?? null;
   const sprintNum = story.sprintNumbers[0] ?? null;
   const client = story.clientNames[0] ?? null;
   const quoteLabel = story.quoteLabels[0] ?? null;
@@ -66,11 +69,18 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         {story.storyNumber != null && (
           <span className="text-[10px] font-mono text-ink-faint">#{story.storyNumber}</span>
         )}
-        {story.hours != null && (
-          <span className="ml-auto text-[11px] font-mono text-ink-muted tabnum">
-            {story.hours}h
+        {actual != null ? (
+          <span className="ml-auto text-[11px] font-mono text-ink-strong tabnum" title="Actual hours worked">
+            {actual}h
+            {estimated != null && (
+              <span className="text-ink-faint font-normal"> / {estimated}h est</span>
+            )}
           </span>
-        )}
+        ) : estimated != null ? (
+          <span className="ml-auto text-[11px] font-mono text-ink-muted tabnum" title="Estimated hours">
+            {estimated}h est
+          </span>
+        ) : null}
       </div>
 
       <div className="text-[13px] text-ink-strong font-medium leading-snug mb-1.5 line-clamp-2 group-hover:text-emerald transition-colors">
@@ -114,22 +124,21 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         </div>
       )}
 
-      {pct != null && (
-        <div className="pt-2 border-t border-rule">
-          <div className="h-1 bg-bg-elevated rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${over ? "bg-red" : "bg-emerald"}`}
-              style={{ width: `${Math.min(100, pct)}%` }}
-            />
-          </div>
-          <div className="mt-1 flex justify-between text-[10px] font-mono text-ink-faint tabnum">
-            <span>
-              {story.hoursWorked ?? 0}h worked / {story.hours}h scoped
-            </span>
-            <span className={over ? "text-red" : ""}>{pct}%</span>
-          </div>
+      <div className="pt-2 border-t border-rule">
+        <div className="h-1 bg-bg-elevated rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${progressTone}`}
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
-      )}
+        <div className="mt-1 flex justify-between text-[10px] font-mono text-ink-faint tabnum">
+          <span>
+            {actual != null ? `${actual}h worked` : "0h worked"}
+            {estimated != null ? ` · ${estimated}h est` : ""}
+          </span>
+          <span>{progressPct}%</span>
+        </div>
+      </div>
     </button>
   );
 }

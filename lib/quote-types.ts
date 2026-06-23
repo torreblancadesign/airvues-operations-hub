@@ -80,10 +80,11 @@ export const PROJECT_STATUS_CHOICES = [
   "Completion Invoice Paid",
 ] as const;
 
+// Active Proposal Type values in Airtable (post 2026-06 cleanup).
+// Legacy values ("Web Development Proposal", "Airtable Solutions") were removed.
 export const PROPOSAL_TYPE_CHOICES = [
   "Airtable Solutions Proposal",
-  "Web Development Proposal",
-  "Airtable Solutions",
+  "Retainer Agreement",
 ] as const;
 
 export type QuoteFieldPatch = Partial<{

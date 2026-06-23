@@ -22,9 +22,13 @@ export const ALL_PERMISSIONS: Permission[] = [
 ];
 
 // Map nav groups to the permission that unlocks them. Overview is always open.
+// Post 2026-06 nav restructure: revenue/delivery groups split into
+// accounts/projects/stories/earnings — all still gated by Revenue/Delivery.
 const GROUP_PERMISSION: Partial<Record<NavGroup, Permission>> = {
-  revenue: "Revenue",
-  delivery: "Delivery",
+  accounts: "Revenue",
+  projects: "Revenue",
+  earnings: "Revenue",
+  stories: "Delivery",
   operations: "Operations",
   founder: "Founder",
 };

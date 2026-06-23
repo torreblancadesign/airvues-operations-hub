@@ -70,8 +70,7 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
         <select value={filter.proposalType} onChange={(e) => update("proposalType", e.target.value as Filter["proposalType"])} className={selectCls}>
           <option value="all">All types</option>
           <option value="Airtable Solutions Proposal">Airtable Solutions Proposal</option>
-          <option value="Web Development Proposal">Web Development Proposal</option>
-          <option value="Airtable Solutions">Airtable Solutions</option>
+          <option value="Retainer Agreement">Retainer Agreement</option>
         </select>
 
         <select value={filter.client || ""} onChange={(e) => update("client", e.target.value || null)} className={`${selectCls} max-w-[160px]`}>

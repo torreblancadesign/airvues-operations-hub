@@ -125,6 +125,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                   <span className="text-ink-faint text-[10px]">ⓘ</span>
                 </span>
               </th>
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left" title="Client Delivery Due Date risk">Deadline</th>
               <SortHeader label="Days" align="right" active={sort.key === "daysSinceSent"} dir={sort.dir} onClick={() => toggle("daysSinceSent")} />
               <SortHeader label="Amount" align="right" active={sort.key === "totalCost"} dir={sort.dir} onClick={() => toggle("totalCost")} />
             </tr>

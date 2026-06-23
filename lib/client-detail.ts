@@ -112,6 +112,8 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
       "VIP Client"?: boolean;
       "Client Comments"?: string;
       Company?: string[];
+      "Partner Status"?: string;
+      "Lead Status"?: string;
     }>(
       pT.id,
       {
@@ -127,6 +129,8 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
           pT.fields["VIP Client"].id,
           pT.fields["Client Comments"].id,
           pT.fields["Company"].id,
+          pT.fields["Partner Status"].id,
+          pT.fields["Lead Status"].id,
         ],
       },
       ["client-detail:people"],

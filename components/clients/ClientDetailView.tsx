@@ -435,8 +435,11 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                 {projects.map((p) => (
                   <tr
                     key={p.id}
+                    id={`project-row-${p.id}`}
                     onClick={() => { window.location.href = `/pipeline/${p.id}`; }}
-                    className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
+                    className={`border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors ${
+                      highlightId === p.id ? "bg-emerald-soft/40 ring-1 ring-emerald" : ""
+                    }`}
                   >
                     <td className="px-3 py-2 text-[13px] text-ink-strong">
                       <a href={`/pipeline/${p.id}`} className="hover:text-emerald hover:underline">

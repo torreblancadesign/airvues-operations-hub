@@ -77,6 +77,13 @@ export async function updateStory(
       { id: storyId, fields: buildStoryFields(patch) },
     ]);
     invalidateStoryCaches();
+    if (patch.status === "Completed") {
+      await logEventInternal({
+        projectId: null,
+        eventType: "Story completed",
+        detail: `Story ${storyId} marked Completed`,
+      });
+    }
     return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };

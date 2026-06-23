@@ -1,35 +1,39 @@
-## Goal
-Scope the per-quote "uninvoiced" amount to deals the client has actually committed to, and rename the column so its meaning matches the Firm Pulse tile.
+## Two fixes
 
-## Committed deal stages
-Treat these `Status` values as "committed" (client has agreed to pay):
-- `Approved and Signed`
-- `Awaiting Payment`
-- `Project In Progress`
-- `Paid`
+### 1. Story cost not saving to Airtable
 
-Excluded (no commitment yet, or dead): `Draft`, `Sent. Awaiting Approval.`, `Auditing 🚩`, `Cancelled`, `Rejected`, and `null`.
+**Root cause:** Stories have two currency fields in Airtable: `Cost` and `Invoice`. The story reader (`lib/engineering.ts`) maps `Story.cost` ← `"Cost"`, but `updateStory` in `lib/mutations/story.ts` only writes to `"Invoice"`. So editing Cost in the StorySheet writes to `Invoice`, the StorySheet re-reads `Cost`, and the value appears unchanged. (Story creation in `lib/mutations/quote.ts` already writes both fields — only the update path is wrong.)
 
-Note: `Paid` stays in — a Paid deal will normally compute to 0 uninvoiced, but if Total Cost > invoiced for any reason we still want to see it rather than hide it.
+**Fix:** In `lib/mutations/story.ts` `buildStoryFields`, when `patch.invoice` is provided, write the value to **both** `"Cost"` and `"Invoice"` so the two stay in sync (same convention `createQuoteStory` already uses).
 
-## Changes
+That's the only change needed — the StorySheet already calls `save({ cost: val ?? 0 }, { invoice: val })`, so its optimistic update is correct.
 
-### 1. `lib/pipeline.ts`
-- Add a local `COMMITTED_STATUSES` set with the four values above.
-- When mapping each record, compute `uninvoiced` as `Math.max(0, totalCost - invoiced)` **only when `status` is in the set**; otherwise `uninvoiced = 0`.
-- Keep the `listAllInvoices` fetch and `invoicedByQuote` map as-is so the math still reconciles with the Firm Pulse "Committed · uninvoiced" tile.
+### 2. Show "Invoiced" amount per quote on the Pipeline page
 
-### 2. `components/pipeline/QuoteTable.tsx`
-- Rename column header from **Uninvoiced** to **Committed Uninvoiced**.
-- Update the header tooltip to: "Committed but not yet invoiced. Only shown for deals the client has agreed to pay (Approved and Signed, Awaiting Payment, Project In Progress, Paid). Excludes void invoices."
-- Cell rendering unchanged: amber + bold when > 0, muted `—` when 0 (which now also covers all pre-commitment stages).
+Right now the Pipeline table shows `Quote Total` and `Committed Uninvoiced`. We already fetch every non-void invoice and bucket by quote (see `invoicedByQuote` in `lib/pipeline.ts`), so we just need to expose and render it.
 
-## Out of scope
-- No changes to sort key name (`"uninvoiced"` stays as the internal key).
-- No changes to Firm Pulse — it already filters to active/committed quotes upstream, so totals continue to reconcile.
-- No filter chip for "has committed uninvoiced".
+**`lib/pipeline.ts`:**
+- Add `invoiced: number` to `PipelineQuote`.
+- Set `invoiced: invoiced` in the return object (the variable already exists from the `invoicedByQuote` map).
 
-## Verify
-- `npx tsc --noEmit`
-- On `/pipeline`, sort by Committed Uninvoiced desc: top rows should all be `Project In Progress` / `Awaiting Payment` / `Approved and Signed`; Draft and Awaiting Approval rows show `—`.
-- Sum of the column matches the Firm Pulse "Committed · uninvoiced" tile.
+**`components/pipeline/types.ts`:**
+- Add `"invoiced"` to `SortKey`.
+
+**`components/pipeline/PipelineDashboard.tsx`:**
+- Add `case "invoiced"` to `applySort`.
+
+**`components/pipeline/QuoteTable.tsx`:**
+- Insert a new sortable **Invoiced** column between `Quote Total` and `Committed Uninvoiced`.
+- Tooltip: "Total invoiced to date across all non-void invoices for this quote."
+- Right-aligned, mono/tabnum; show `fmtCurrency(q.invoiced)` when > 0, else muted `—`.
+- Bump empty-state `colSpan` from 12 → 13.
+
+After this, each row reads left→right as: `Quote Total` (contracted) · `Invoiced` (billed so far) · `Committed Uninvoiced` (still to bill). The three reconcile: `Quote Total − Invoiced = Committed Uninvoiced` for committed deals.
+
+**Note on "paid" vs "invoiced":** your message said "already paid (invoiced)". These are different — `Invoiced` is what we've billed; `Total Paid` (already on the quote record) is what the client has actually paid. I'm adding the **Invoiced** column because it's what reconciles with Committed Uninvoiced. If you also want a `Paid` column (or to swap Invoiced for Paid), say the word and I'll add it.
+
+### Verify
+
+- `npx tsc --noEmit` clean.
+- Open a Story sheet, edit Cost, blur, reopen → value persists; Airtable record shows new `Cost` (and `Invoice`).
+- On `/pipeline`, for any committed-stage row: `Quote Total = Invoiced + Committed Uninvoiced`.

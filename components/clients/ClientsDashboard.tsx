@@ -176,6 +176,26 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
             className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none pl-8 w-full"
           />
         </div>
+        <select
+          value={partner}
+          onChange={(e) => setPartner(e.target.value as PartnerFilter)}
+          className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
+          aria-label="Partner status filter"
+        >
+          {PARTNER_OPTIONS.map((o) => (
+            <option key={o} value={o}>{o === "all" ? "All partner statuses" : o}</option>
+          ))}
+        </select>
+        <select
+          value={leadStatus}
+          onChange={(e) => setLeadStatus(e.target.value as LeadStatusFilter)}
+          className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
+          aria-label="Lead status filter"
+        >
+          {LEAD_STATUS_OPTIONS.map((o) => (
+            <option key={o} value={o}>{o === "all" ? "All lead stages" : o}</option>
+          ))}
+        </select>
         <div className="text-[11px] font-mono text-ink-faint tabnum">
           Showing <span className="text-ink">{filtered.length.toLocaleString()}</span> of {clients.length.toLocaleString()} clients
         </div>

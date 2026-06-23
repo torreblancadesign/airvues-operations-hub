@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { ClientDetail } from "@/lib/client-detail";
 import type { PipelineQuote } from "@/lib/pipeline";
 import type { MoneyInvoice } from "@/lib/money";

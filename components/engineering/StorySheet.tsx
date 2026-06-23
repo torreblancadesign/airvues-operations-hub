@@ -306,20 +306,21 @@ export function StorySheet({
           )}
         </div>
 
-        {pct != null && (
-          <div className="px-5 py-4 border-b border-rule">
-            <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1.5 font-mono tabnum">
-              <span>{current.hoursWorked ?? 0}h worked / {current.hours}h scoped</span>
-              <span className={over ? "text-red" : ""}>{pct}%{over ? " · over" : ""}</span>
-            </div>
-            <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${over ? "bg-red" : "bg-emerald"}`}
-                style={{ width: `${Math.min(100, pct)}%` }}
-              />
-            </div>
+        <div className="px-5 py-4 border-b border-rule">
+          <div className="flex items-center justify-between text-[11px] text-ink-muted mb-1.5 font-mono tabnum">
+            <span>
+              {actual != null ? `${actual}h worked` : "0h worked"}
+              {estimated != null ? ` · ${estimated}h est` : ""}
+            </span>
+            <span>{progressPct}%</span>
           </div>
-        )}
+          <div className="h-1.5 bg-bg-elevated rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${progressTone}`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
 
         <div className="px-5 py-3 border-b border-rule flex gap-2 flex-wrap">
           <a

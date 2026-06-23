@@ -84,17 +84,38 @@ export async function listAllClients(): Promise<ClientRow[]> {
     ),
     listRecordsCached<{
       Company?: string[];
+      "Partner Status"?: string;
+      "Lead Status"?: string;
     }>(
       pT.id,
       {
-        fields: [pT.fields["Company"].id],
+        fields: [
+          pT.fields["Company"].id,
+          pT.fields["Partner Status"].id,
+          pT.fields["Lead Status"].id,
+        ],
       },
       ["clients:people"],
     ),
   ]);
 
-  // People (Invoice Payer record IDs) → which Company they belong to
+  // People → Company. Also pick a primary contact per Company:
+  //   prefer a person with Partner Status set; else the first one we see.
   const personIdToCompanyId = new Map<string, string>();
+  type Primary = { personId: string; partner: string | null; lead: string | null };
+  const primaryByCompany = new Map<string, Primary>();
+  for (const p of people) {
+    const companyArr = (p.fields["Company"] as string[] | undefined) ?? [];
+    const companyId = companyArr[0];
+    if (!companyId) continue;
+    personIdToCompanyId.set(p.id, companyId);
+    const partner = (p.fields["Partner Status"] as string | undefined) ?? null;
+    const lead = (p.fields["Lead Status"] as string | undefined) ?? null;
+    const existing = primaryByCompany.get(companyId);
+    if (!existing || (!existing.partner && partner)) {
+      primaryByCompany.set(companyId, { personId: p.id, partner, lead });
+    }
+  }
   for (const p of people) {
     const companyArr = (p.fields["Company"] as string[] | undefined) ?? [];
     if (companyArr[0]) personIdToCompanyId.set(p.id, companyArr[0]);

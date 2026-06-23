@@ -9,7 +9,7 @@
 export type NavGroup =
   | "overview"
   | "delivery"
-  | "stories"
+  | "engineering"
   | "earnings"
   | "operations"
   | "founder";
@@ -26,7 +26,7 @@ export type NavItem = {
 export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "delivery", label: "Delivery" },
-  { id: "stories", label: "Stories" },
+  { id: "engineering", label: "Engineering" },
   { id: "earnings", label: "Earnings" },
   { id: "operations", label: "Operations" },
   { id: "founder", label: "Founder" },
@@ -100,7 +100,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/engineering",
     label: "Engineering",
     desc: "Stories by engineer · leaderboard · commission tracker",
-    group: "stories",
+    group: "engineering",
     showInSidebar: true,
     showOnHome: true,
   },
@@ -108,7 +108,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/backlog",
     label: "Backlog",
     desc: "Refinement · bulk-triage · inline edits · new story",
-    group: "stories",
+    group: "engineering",
     showInSidebar: true,
     showOnHome: true,
   },
@@ -116,7 +116,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/sprints",
     label: "Sprints",
     desc: "Kanban boards · velocity · planning · new sprint",
-    group: "stories",
+    group: "engineering",
     showInSidebar: true,
     showOnHome: true,
   },

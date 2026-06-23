@@ -7,6 +7,7 @@ import type { NavGroup } from "./nav";
 export type Permission =
   | "Revenue"
   | "Delivery"
+  | "Engineering"
   | "Operations"
   | "Home - Firm Pulse"
   | "Scorecard - Admin"
@@ -15,6 +16,7 @@ export type Permission =
 export const ALL_PERMISSIONS: Permission[] = [
   "Revenue",
   "Delivery",
+  "Engineering",
   "Operations",
   "Home - Firm Pulse",
   "Scorecard - Admin",
@@ -26,7 +28,7 @@ export const ALL_PERMISSIONS: Permission[] = [
 // accounts/projects/stories/earnings — all still gated by Revenue/Delivery.
 const GROUP_PERMISSION: Partial<Record<NavGroup, Permission>> = {
   delivery: "Delivery",
-  stories: "Delivery",
+  engineering: "Engineering",
   earnings: "Revenue",
   operations: "Operations",
   founder: "Founder",
@@ -39,9 +41,9 @@ const ROUTE_PERMISSION: Record<string, Permission> = {
   pipeline: "Delivery",
   clients: "Delivery",
   money: "Revenue",
-  engineering: "Delivery",
-  backlog: "Delivery",
-  sprints: "Delivery",
+  engineering: "Engineering",
+  backlog: "Engineering",
+  sprints: "Engineering",
   team: "Operations",
   stack: "Operations",
   hygiene: "Operations",

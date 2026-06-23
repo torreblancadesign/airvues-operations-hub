@@ -1,6 +1,7 @@
 "use client";
 
 import { PipelineQuote } from "@/lib/pipeline";
+import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
 import { Sort, SortKey } from "./types";
 
 type Props = {

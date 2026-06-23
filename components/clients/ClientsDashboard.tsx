@@ -233,7 +233,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                             <span className="text-[11px] text-ink-faint">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtMonthYear(c.communicationStartDate)}</td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtFullDate(c.communicationStartDate)}</td>
                         <td className="px-3 py-2.5 text-right text-[12px] font-mono tabnum text-ink-muted">{c.invoiceCount}</td>
                         <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(c.lifetimeRevenue)}</td>
                         <td className={`px-3 py-2.5 text-right text-[12px] tabnum font-mono ${c.outstandingAR > 0 ? "text-red font-semibold" : "text-ink-faint"}`}>

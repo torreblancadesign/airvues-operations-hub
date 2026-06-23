@@ -731,6 +731,20 @@ export const Tables = {
       "PandaDoc Offer Status": { id: "fld2D1ua890gRfvlJ", type: "singleSelect", options: { choices: [{"name": "Not Sent"}, {"name": "Draft"}, {"name": "Sent"}, {"name": "Viewed"}, {"name": "Signed"}, {"name": "Declined"}, {"name": "Expired"}] } },
       "Signed Offer PDF": { id: "fldJxYXpzaviNCTCV", type: "multipleAttachments" },
       "\u26aa\ufe0f Leads": { id: "fldISlK7qaJ9FRvvt", type: "multipleRecordLinks" },
+      "Lead Status": { id: "fldLDjNQ476AiNpk0", type: "singleSelect", options: { choices: [{"name": "New Lead"}, {"name": "Discovery"}, {"name": "Proposal Drafting"}, {"name": "Proposal Sent"}, {"name": "Won"}, {"name": "Lost"}, {"name": "On Hold"}] } },
+      "Partner Status": { id: "fldzh5UDOdaktSTwh", type: "singleSelect", options: { choices: [{"name": "Lead"}, {"name": "Client"}] } },
+    },
+  },
+  ProjectLog: {
+    id: "tbliI4lRYA5AlpEzH",
+    name: "Project Log",
+    fields: {
+      "ID": { id: "fldT8P5azbnqunZ75", type: "formula" },
+      "Account": { id: "fldp7tl9hrG9GYtQe", type: "multipleRecordLinks" },
+      "Project": { id: "fldRPLNixSAir9oL6", type: "multipleRecordLinks" },
+      "Event Type": { id: "fld8EPdwhwDsfdzA1", type: "singleSelect" },
+      "Timestamp": { id: "fldwJFV7NuSMWQPNH", type: "dateTime" },
+      "Detail": { id: "fldksTFqxOTChXJFf", type: "multilineText" },
     },
   },
   TimeEntries: {

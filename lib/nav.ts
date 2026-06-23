@@ -1,8 +1,19 @@
 // Single source of truth for the dashboard's nav structure.
 // Consumed by Sidebar (desktop), MobileNav (drawer), and the home page Jump-To cards.
 // Add a new route here and it appears in all three.
+//
+// Tab structure follows the Airvues One blueprint (2026-06):
+// Overview · Accounts · Projects · Stories · Earnings · Operations · Founder.
+// Leads + Clients are unified under Accounts. Pipeline → Projects (rename only; route stays /pipeline).
 
-export type NavGroup = "overview" | "revenue" | "delivery" | "operations" | "founder";
+export type NavGroup =
+  | "overview"
+  | "accounts"
+  | "projects"
+  | "stories"
+  | "earnings"
+  | "operations"
+  | "founder";
 
 export type NavItem = {
   href: string;
@@ -15,8 +26,10 @@ export type NavItem = {
 
 export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "revenue", label: "Revenue" },
-  { id: "delivery", label: "Delivery" },
+  { id: "accounts", label: "Accounts" },
+  { id: "projects", label: "Projects" },
+  { id: "stories", label: "Stories" },
+  { id: "earnings", label: "Earnings" },
   { id: "operations", label: "Operations" },
   { id: "founder", label: "Founder" },
 ];
@@ -54,44 +67,42 @@ export const NAV_ITEMS: NavItem[] = [
     showInSidebar: true,
     showOnHome: true,
   },
-  {
-    href: "/leads",
-    label: "Leads",
-    desc: "Inbound demand · intro meetings · funnel · YTD/MTD",
-    group: "revenue",
-    showInSidebar: true,
-    showOnHome: true,
-  },
+
+  // Accounts (unified Leads + Clients)
   {
     href: "/clients",
-    label: "Clients",
-    desc: "Active · at-risk · retainer tier · concentration risk",
-    group: "revenue",
+    label: "Accounts",
+    desc: "Leads, partners, clients · status, proposals, projects, invoices",
+    group: "accounts",
     showInSidebar: true,
     showOnHome: true,
   },
+  // Legacy Leads route — hidden from nav, kept for one deploy cycle as fallback.
+  {
+    href: "/leads",
+    label: "Leads (legacy)",
+    desc: "Pre-unification leads view — superseded by Accounts",
+    group: "accounts",
+    showInSidebar: false,
+    showOnHome: false,
+  },
+
+  // Projects (renamed from Sales Pipeline; route stays /pipeline to avoid breaking links)
   {
     href: "/pipeline",
-    label: "Sales Pipeline",
-    desc: "Stalled quotes · funnel · goal tracker · stage breakdown",
-    group: "revenue",
-    showInSidebar: true,
-    showOnHome: true,
-  },
-  {
-    href: "/money",
-    label: "Earnings",
-    desc: "Invoices · AR aging · MRR · top clients · drill into each record",
-    group: "revenue",
+    label: "Projects",
+    desc: "All projects · sent · in progress · deadlines · stage breakdown",
+    group: "projects",
     showInSidebar: true,
     showOnHome: true,
   },
 
+  // Stories umbrella
   {
     href: "/engineering",
     label: "Engineering",
     desc: "Stories by engineer · leaderboard · commission tracker",
-    group: "delivery",
+    group: "stories",
     showInSidebar: true,
     showOnHome: true,
   },
@@ -99,7 +110,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/backlog",
     label: "Backlog",
     desc: "Refinement · bulk-triage · inline edits · new story",
-    group: "delivery",
+    group: "stories",
     showInSidebar: true,
     showOnHome: true,
   },
@@ -107,10 +118,22 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/sprints",
     label: "Sprints",
     desc: "Kanban boards · velocity · planning · new sprint",
-    group: "delivery",
+    group: "stories",
     showInSidebar: true,
     showOnHome: true,
   },
+
+  // Earnings
+  {
+    href: "/money",
+    label: "Earnings",
+    desc: "Invoices · AR aging · MRR · top clients · drill into each record",
+    group: "earnings",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+
+  // Operations
   {
     href: "/team",
     label: "Team",
@@ -135,6 +158,7 @@ export const NAV_ITEMS: NavItem[] = [
     showInSidebar: true,
     showOnHome: true,
   },
+
   {
     href: "/founder",
     label: "Founder Dashboard",

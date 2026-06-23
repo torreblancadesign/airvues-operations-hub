@@ -7,15 +7,24 @@ export type StageBucket =
   | "lost"
   | "auditing";
 
+// Active Proposal Type values in Airtable (post 2026-06 cleanup):
+// "Airtable Solutions Proposal" and "Retainer Agreement". Legacy values
+// ("Web Development Proposal", "Airtable Solutions") were removed.
+export type ProposalType = "Airtable Solutions Proposal" | "Retainer Agreement";
+
+export type DeadlineRisk = "ok" | "yellow" | "red" | "overdue";
+
 export type Filter = {
   search: string;
   stage: StageBucket;
-  proposalType: "all" | "Airtable Solutions Proposal" | "Web Development Proposal" | "Airtable Solutions";
+  proposalType: "all" | ProposalType;
   client: string | null;
   preparedBy: string | null;
   from: string | null;
   to: string | null;
   stalledOnly: boolean; // only sent/awaiting > 14d
+  deadlineRisk: "all" | DeadlineRisk | "needs-attention"; // needs-attention = overdue|red|yellow
+  showRejected: boolean; // rejected hidden by default per blueprint
 };
 
 export const EMPTY_FILTER: Filter = {
@@ -27,6 +36,8 @@ export const EMPTY_FILTER: Filter = {
   from: null,
   to: null,
   stalledOnly: false,
+  deadlineRisk: "all",
+  showRejected: false,
 };
 
 export type SortKey = "preparedDate" | "totalCost" | "client" | "status" | "autonumber" | "daysSinceSent";

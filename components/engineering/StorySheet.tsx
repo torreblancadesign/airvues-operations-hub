@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Story } from "@/lib/engineering-types";
 import { updateStory, deleteStory, duplicateStoryToNextSprint } from "@/lib/mutations/story";
+import { statusProgressPct, statusProgressTone } from "@/lib/story-progress";
 
 type EngineerOption = { id: string; name: string };
 type SprintOption = { id: string; number: number | null; status: string | null };

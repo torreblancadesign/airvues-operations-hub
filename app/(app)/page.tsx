@@ -169,6 +169,52 @@ export default async function HomePage() {
         )}
       </div>
 
+      {/* ── Needs attention (deadline pressure) ───────────────── */}
+      {needsAttentionCount > 0 && (
+        <div className="mb-10">
+          <SectionTitle
+            title="Needs attention"
+            aside={
+              <a
+                href="/pipeline?deadlineRisk=needs-attention"
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:underline whitespace-nowrap"
+              >
+                Open filtered view →
+              </a>
+            }
+          />
+          <a
+            href="/pipeline?deadlineRisk=needs-attention"
+            className="block bg-surface border border-rule rounded-card p-4 hover:border-amber transition-colors"
+          >
+            <div className="flex items-baseline justify-between gap-4 flex-wrap">
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
+                  Projects needing attention
+                </div>
+                <div className="text-[28px] font-semibold tabnum text-ink-strong leading-none">
+                  {needsAttentionCount}
+                </div>
+                <div className="text-[11px] text-ink-faint mt-1">
+                  Active projects with a Client Delivery Due Date pressing or past.
+                </div>
+              </div>
+              <div className="flex gap-2 text-[11px] font-mono">
+                <span className="px-2 py-1 rounded bg-red-soft text-red border border-red/30">
+                  {deadlineTotals.overdue} overdue
+                </span>
+                <span className="px-2 py-1 rounded bg-red-soft/60 text-red border border-red/20">
+                  {deadlineTotals.red} ≤3d
+                </span>
+                <span className="px-2 py-1 rounded bg-amber-soft text-amber border border-amber/30">
+                  {deadlineTotals.yellow} ≤7d
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
+      )}
+
       {/* ── The Board ────────────────────────────────────────── */}
       {"departures" in boards && (
         <div className="mb-10">

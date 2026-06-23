@@ -343,9 +343,16 @@ export async function createQuoteStory(
   if (input.isChangeOrder) fields["Change Order"] = true;
 
   try {
-    await createRecords(Tables.Stories.id, [{ fields }]);
+    const created = await createRecords(Tables.Stories.id, [{ fields }]);
     invalidateQuote(quoteId);
     const quote = await getQuoteDetail(quoteId);
+    await logEventInternal({
+      accountId: quote.preparedForId ?? null,
+      projectId: quoteId,
+      eventType: "Story created",
+      detail: `${input.name.trim()}${input.isChangeOrder ? " (change order)" : ""} · ${input.hours}h · $${input.cost}`,
+    });
+    void created;
     return { ok: true, quote };
   } catch (e) {
     return { error: (e as Error).message };

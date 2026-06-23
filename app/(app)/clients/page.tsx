@@ -16,8 +16,8 @@ export default async function ClientsPage() {
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <PageHeader
-        title="Clients"
-        subtitle="All companies · engagement, lifetime revenue, at-risk. Click any row to drill in."
+        title="Accounts"
+        subtitle="Find any account fast. Filter by type or lead stage. Click any row to drill in."
         meta={
           <>
             <div className="font-mono tabnum">

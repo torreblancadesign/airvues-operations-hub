@@ -8,6 +8,7 @@ import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
+import { logEventInternal } from "./project-log";
 
 export type CreateInvoiceResult = { ok: true; id: string } | { error: string };
 export type MutationResult = { ok: true } | { error: string };

@@ -217,6 +217,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         : [],
       preparedForIds,
       uninvoiced,
+      invoiced,
     };
   });
 }

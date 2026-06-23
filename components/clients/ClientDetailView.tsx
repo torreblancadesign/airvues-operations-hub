@@ -245,6 +245,32 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
             readOnly={!canEdit} onSave={saveCompany("engagementFrequency")}
           />
           <InlineField
+            kind="select" label="Partner status" value={detail.partnerStatus}
+            options={PARTNER_STATUS_OPTIONS as unknown as string[]}
+            readOnly={!canEdit || !detail.primaryContactId}
+            hint={!detail.primaryContactId ? "no primary contact" : `on ${detail.contacts[0]?.name ?? "contact"}`}
+            onSave={async (v) => {
+              if (!detail.primaryContactId) return { error: "No primary contact to update" };
+              return updateClientStatuses({
+                clientId: detail.primaryContactId,
+                partnerStatus: (v as PartnerStatus | null) ?? null,
+              });
+            }}
+          />
+          <InlineField
+            kind="select" label="Lead status" value={detail.leadStatus}
+            options={LEAD_STATUS_OPTIONS as unknown as string[]}
+            readOnly={!canEdit || !detail.primaryContactId}
+            hint={!detail.primaryContactId ? "no primary contact" : undefined}
+            onSave={async (v) => {
+              if (!detail.primaryContactId) return { error: "No primary contact to update" };
+              return updateClientStatuses({
+                clientId: detail.primaryContactId,
+                leadStatus: (v as LeadStatus | null) ?? null,
+              });
+            }}
+          />
+          <InlineField
             kind="select" label="Contract type" value={detail.contractType} options={CONTRACT_OPTIONS}
             readOnly={!canEdit} onSave={saveCompany("contractType")}
           />

@@ -7,11 +7,11 @@ import { ClientRow } from "@/lib/clients";
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
-const fmtMonthYear = (iso: string | null): string => {
+const fmtFullDate = (iso: string | null): string => {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
 const PARTNER_OPTIONS = ["all", "Lead", "Client"] as const;
@@ -50,6 +50,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
   const [search, setSearch] = useState("");
   const [partner, setPartner] = useState<PartnerFilter>("all");
   const [leadStatus, setLeadStatus] = useState<LeadStatusFilter>("all");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useState<Sort>({ key: "communicationStartDate", dir: "desc" });
 
   const filtered = useMemo(() => {
@@ -214,12 +215,21 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
             ) : (
               groups.filter((g) => g.rows.length > 0).map((g) => (
                 <tbody key={g.key}>
-                  <tr className="bg-bg-elevated border-y border-rule">
-                    <td colSpan={COL_COUNT} className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-                      {g.label} <span className="text-ink-faint tabnum font-mono">· {g.rows.length}</span>
+                  <tr
+                    className="bg-bg-elevated border-y-2 border-emerald/40 cursor-pointer select-none hover:bg-bg-elevated/70 transition-colors"
+                    onClick={() => setCollapsed((s) => ({ ...s, [g.key]: !s[g.key] }))}
+                  >
+                    <td colSpan={COL_COUNT} className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-emerald text-[10px] transition-transform ${collapsed[g.key] ? "-rotate-90" : ""}`}>▼</span>
+                        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-strong">{g.label}</span>
+                        <span className="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1.5 rounded-full bg-emerald-soft text-emerald text-[10px] font-semibold tabnum font-mono">
+                          {g.rows.length}
+                        </span>
+                      </div>
                     </td>
                   </tr>
-                  {g.rows.map((c) => {
+                  {!collapsed[g.key] && g.rows.map((c) => {
                     const atRisk = c.engagement === "Active" && c.daysSinceLastInvoice != null && c.daysSinceLastInvoice > 90;
                     return (
                       <tr key={c.id} onClick={() => router.push(`/clients/${c.id}`)} className="border-b border-rule-soft last:border-0 cursor-pointer transition-colors hover:bg-bg-elevated">
@@ -233,7 +243,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                             <span className="text-[11px] text-ink-faint">—</span>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtMonthYear(c.communicationStartDate)}</td>
+                        <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtFullDate(c.communicationStartDate)}</td>
                         <td className="px-3 py-2.5 text-right text-[12px] font-mono tabnum text-ink-muted">{c.invoiceCount}</td>
                         <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(c.lifetimeRevenue)}</td>
                         <td className={`px-3 py-2.5 text-right text-[12px] tabnum font-mono ${c.outstandingAR > 0 ? "text-red font-semibold" : "text-ink-faint"}`}>

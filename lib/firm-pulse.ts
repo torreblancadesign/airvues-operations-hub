@@ -426,6 +426,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     },
     mrr: { value: mrrValue, target: mrrTarget, pct: mrrTarget > 0 ? mrrValue / mrrTarget : 0, subs },
     active: { value: activeDollars, count: activeCount, unpaid: activeUnpaid },
+    uninvoiced: { value: uninvoicedValue, count: uninvoicedCount },
     ar: { value: ar.total, count: ar.count, overdue: ar.overdue },
     conversion: {
       ytd: {

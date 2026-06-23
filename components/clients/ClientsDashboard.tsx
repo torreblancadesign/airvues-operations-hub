@@ -48,6 +48,8 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
   const router = useRouter();
   const [bucket, setBucket] = useState<Bucket>("all");
   const [search, setSearch] = useState("");
+  const [partner, setPartner] = useState<PartnerFilter>("all");
+  const [leadStatus, setLeadStatus] = useState<LeadStatusFilter>("all");
   const [sort, setSort] = useState<Sort>({ key: "lifetimeRevenue", dir: "desc" });
 
   const kpis = useMemo(() => {

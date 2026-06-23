@@ -40,28 +40,56 @@ export type RevenueWindow = {
 
 export type SourceSlice = { source: string; revenue: number; count: number };
 
-export type LeadsWindow = { count: number; sold: number; conversionPct: number };
+export type LeadsWindow = {
+  count: number;
+  sold: number;
+  notSold: number;
+  conversionPct: number;
+  avgDaysBetween: number | null;
+  avgTimeToMeeting: number | null;
+};
 export type NewClientsWindow = { count: number };
 export type ProjectsWindow = { active: number; completed: number };
+
+export type ClientsSnapshot = {
+  total: number;
+  active: number;
+  atRisk: number;
+  outstandingAR: number;
+  top10Pct: number;
+  top10Total: number;
+};
+
+export type UpcomingMeeting = {
+  id: string;
+  name: string;
+  company: string | null;
+  meetingDate: string;
+  endMeetingDate: string | null;
+  meetingLink: string | null;
+  status: LeadStatus | null;
+  budget: LeadBudget | null;
+  source: LeadSource | null;
+  whatToBuild: string | null;
+};
 
 export type FirmPulse = {
   revenue: { ytd: RevenueWindow; mtd: RevenueWindow };
   booked: { ytd: { value: number; count: number }; mtd: { value: number; count: number } };
-  pipeline: { value: number; count: number; stalledValue: number; stalledCount: number };
+  pipeline: { value: number; count: number; stalledValue: number; stalledCount: number; lostYtd: number; lostMtd: number };
   mrr: { value: number; target: number; pct: number; subs: number };
   active: { value: number; count: number; unpaid: number };
   ar: { value: number; count: number; overdue: number };
-  // sold = Project In Progress + Paid; paid = Paid only. Both over sent (incl. lost).
   conversion: {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
     mtd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
   };
-  // Display-only extras (no Airtable schema changes). Windowed for the toggle.
-  leads: { ytd: LeadsWindow; mtd: LeadsWindow };
+  leads: { ytd: LeadsWindow; mtd: LeadsWindow; inProposal: number };
   newClients: { ytd: NewClientsWindow; mtd: NewClientsWindow };
-  // `active` is a snapshot (same in both windows); `completed` is window-scoped.
   projects: { ytd: ProjectsWindow; mtd: ProjectsWindow };
   revenueBySource: { ytd: SourceSlice[]; mtd: SourceSlice[] };
+  clients: ClientsSnapshot;
+  upcomingMeetings: UpcomingMeeting[];
 };
 
 function buildRevenueWindow(

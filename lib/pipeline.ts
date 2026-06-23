@@ -31,6 +31,7 @@ export type PipelineQuote = {
   webQuoteUrl: string;
   airtableUrl: string;
   primaryEmail: string | null;
+  company: string | null;
   companyIds: string[];
   preparedForIds: string[];
 };

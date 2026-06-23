@@ -9,6 +9,7 @@ import { StorySheet } from "./StorySheet";
 import { EngineeringFilterBar } from "./FilterBar";
 import { CapacityPanel } from "./CapacityPanel";
 import { EMPTY_FILTER, Filter, STATUS_GROUPS } from "./types";
+import { useSearchParamsFilter } from "@/lib/use-search-params-filter";
 
 type Props = {
   data: EngineeringBoardData;

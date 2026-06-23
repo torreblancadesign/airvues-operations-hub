@@ -135,9 +135,9 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
           av = a.daysSinceLastInvoice ?? Number.MAX_SAFE_INTEGER;
           bv = b.daysSinceLastInvoice ?? Number.MAX_SAFE_INTEGER;
           break;
-        case "engagement":
-          av = a.engagement;
-          bv = b.engagement;
+        case "partnerStatus":
+          av = a.partnerStatus ?? "";
+          bv = b.partnerStatus ?? "";
           break;
       }
       if (av < bv) return -1 * dir;

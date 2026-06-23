@@ -33,6 +33,7 @@ export type ClientRow = {
   primaryContactId: string | null;
   partnerStatus: PartnerStatusValue | null;
   leadStatus: LeadStatusValue | null;
+  communicationStartDate: string | null;
 };
 
 export async function listAllClients(): Promise<ClientRow[]> {

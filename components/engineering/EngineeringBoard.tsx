@@ -35,7 +35,10 @@ function storyMatches(s: Story, f: Filter): boolean {
 }
 
 export function EngineeringBoard({ data, canEdit = false }: Props) {
-  const [filter, setFilter] = useState<Filter>(EMPTY_FILTER);
+  const [filter, setFilter] = useSearchParamsFilter<Filter>({
+    defaults: EMPTY_FILTER,
+    keys: ["search", "status", "engineerId", "client", "sprintNumber", "orphanOnly"],
+  });
   const [selected, setSelected] = useState<Story | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 

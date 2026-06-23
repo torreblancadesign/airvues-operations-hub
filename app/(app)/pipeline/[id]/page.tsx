@@ -87,6 +87,14 @@ export default async function QuoteDetailPage({ params }: Params) {
             {quote.totalHours}h
           </span>
         )}
+        {quote.deliveryDueDate && (
+          <span
+            className={`px-2.5 py-1 rounded font-medium ${deadlineRiskClass(quote.deadlineRisk)}`}
+            title={`Client Delivery Due Date: ${new Date(quote.deliveryDueDate).toLocaleDateString()}`}
+          >
+            {deadlineRiskLabel(quote.deadlineRisk, quote.deliveryDueDate)}
+          </span>
+        )}
         {stale && (
           <span className="px-2.5 py-1 bg-red-soft text-red border border-red/30 rounded font-medium">
             Stalled {days}d

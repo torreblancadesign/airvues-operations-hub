@@ -79,6 +79,7 @@ export type FirmPulse = {
   pipeline: { value: number; count: number; stalledValue: number; stalledCount: number; lostYtd: number; lostMtd: number };
   mrr: { value: number; target: number; pct: number; subs: number };
   active: { value: number; count: number; unpaid: number };
+  uninvoiced: { value: number; count: number };
   ar: { value: number; count: number; overdue: number };
   conversion: {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };
@@ -213,9 +214,19 @@ export async function getFirmPulse(): Promise<FirmPulse> {
   let bookedMtd = 0, bookedMtdCount = 0;
   let openDollars = 0, openCount = 0, stalledDollars = 0, stalledCount = 0;
   let activeDollars = 0, activeCount = 0, activeUnpaid = 0;
+  let uninvoicedValue = 0, uninvoicedCount = 0;
   let sentYtd = 0, soldYtd = 0, paidQYtd = 0;
   let sentMtd = 0, soldMtd = 0, paidQMtd = 0;
   let lostYtd = 0, lostMtd = 0;
+
+  // Sum invoiced dollars per quote (exclude void invoices).
+  const invoicedByQuote = new Map<string, number>();
+  for (const inv of invoices) {
+    if (inv.status === "void") continue;
+    for (const qid of inv.quoteRecordIds) {
+      invoicedByQuote.set(qid, (invoicedByQuote.get(qid) ?? 0) + (inv.amount ?? 0));
+    }
+  }
 
   for (const q of quotes) {
     const days = daysSince(q.preparedDate);
@@ -238,6 +249,12 @@ export async function getFirmPulse(): Promise<FirmPulse> {
       activeDollars += q.totalCost;
       activeCount += 1;
       activeUnpaid += q.amountOwed;
+      const invoiced = invoicedByQuote.get(q.id) ?? 0;
+      const remaining = Math.max(0, q.totalCost - invoiced);
+      if (remaining > 0) {
+        uninvoicedValue += remaining;
+        uninvoicedCount += 1;
+      }
     }
     if (isWon && inYtd) { bookedYtd += q.totalCost; bookedYtdCount += 1; }
     if (isWon && inMtd) { bookedMtd += q.totalCost; bookedMtdCount += 1; }
@@ -409,6 +426,7 @@ export async function getFirmPulse(): Promise<FirmPulse> {
     },
     mrr: { value: mrrValue, target: mrrTarget, pct: mrrTarget > 0 ? mrrValue / mrrTarget : 0, subs },
     active: { value: activeDollars, count: activeCount, unpaid: activeUnpaid },
+    uninvoiced: { value: uninvoicedValue, count: uninvoicedCount },
     ar: { value: ar.total, count: ar.count, overdue: ar.overdue },
     conversion: {
       ytd: {

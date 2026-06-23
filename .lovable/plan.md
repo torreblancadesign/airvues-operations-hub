@@ -1,52 +1,34 @@
-## Goal
+## Add "Uncommitted Invoicing" tile to Firm Pulse
 
-Restructure sidebar groups and permissions so:
-- **Revenue** permission unlocks only **Earnings** (`/money`).
-- **Delivery** permission unlocks the new combined **Delivery** group (`/clients` + `/pipeline`) as well as the existing **Stories** group.
-- All other groups (Overview, Operations, Founder) unchanged.
+Surface dollars that clients have **committed** (signed quote) but we **have not yet invoiced** because work is still in progress.
 
-## New group → permission map
+### Definition
 
-| Sidebar group | Required permission | Routes |
-|---|---|---|
-| Overview | none | `/`, `/me`, `/loops`, `/meetings` |
-| **Delivery** (new, combined) | **Delivery** | `/clients`, `/pipeline` |
-| Stories | Delivery | `/engineering`, `/backlog`, `/sprints` |
-| **Earnings** | **Revenue** | `/money` |
-| Operations | Operations | `/team`, `/stack`, `/hygiene` |
-| Founder | Founder | `/founder` |
+For each active quote (`status ∈ {Approved and Signed, Awaiting Payment, Project In Progress}`):
 
-The `Accounts` and `Projects` groups are removed; their items move into the new `Delivery` group.
+```
+uninvoiced = max(0, quote.totalCost − sum(invoice.amount for invoice in invoices where quote ∈ invoice.quoteRecordIds))
+```
 
-## Changes
+Sum across all active quotes. Also return a count of quotes contributing.
 
-### 1. `lib/nav.ts`
-- Replace `NavGroup` union: drop `"accounts"` and `"projects"`, add `"delivery"`. Keep `"stories"`, `"earnings"`, `"overview"`, `"operations"`, `"founder"`.
-- `NAV_GROUPS` becomes: Overview · Delivery · Stories · Earnings · Operations · Founder.
-- Update `NAV_ITEMS`:
-  - `/clients` → `group: "delivery"` (label stays "Accounts")
-  - `/leads` (legacy, hidden) → `group: "delivery"`
-  - `/pipeline` → `group: "delivery"` (label stays "Projects")
-  - Everything else unchanged.
+This intentionally uses **invoiced total** (not paid total) so the metric represents work that still needs an invoice generated — distinct from existing "Open AR" (invoiced, unpaid) and "Active Work · unpaid" (`amountOwed`, which mixes both).
 
-### 2. `lib/permissions.ts`
-- `GROUP_PERMISSION`:
-  - Remove `accounts`, `projects`.
-  - Add `delivery: "Delivery"`.
-  - `stories: "Delivery"` unchanged.
-  - `earnings: "Revenue"` unchanged.
-- `ROUTE_PERMISSION`:
-  - `clients: "Delivery"` (was Revenue)
-  - `pipeline: "Delivery"` (was Revenue)
-  - `leads: "Delivery"` (was Revenue)
-  - `money: "Revenue"` unchanged.
+### Changes
 
-### 3. Verify
-- `npx tsc --noEmit` (NavGroup is a string-literal union; both files must agree).
-- Spot-check sidebar: user with only `Revenue` sees just Earnings; user with only `Delivery` sees the new Delivery group + Stories; combined permissions see both.
+**`lib/firm-pulse.ts`**
+- Add `uninvoiced: { value: number; count: number }` to `FirmPulse`.
+- In `getFirmPulse`, build a `Map<quoteId, invoicedSum>` from already-loaded `invoices` (iterate `inv.quoteRecordIds`, sum `inv.amount`; skip `status === "void"`).
+- During the existing quote loop, when a quote is active, add `max(0, q.totalCost − invoicedByQuote.get(q.id) ?? 0)` to `uninvoicedValue`, increment count when contribution > 0.
+- Return it in the result.
 
-## Out of scope
+**`components/home/FirmPulse.tsx`**
+- Add a 4th `Satellite` in the Money band's right stack (or replace grid to 2x2 on lg) titled "Committed · uninvoiced" linking to `/pipeline?stage=active`, tone `violet`, sub: `{count} active project(s) · invoice when shipped`.
 
-- No changes to data layers, mutations, route paths, or page contents.
-- Stories group label/contents unchanged.
-- Mutation gating (`requireRole`) unchanged — this is view-only permission wiring.
+### Out of scope
+
+No mutations, no new Airtable reads (reuses cached `listAllQuotes` + `listAllInvoices`), no changes to other tiles' math.
+
+### Verify
+
+`npx tsc --noEmit` + visual check on `/` that the tile renders with a plausible number (active project totalCost minus invoiced sum).

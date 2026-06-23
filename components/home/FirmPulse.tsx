@@ -284,7 +284,7 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
           </Link>
 
           {/* Right stack: MRR, AR, Active work */}
-          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
+          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
             <Satellite
               href="/money?scope=recurring"
               label="MRR"
@@ -332,6 +332,21 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
                   <span className="text-ink-strong tabnum">{pulse.active.count}</span>{" "}
                   {pulse.active.count === 1 ? "project" : "projects"} ·{" "}
                   <span className="tabnum">{fmt(pulse.active.unpaid)}</span> unpaid
+                </>
+              }
+            />
+            <Satellite
+              href="/pipeline?stage=active"
+              label="Committed · uninvoiced"
+              value={fmt(pulse.uninvoiced.value)}
+              numeric={pulse.uninvoiced.value}
+              format="currency"
+              delay={340}
+              tone="violet"
+              sub={
+                <>
+                  <span className="text-ink-strong tabnum">{pulse.uninvoiced.count}</span>{" "}
+                  active {pulse.uninvoiced.count === 1 ? "project" : "projects"} · invoice when shipped
                 </>
               }
             />

@@ -81,6 +81,8 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
         const q = search.toLowerCase();
         if (!c.name.toLowerCase().includes(q)) return false;
       }
+      if (partner !== "all" && c.partnerStatus !== partner) return false;
+      if (leadStatus !== "all" && c.leadStatus !== leadStatus) return false;
       switch (bucket) {
         case "all":
           return true;
@@ -100,7 +102,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
           return c.engagement === "New" && c.lifetimeRevenue > 1000;
       }
     });
-  }, [clients, bucket, search]);
+  }, [clients, bucket, search, partner, leadStatus]);
 
   const sorted = useMemo(() => {
     const dir = sort.dir === "asc" ? 1 : -1;

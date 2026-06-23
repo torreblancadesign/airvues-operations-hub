@@ -335,6 +335,21 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
                 </>
               }
             />
+            <Satellite
+              href="/pipeline?stage=active"
+              label="Committed · uninvoiced"
+              value={fmt(pulse.uninvoiced.value)}
+              numeric={pulse.uninvoiced.value}
+              format="currency"
+              delay={340}
+              tone="violet"
+              sub={
+                <>
+                  <span className="text-ink-strong tabnum">{pulse.uninvoiced.count}</span>{" "}
+                  active {pulse.uninvoiced.count === 1 ? "project" : "projects"} · invoice when shipped
+                </>
+              }
+            />
           </div>
         </div>
       </div>

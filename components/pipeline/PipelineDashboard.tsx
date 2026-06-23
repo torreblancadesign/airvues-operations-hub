@@ -239,7 +239,9 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
     !!filter.preparedBy ||
     !!filter.from ||
     !!filter.to ||
-    filter.stalledOnly;
+    filter.stalledOnly ||
+    filter.deadlineRisk !== "all" ||
+    filter.showRejected;
 
   return (
     <>

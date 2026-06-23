@@ -358,3 +358,39 @@ export async function createQuoteStory(
     return { error: (e as Error).message };
   }
 }
+
+// ---------- Create draft quote (in-context proposal flow) ----------
+
+export async function createDraftQuote(args: {
+  preparedForId?: string | null;
+  projectName?: string;
+}): Promise<MutationResult<{ quoteId: string }>> {
+  const denied = await gate();
+  if (denied) return denied;
+
+  const fields: Record<string, unknown> = {
+    "Project Name": args.projectName?.trim() || "Untitled proposal",
+    "Status": "Draft",
+    "Prepared Date": new Date().toISOString().slice(0, 10),
+  };
+  if (args.preparedForId) {
+    fields["Prepared for"] = [args.preparedForId];
+  }
+
+  try {
+    const created = await createRecords(Tables.Quotes.id, [{ fields }]);
+    const newId = created[0]?.id;
+    if (!newId) return { error: "Failed to create quote" };
+    revalidateTag("airtable");
+    revalidateTag("pipeline:all-quotes");
+    await logEventInternal({
+      accountId: args.preparedForId ?? null,
+      projectId: newId,
+      eventType: "Proposal drafted",
+      detail: fields["Project Name"] as string,
+    });
+    return { ok: true, quoteId: newId };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

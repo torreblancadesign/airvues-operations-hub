@@ -191,6 +191,9 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                       {days != null ? `${days}d` : "—"}
                     </td>
                     <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(q.totalCost)}</td>
+                    <td className={`px-3 py-2.5 text-right text-[13px] font-mono tabnum ${q.uninvoiced > 0 ? "text-amber font-semibold" : "text-ink-faint"}`} title={q.uninvoiced > 0 ? "Committed but not yet invoiced" : "Fully invoiced"}>
+                      {q.uninvoiced > 0 ? fmtCurrency(q.uninvoiced) : "—"}
+                    </td>
                   </tr>
                 );
               })

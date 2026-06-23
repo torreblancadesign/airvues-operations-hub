@@ -1,34 +1,30 @@
-## Add "Uncommitted Invoicing" tile to Firm Pulse
+## Goal
+On `/pipeline`, surface the per-project "committed but not yet invoiced" amount and clarify what the existing money column represents.
 
-Surface dollars that clients have **committed** (signed quote) but we **have not yet invoiced** because work is still in progress.
+## Changes
 
-### Definition
+### 1. `lib/pipeline.ts` — add `uninvoiced` per quote
+- Import `listAllInvoices` from `lib/money.ts` (already used by Firm Pulse, cached).
+- In `listAllQuotes`, after loading quotes, build `invoicedByQuote: Map<quoteId, number>` from invoices (skip `status === "void"`, iterate `inv.quoteRecordIds`, sum `inv.amount`) — same logic as the Firm Pulse tile so the numbers reconcile.
+- Add `uninvoiced: number` to `PipelineQuote` and compute `max(0, totalCost - (invoicedByQuote.get(q.id) ?? 0))` for every quote (not just active — keeps the column meaningful when filters change; a Paid/Lost quote will simply be 0).
 
-For each active quote (`status ∈ {Approved and Signed, Awaiting Payment, Project In Progress}`):
+### 2. `components/pipeline/QuoteTable.tsx` — rename + new column
+- Rename the existing **Amount** header to **Quote Total** with a tooltip: "Total contracted value of the quote (Airtable: Total Cost). Not the amount paid."
+- Add a new sortable right-aligned column **Uninvoiced** to the right of Quote Total, with tooltip: "Committed but not yet invoiced: Quote Total minus invoices linked to this quote. Excludes void invoices."
+  - Render `fmtCurrency(q.uninvoiced)` when > 0; render a muted "—" when 0 so the eye lands on the projects with outstanding work-to-invoice.
+  - Update the empty-state `colSpan` from 11 → 12.
 
-```
-uninvoiced = max(0, quote.totalCost − sum(invoice.amount for invoice in invoices where quote ∈ invoice.quoteRecordIds))
-```
+### 3. `components/pipeline/types.ts` — sort key
+- Add `"uninvoiced"` to `SortKey`.
 
-Sum across all active quotes. Also return a count of quotes contributing.
+### 4. `components/pipeline/PipelineDashboard.tsx` — sort handler
+- Add a `case "uninvoiced"` branch in `applySort` returning `a.uninvoiced` / `b.uninvoiced`.
 
-This intentionally uses **invoiced total** (not paid total) so the metric represents work that still needs an invoice generated — distinct from existing "Open AR" (invoiced, unpaid) and "Active Work · unpaid" (`amountOwed`, which mixes both).
+## Out of scope
+- No filter for "has uninvoiced > 0" (can add later if you want; current sort handles discovery).
+- No changes to QuoteSheet, FilterBar, or Firm Pulse math.
+- No changes to mutations or Airtable writes.
 
-### Changes
-
-**`lib/firm-pulse.ts`**
-- Add `uninvoiced: { value: number; count: number }` to `FirmPulse`.
-- In `getFirmPulse`, build a `Map<quoteId, invoicedSum>` from already-loaded `invoices` (iterate `inv.quoteRecordIds`, sum `inv.amount`; skip `status === "void"`).
-- During the existing quote loop, when a quote is active, add `max(0, q.totalCost − invoicedByQuote.get(q.id) ?? 0)` to `uninvoicedValue`, increment count when contribution > 0.
-- Return it in the result.
-
-**`components/home/FirmPulse.tsx`**
-- Add a 4th `Satellite` in the Money band's right stack (or replace grid to 2x2 on lg) titled "Committed · uninvoiced" linking to `/pipeline?stage=active`, tone `violet`, sub: `{count} active project(s) · invoice when shipped`.
-
-### Out of scope
-
-No mutations, no new Airtable reads (reuses cached `listAllQuotes` + `listAllInvoices`), no changes to other tiles' math.
-
-### Verify
-
-`npx tsc --noEmit` + visual check on `/` that the tile renders with a plausible number (active project totalCost minus invoiced sum).
+## Verify
+- `npx tsc --noEmit`
+- Visual check on `/pipeline`: sort by Uninvoiced desc, confirm the top rows are active in-progress projects with a 50% deposit invoiced, and that totals reconcile against the Firm Pulse "Committed · uninvoiced" tile.

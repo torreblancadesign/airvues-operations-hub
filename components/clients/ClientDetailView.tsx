@@ -10,6 +10,18 @@ import { InvoiceSheet } from "@/components/money/InvoiceSheet";
 import { InlineField } from "@/components/clients/InlineField";
 import { updateCompany, type CompanyPatch } from "@/lib/mutations/company";
 import { updateContact, type ContactPatch } from "@/lib/mutations/person";
+import { updateClientStatuses, type PartnerStatus, type LeadStatus } from "@/lib/mutations/client";
+
+const PARTNER_STATUS_OPTIONS: PartnerStatus[] = ["Lead", "Client"];
+const LEAD_STATUS_OPTIONS: LeadStatus[] = [
+  "New Lead",
+  "Discovery",
+  "Proposal Drafting",
+  "Proposal Sent",
+  "Won",
+  "Lost",
+  "On Hold",
+];
 
 type SprintOption = { id: string; number: number | null; status: string | null };
 

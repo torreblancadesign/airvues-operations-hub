@@ -128,12 +128,33 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               </th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left" title="Client Delivery Due Date risk">Deadline</th>
               <SortHeader label="Days" align="right" active={sort.key === "daysSinceSent"} dir={sort.dir} onClick={() => toggle("daysSinceSent")} />
-              <SortHeader label="Amount" align="right" active={sort.key === "totalCost"} dir={sort.dir} onClick={() => toggle("totalCost")} />
+              <th
+                onClick={() => toggle("totalCost")}
+                className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer select-none text-right"
+                title="Total contracted value of the quote (Airtable: Total Cost). Not the amount paid."
+              >
+                <span className="inline-flex items-center gap-1">
+                  Quote Total
+                  <span className="text-ink-faint text-[10px]">ⓘ</span>
+                  {sort.key === "totalCost" && <span className="text-[8px] text-emerald">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                </span>
+              </th>
+              <th
+                onClick={() => toggle("uninvoiced")}
+                className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted hover:text-ink-strong cursor-pointer select-none text-right"
+                title="Committed but not yet invoiced: Quote Total minus invoices linked to this quote. Excludes void invoices."
+              >
+                <span className="inline-flex items-center gap-1">
+                  Uninvoiced
+                  <span className="text-ink-faint text-[10px]">ⓘ</span>
+                  {sort.key === "uninvoiced" && <span className="text-[8px] text-emerald">{sort.dir === "asc" ? "▲" : "▼"}</span>}
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={11} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
+              <tr><td colSpan={12} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
               rows.map((q) => {
                 const days = daysSince(q.preparedDate);
@@ -170,6 +191,9 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                       {days != null ? `${days}d` : "—"}
                     </td>
                     <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(q.totalCost)}</td>
+                    <td className={`px-3 py-2.5 text-right text-[13px] font-mono tabnum ${q.uninvoiced > 0 ? "text-amber font-semibold" : "text-ink-faint"}`} title={q.uninvoiced > 0 ? "Committed but not yet invoiced" : "Fully invoiced"}>
+                      {q.uninvoiced > 0 ? fmtCurrency(q.uninvoiced) : "—"}
+                    </td>
                   </tr>
                 );
               })

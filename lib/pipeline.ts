@@ -5,6 +5,7 @@ import "server-only";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { computeDeadlineRisk } from "./deadline";
+import { listAllInvoices } from "./money";
 import type { DeadlineRisk } from "@/components/pipeline/types";
 
 export type PipelineQuote = {
@@ -34,6 +35,7 @@ export type PipelineQuote = {
   company: string | null;
   companyIds: string[];
   preparedForIds: string[];
+  uninvoiced: number;
 };
 
 
@@ -155,12 +157,24 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     }
   }
 
+  // Per-quote invoiced sum (excluding void invoices) → drives "uninvoiced" column.
+  const invoices = await listAllInvoices();
+  const invoicedByQuote = new Map<string, number>();
+  for (const inv of invoices) {
+    if (inv.status === "void") continue;
+    for (const qid of inv.quoteRecordIds) {
+      invoicedByQuote.set(qid, (invoicedByQuote.get(qid) ?? 0) + (inv.amount ?? 0));
+    }
+  }
+
   return records.map((r) => {
     const f = r.fields;
     const preparedForIds = asIdArray(f["Prepared for"]);
     const firstPersonId = preparedForIds[0] ?? null;
     const resolvedCompanyId = firstPersonId ? personToCompany.get(firstPersonId) ?? null : null;
     const resolvedCompanyName = resolvedCompanyId ? companyIdToName.get(resolvedCompanyId) ?? null : null;
+    const totalCost = (f["Total Cost"] as number) ?? 0;
+    const invoiced = invoicedByQuote.get(r.id) ?? 0;
 
     return {
       id: r.id,
@@ -171,7 +185,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       status: (f["Status"] as string) ?? null,
       projectStatus: (f["Project Status"] as string) ?? null,
       proposalType: (f["Proposal Type"] as string) ?? null,
-      totalCost: (f["Total Cost"] as number) ?? 0,
+      totalCost,
       totalHours: (f["Total Hours"] as number) ?? null,
       totalPaid: (f["Total Paid"] as number) ?? 0,
       amountOwed: (f["Amount Owed"] as number) ?? 0,
@@ -191,6 +205,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         ? (f["Existing Company? (from Form Submission)"] as string[])
         : [],
       preparedForIds,
+      uninvoiced: Math.max(0, totalCost - invoiced),
     };
   });
 }

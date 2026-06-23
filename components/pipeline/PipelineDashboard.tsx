@@ -91,6 +91,10 @@ function applySort(rows: PipelineQuote[], s: Sort): PipelineQuote[] {
         av = daysSince(a.preparedDate);
         bv = daysSince(b.preparedDate);
         break;
+      case "uninvoiced":
+        av = a.uninvoiced;
+        bv = b.uninvoiced;
+        break;
     }
     if (av < bv) return -1 * dir;
     if (av > bv) return 1 * dir;

@@ -40,7 +40,7 @@ export const EMPTY_FILTER: Filter = {
   showRejected: false,
 };
 
-export type SortKey = "preparedDate" | "totalCost" | "client" | "status" | "autonumber" | "daysSinceSent";
+export type SortKey = "preparedDate" | "totalCost" | "client" | "status" | "autonumber" | "daysSinceSent" | "uninvoiced";
 export type SortDir = "asc" | "desc";
 
 export type Sort = { key: SortKey; dir: SortDir };

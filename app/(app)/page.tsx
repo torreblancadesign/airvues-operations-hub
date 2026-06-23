@@ -5,6 +5,7 @@ import { getLandingBoards } from "@/lib/landing";
 import { resolvePersonByEmail } from "@/lib/people";
 import { getPersonalDay } from "@/lib/personal-landing";
 import { getFirmPulse } from "@/lib/firm-pulse";
+import { listAllQuotes } from "@/lib/pipeline";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { StationBoard } from "@/components/home/DeparturesBoard";
 import { TheStack } from "@/components/home/TheStack";

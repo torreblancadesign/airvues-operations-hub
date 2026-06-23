@@ -25,10 +25,9 @@ export const ALL_PERMISSIONS: Permission[] = [
 // Post 2026-06 nav restructure: revenue/delivery groups split into
 // accounts/projects/stories/earnings — all still gated by Revenue/Delivery.
 const GROUP_PERMISSION: Partial<Record<NavGroup, Permission>> = {
-  accounts: "Revenue",
-  projects: "Revenue",
-  earnings: "Revenue",
+  delivery: "Delivery",
   stories: "Delivery",
+  earnings: "Revenue",
   operations: "Operations",
   founder: "Founder",
 };
@@ -36,10 +35,10 @@ const GROUP_PERMISSION: Partial<Record<NavGroup, Permission>> = {
 // Map first path segment → permission. Routes not in this map (e.g. "/", "/me")
 // are always accessible.
 const ROUTE_PERMISSION: Record<string, Permission> = {
-  leads: "Revenue",
-  pipeline: "Revenue",
+  leads: "Delivery",
+  pipeline: "Delivery",
+  clients: "Delivery",
   money: "Revenue",
-  clients: "Revenue",
   engineering: "Delivery",
   backlog: "Delivery",
   sprints: "Delivery",

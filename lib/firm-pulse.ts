@@ -79,6 +79,7 @@ export type FirmPulse = {
   pipeline: { value: number; count: number; stalledValue: number; stalledCount: number; lostYtd: number; lostMtd: number };
   mrr: { value: number; target: number; pct: number; subs: number };
   active: { value: number; count: number; unpaid: number };
+  uninvoiced: { value: number; count: number };
   ar: { value: number; count: number; overdue: number };
   conversion: {
     ytd: { soldPct: number; paidPct: number; sold: number; paid: number; sent: number };

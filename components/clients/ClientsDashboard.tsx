@@ -46,7 +46,7 @@ const TIER = (monthly: number): { label: string; cls: string } => {
   return { label: "Standard", cls: "bg-rule text-ink-muted" };
 };
 
-type SortKey = "name" | "lifetimeRevenue" | "outstandingAR" | "invoiceCount" | "daysSinceLastInvoice" | "engagement";
+type SortKey = "name" | "lifetimeRevenue" | "outstandingAR" | "invoiceCount" | "daysSinceLastInvoice" | "partnerStatus";
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {

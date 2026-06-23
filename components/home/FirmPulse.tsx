@@ -284,7 +284,7 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
           </Link>
 
           {/* Right stack: MRR, AR, Active work */}
-          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3">
+          <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3">
             <Satellite
               href="/money?scope=recurring"
               label="MRR"

@@ -109,11 +109,17 @@ import type { PersonOption } from "@/lib/quote-types";
 
 type SprintOption = { id: string; number: number | null; status: string | null };
 
-type Props = { quotes: PipelineQuote[]; people: PersonOption[]; sprints: SprintOption[]; canEdit: boolean };
+type Props = {
+  quotes: PipelineQuote[];
+  people: PersonOption[];
+  sprints: SprintOption[];
+  canEdit: boolean;
+  initialFilter?: Partial<Filter>;
+};
 
-export function PipelineDashboard({ quotes, people, sprints, canEdit }: Props) {
+export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFilter }: Props) {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>(EMPTY_FILTER);
+  const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...(initialFilter ?? {}) });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
   const [selected, setSelected] = useState<PipelineQuote | null>(null);
 

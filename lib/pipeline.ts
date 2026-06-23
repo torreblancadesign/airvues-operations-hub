@@ -36,6 +36,7 @@ export type PipelineQuote = {
   companyIds: string[];
   preparedForIds: string[];
   uninvoiced: number;
+  invoiced: number;
 };
 
 

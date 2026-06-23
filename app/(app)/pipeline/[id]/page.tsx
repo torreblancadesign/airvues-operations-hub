@@ -30,11 +30,12 @@ type Params = { params: { id: string } };
 
 export default async function QuoteDetailPage({ params }: Params) {
   await assertCanAccess("/pipeline");
-  const [quotes, people, sprints, canEdit] = await Promise.all([
+  const [quotes, people, sprints, canEdit, logEntries] = await Promise.all([
     listAllQuotes(),
     listPeopleOptions(),
     listSprintOptions(),
     canMutate(),
+    listProjectLogForProject(params.id),
   ]);
 
   const quote = quotes.find((q) => q.id === params.id);

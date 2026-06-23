@@ -7,6 +7,7 @@ import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
+import { logEventInternal } from "./project-log";
 
 export type StoryPatch = {
   name?: string;

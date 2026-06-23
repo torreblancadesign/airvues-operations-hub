@@ -50,6 +50,7 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
   const [search, setSearch] = useState("");
   const [partner, setPartner] = useState<PartnerFilter>("all");
   const [leadStatus, setLeadStatus] = useState<LeadStatusFilter>("all");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useState<Sort>({ key: "communicationStartDate", dir: "desc" });
 
   const filtered = useMemo(() => {

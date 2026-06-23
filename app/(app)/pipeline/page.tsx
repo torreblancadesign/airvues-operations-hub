@@ -58,7 +58,22 @@ export default async function PipelinePage({ searchParams }: { searchParams?: SP
           ⚠ Failed to load quotes: {error}
         </div>
       ) : (
-        <PipelineDashboard quotes={quotes} people={people} sprints={sprints} canEdit={canEdit} />
+        <PipelineDashboard
+          quotes={quotes}
+          people={people}
+          sprints={sprints}
+          canEdit={canEdit}
+          initialFilter={{
+            deadlineRisk:
+              searchParams?.deadlineRisk === "needs-attention" ||
+              searchParams?.deadlineRisk === "overdue" ||
+              searchParams?.deadlineRisk === "red" ||
+              searchParams?.deadlineRisk === "yellow"
+                ? (searchParams.deadlineRisk as "needs-attention" | "overdue" | "red" | "yellow")
+                : "all",
+            stalledOnly: searchParams?.stalled === "1",
+          }}
+        />
       )}
     </main>
   );

@@ -144,6 +144,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.preparedDate ? new Date(q.preparedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}</td>
                     <td className="px-3 py-2.5 text-[13px] text-ink-strong max-w-[280px] truncate">{q.projectName}</td>
                     <td className="px-3 py-2.5 text-[12px] text-ink">{q.client}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink max-w-[200px] truncate" title={q.company ?? undefined}>{q.company ?? "—"}</td>
                     <td className="px-3 py-2.5 text-[12px] text-ink-muted">{q.preparedBy}</td>
                     <td className="px-3 py-2.5">
                       <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${statusPill(q.status)}`}>

@@ -63,6 +63,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     "Created"?: string;
     "Stories"?: string[];
     "Primary Email (from Prepared for)"?: string[];
+    "Company Name"?: string[];
     "Existing Company? (from Form Submission)"?: string[];
     "Prepared for"?: string[];
   }>(

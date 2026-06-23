@@ -1,47 +1,53 @@
-# Compact Overview + Relationship notes
+## Goal
+Accounts table: swap **Contract** column for a **Date** column ("Communication Start Date" from People), then group rows by Lead vs Client with leads on top sorted by that date (newest → oldest) by default.
 
-Today both sections sit in a 50/50 grid. Overview stacks 17 single-column `InlineField`s vertically, so its column is ~3× taller than the Relationship notes textarea. That leaves a huge empty rail on the right and pushes Contacts/Projects/Invoices far down the page. The fix is structural, not stylistic.
+## 1. Re-sync schema for the new field
+- Hit the Airtable Meta API for the People table (`tbl9wvZY9M7Y7hcf1`) to find the live field ID for **"Communication Start Date"**.
+- Add it to `lib/schema.ts` under `Tables.People.fields` with its real ID + type (likely `date`).
+- Run `npm run verify-schema` to confirm no drift.
 
-## Layout shift
+## 2. Plumb the field into `ClientRow`
+In `lib/clients.ts`:
+- Add `"Communication Start Date"` to the People field-fetch list.
+- On the `Primary` tiebreaker, also capture `commStart: string | null`. Keep the existing "person with Partner Status wins" rule; among ties, prefer the **earliest** non-null `Communication Start Date` so the column reflects when the relationship actually began.
+- Add `communicationStartDate: string | null` to `ClientRow` and populate from the primary contact.
 
-`components/clients/ClientDetailView.tsx`, the block around lines 224–339:
+## 3. Replace Contract column with Date
+In `components/clients/ClientsDashboard.tsx`:
+- Drop the **Contract** `<th>` and `<td>` (and the unused styling). Keep `c.contractType` off the row.
+- Add a new sortable **Started** column after **Type**, right-aligned, mono/tabnum, formatted `MMM YYYY` (or `—`). New `SortKey: "communicationStartDate"`; null sorts last.
+- Column count in the empty-state row: `colSpan={7}` stays the same (removed 1, added 1).
 
-- Change the wrapper from `lg:grid-cols-2` to `lg:grid-cols-12 gap-4`.
-- **Overview** card: `lg:col-span-8` — gets a denser internal layout.
-- **Relationship notes** card: `lg:col-span-4` with `lg:sticky lg:top-4 self-start` so the note stays in view as the overview scrolls beside it.
+## 4. Group leads vs clients + default sort
+Still in `ClientsDashboard.tsx`:
+- After filtering, partition `sorted` into two arrays by `partnerStatus`: **Leads** (`"Lead"`), **Clients** (`"Client"`), and **Other** (null / unknown).
+- Render as three `<tbody>` sections inside the same `<table>`, each preceded by a sticky-ish group header row:
+  ```
+  ┌────────────────────────────────────────────┐
+  │ LEADS · 42                                 │  ← group header tr
+  ├────────────────────────────────────────────┤
+  │ …lead rows…                                │
+  ├────────────────────────────────────────────┤
+  │ CLIENTS · 31                               │
+  ├────────────────────────────────────────────┤
+  │ …client rows…                              │
+  └────────────────────────────────────────────┘
+  ```
+  Header row = single `<td colSpan={7}>` with the existing eyebrow style (`text-[10px] uppercase tracking-wider text-ink-muted bg-bg-elevated`).
+- Sorting still applies **within** each group — group order is fixed (Leads → Clients → Other).
+- **Default sort**: change initial state to `{ key: "communicationStartDate", dir: "desc" }` so leads land newest-first out of the box.
+- When the user changes sort via header click, both groups re-sort by the same key/dir (consistent UX).
+- Empty groups are hidden (don't render header for zero rows).
 
-## Overview card — grouped + 2-column fields
-
-Replace the flat list of 17 `InlineField`s with five labeled subsections. Each subsection is its own block; fields inside render in a `sm:grid-cols-2 gap-x-4` grid so heights roughly halve. Long-form fields (Legal address, Business description) span the full subsection width.
-
-```
-Identity         | Industry · Lead source · Client start year · Preferred business
-Commercial       | Contract type · Hourly rate · Discount % · Discount reason · NDA on file
-Status           | Engagement frequency · Partner status · Lead status
-Links            | Website · Drive · Miro · Google Chat
-Address          | Legal address (full width, rows 2)
-Description      | Business description (full width, rows 4)
-```
-
-Subsection headers use the existing eyebrow style (`text-[10px] font-semibold uppercase tracking-wider text-ink-muted`) and a subtle divider above each group after the first. Drop the per-field bottom border from `FieldShell` only inside this card by wrapping these fields with a parent class that resets `border-b` (tailwind arbitrary selector `[&_.border-b]:border-0`) — keeps `InlineField` untouched elsewhere.
-
-Card padding `p-5` → `p-4` to reclaim vertical space.
-
-## Relationship notes — slim companion
-
-Stays a single card. Adjustments:
-
-- `rows={14}` → `rows={10}` (still tall, but no longer dwarfed by Overview).
-- Helper line shortens to one phrase: "How they like to be worked with — communication, dynamics, recurring concerns."
-- Card padding `p-5` → `p-4`.
-- Card becomes `lg:sticky lg:top-4 self-start` so as Overview's column grows, the note rail stays anchored beside it instead of leaving dead space at the bottom of the right column.
-
-## Result
-
-Overview and Relationship end at roughly the same point on the page, the right rail is no longer dead, and Contacts / Projects / Invoices come up sooner without losing any data fields.
+## 5. Verify
+- `npx tsc --noEmit`
+- `npm run build`
+- Visual: load `/clients`, confirm Contract is gone, Date column shows, Leads section is on top sorted newest-first, sort header clicks re-sort both groups.
 
 ## Out of scope
+- Filter bar, header KPIs, Firm Pulse, `ClientDetailView`, mutations, or any other page.
 
-- `InlineField` internals, save logic, field set, or any data layer.
-- The header / KPI strip above and the Contacts/Projects/Invoices sections below.
-- Visual restyling beyond grouping, density, and stickiness.
+## Technical notes
+- The schema verifier (`scripts/verify-schema.ts`) reads `AIRTABLE_TOKEN` from env; the same token is already used by `lib/airtable.ts`, so the Meta-API lookup runs the same way.
+- "Communication Start Date" lives on **People**, not Companies — same plumbing as `partnerStatus`/`leadStatus` today (sourced from the primary contact, not the Company record). This is intentional per your request.
+- The `Primary` tiebreaker change (earliest comm-start wins among Partner-Status ties) means accounts with multiple contacts show the **oldest** relationship date, not a random one. If you'd rather show the most recent contact's date, say so and I'll flip the comparator.

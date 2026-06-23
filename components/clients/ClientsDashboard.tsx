@@ -10,6 +10,20 @@ const fmtCurrency = (n: number) =>
 
 type Bucket = "all" | "active" | "at-risk" | "occasional" | "iddle" | "lost" | "new" | "misclassified";
 
+const PARTNER_OPTIONS = ["all", "Lead", "Client"] as const;
+const LEAD_STATUS_OPTIONS = [
+  "all",
+  "New Lead",
+  "Discovery",
+  "Proposal Drafting",
+  "Proposal Sent",
+  "Won",
+  "Lost",
+  "On Hold",
+] as const;
+type PartnerFilter = (typeof PARTNER_OPTIONS)[number];
+type LeadStatusFilter = (typeof LEAD_STATUS_OPTIONS)[number];
+
 const ENGAGEMENT_COLOR: Record<string, string> = {
   Active: "bg-emerald-soft text-emerald",
   Occasional: "bg-sky-soft text-sky",

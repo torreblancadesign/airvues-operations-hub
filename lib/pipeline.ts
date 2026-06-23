@@ -41,6 +41,18 @@ function first<T>(x: T[] | undefined): T | null {
   return Array.isArray(x) && x.length > 0 ? x[0] : null;
 }
 
+function asIdArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const item of v) {
+    if (typeof item === "string") out.push(item);
+    else if (item && typeof item === "object" && typeof (item as { id?: unknown }).id === "string") {
+      out.push((item as { id: string }).id);
+    }
+  }
+  return out;
+}
+
 export async function listAllQuotes(): Promise<PipelineQuote[]> {
   const t = Tables.Quotes;
   const records = await listRecordsCached<{
@@ -63,7 +75,6 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     "Created"?: string;
     "Stories"?: string[];
     "Primary Email (from Prepared for)"?: string[];
-    "Company Name"?: string[];
     "Existing Company? (from Form Submission)"?: string[];
     "Prepared for"?: string[];
   }>(
@@ -89,7 +100,6 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
         t.fields["Created"].id,
         t.fields["Stories"].id,
         t.fields["Primary Email (from Prepared for)"].id,
-        t.fields["Company Name"].id,
         t.fields["Existing Company? (from Form Submission)"].id,
         t.fields["Prepared for"].id,
       ],
@@ -97,8 +107,61 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
     ["pipeline:all-quotes"],
   );
 
+  // Resolve company name via Prepared for → People.Company → Companies.Name
+  // (the legacy "Company Name" lookup on Quotes is mostly empty).
+  const allPersonIds = new Set<string>();
+  for (const r of records) {
+    for (const id of asIdArray(r.fields["Prepared for"])) allPersonIds.add(id);
+  }
+
+  const personToCompany = new Map<string, string | null>();
+  if (allPersonIds.size > 0) {
+    const ids = Array.from(allPersonIds);
+    const formula = `OR(${ids.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+    const peopleRows = await listRecordsCached<{ Company?: unknown }>(
+      Tables.People.id,
+      {
+        filterByFormula: formula,
+        fields: [Tables.People.fields["Company"].id],
+      },
+      ["pipeline:prepared-for-people"],
+    );
+    for (const p of peopleRows) {
+      const companyIds = asIdArray(p.fields["Company"]);
+      personToCompany.set(p.id, companyIds[0] ?? null);
+    }
+  }
+
+  const allCompanyIds = new Set<string>();
+  for (const cid of personToCompany.values()) {
+    if (cid) allCompanyIds.add(cid);
+  }
+
+  const companyIdToName = new Map<string, string>();
+  if (allCompanyIds.size > 0) {
+    const ids = Array.from(allCompanyIds);
+    const formula = `OR(${ids.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+    const companyRows = await listRecordsCached<{ Name?: string }>(
+      Tables.Companies.id,
+      {
+        filterByFormula: formula,
+        fields: [Tables.Companies.fields["Name"].id],
+      },
+      ["pipeline:companies"],
+    );
+    for (const c of companyRows) {
+      const name = (c.fields["Name"] as string | undefined) ?? "";
+      if (name) companyIdToName.set(c.id, name);
+    }
+  }
+
   return records.map((r) => {
     const f = r.fields;
+    const preparedForIds = asIdArray(f["Prepared for"]);
+    const firstPersonId = preparedForIds[0] ?? null;
+    const resolvedCompanyId = firstPersonId ? personToCompany.get(firstPersonId) ?? null : null;
+    const resolvedCompanyName = resolvedCompanyId ? companyIdToName.get(resolvedCompanyId) ?? null : null;
+
     return {
       id: r.id,
       autonumber: (f["Autonumber"] as number) ?? null,
@@ -123,13 +186,11 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       webQuoteUrl: `https://airvues-quote.vercel.app/?quoteId=${r.id}`,
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
       primaryEmail: first(f["Primary Email (from Prepared for)"] as string[] | undefined),
-      company: first(f["Company Name"] as string[] | undefined),
+      company: resolvedCompanyName,
       companyIds: Array.isArray(f["Existing Company? (from Form Submission)"])
         ? (f["Existing Company? (from Form Submission)"] as string[])
         : [],
-      preparedForIds: Array.isArray(f["Prepared for"])
-        ? (f["Prepared for"] as string[])
-        : [],
+      preparedForIds,
     };
   });
 }

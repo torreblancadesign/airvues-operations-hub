@@ -167,6 +167,9 @@ export async function listAllClients(): Promise<ClientRow[]> {
       lastInvoiceDate: a.lastDate,
       daysSinceLastInvoice: daysSinceLast,
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${cT.id}/${c.id}`,
+      primaryContactId: primaryByCompany.get(c.id)?.personId ?? null,
+      partnerStatus: (primaryByCompany.get(c.id)?.partner as PartnerStatusValue | null) ?? null,
+      leadStatus: (primaryByCompany.get(c.id)?.lead as LeadStatusValue | null) ?? null,
     };
   });
 }

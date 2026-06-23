@@ -33,6 +33,11 @@ const ENGAGEMENT_COLOR: Record<string, string> = {
   Archived: "bg-rule text-ink-faint",
 };
 
+const PARTNER_COLOR: Record<string, string> = {
+  Client: "bg-emerald-soft text-emerald",
+  Lead: "bg-violet-soft text-violet",
+};
+
 const TIER = (monthly: number): { label: string; cls: string } => {
   // monthly retainer signal from contract type is weak — fallback to revenue / activity
   if (monthly >= 12_000) return { label: "Diamond", cls: "bg-violet-soft text-violet" };

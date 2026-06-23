@@ -116,10 +116,6 @@ export async function listAllClients(): Promise<ClientRow[]> {
       primaryByCompany.set(companyId, { personId: p.id, partner, lead });
     }
   }
-  for (const p of people) {
-    const companyArr = (p.fields["Company"] as string[] | undefined) ?? [];
-    if (companyArr[0]) personIdToCompanyId.set(p.id, companyArr[0]);
-  }
 
   // Aggregate per Company
   type Agg = { count: number; revenue: number; outstanding: number; lastDate: string | null };

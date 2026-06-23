@@ -8,8 +8,7 @@
 
 export type NavGroup =
   | "overview"
-  | "accounts"
-  | "projects"
+  | "delivery"
   | "stories"
   | "earnings"
   | "operations"
@@ -26,8 +25,7 @@ export type NavItem = {
 
 export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "accounts", label: "Accounts" },
-  { id: "projects", label: "Projects" },
+  { id: "delivery", label: "Delivery" },
   { id: "stories", label: "Stories" },
   { id: "earnings", label: "Earnings" },
   { id: "operations", label: "Operations" },
@@ -73,7 +71,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/clients",
     label: "Accounts",
     desc: "Leads, partners, clients · status, proposals, projects, invoices",
-    group: "accounts",
+    group: "delivery",
     showInSidebar: true,
     showOnHome: true,
   },
@@ -82,7 +80,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/leads",
     label: "Leads (legacy)",
     desc: "Pre-unification leads view — superseded by Accounts",
-    group: "accounts",
+    group: "delivery",
     showInSidebar: false,
     showOnHome: false,
   },
@@ -92,7 +90,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/pipeline",
     label: "Projects",
     desc: "All projects · sent · in progress · deadlines · stage breakdown",
-    group: "projects",
+    group: "delivery",
     showInSidebar: true,
     showOnHome: true,
   },

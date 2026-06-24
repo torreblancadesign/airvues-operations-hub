@@ -90,6 +90,24 @@ function asStringArray(v: unknown): string[] {
   return v.filter((x): x is string => typeof x === "string");
 }
 
+// Airtable rollup fields can return a string, number, or array depending on
+// the rollup formula. Normalize to a display string; format numbers as USD.
+function formatRollupCost(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number") {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(v);
+  }
+  if (Array.isArray(v)) {
+    return v.map((x) => formatRollupCost(x)).filter(Boolean).join(", ");
+  }
+  return String(v);
+}
+
 
 export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
   const t = Tables.Quotes;

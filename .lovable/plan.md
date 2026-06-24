@@ -1,33 +1,31 @@
-## Trim Account detail Overview + reorder sections
+## Problem
 
-In `components/clients/ClientDetailView.tsx`:
+On the quote detail page (`app/(app)/pipeline/[id]/page.tsx`), the link to the account/client page currently renders `quote.client`, which is the **contact person's name** (from the Quotes `Client Name` lookup → People). The Accounts page shows the **company name** (`quote.company`, resolved via Prepared for → People → Companies). These don't match, so the link looks wrong.
 
-**1. Move Contacts above Overview**
-Swap the JSX order so the `<Section title="Contacts">` block renders immediately after the header card, before the `<Section title="Overview">`.
+Also, the link is small mono text in the breadcrumb row + an inline underline in the subtitle — easy to miss.
 
-**2. Trim Overview fields — keep only these:**
-- Industry
-- Lead source
-- Discount %
-- Discount reason
-- NDA on file
-- Partner status
-- Lead status
-- Relationship notes
-- Business description
-- Legal address
+## Changes (presentational only, single file: `app/(app)/pipeline/[id]/page.tsx`)
 
-**Remove from Overview:**
-- Identity group: Client start year, Preferred business
-- Commercial group: Contract type, Hourly rate
-- Status group: Engagement frequency
-- Links group entirely (Website, Drive folder, Miro folder, Google Chat) — these remain accessible via the header action buttons
-- Notes group keeps all three (relationship notes, business description, legal address)
+1. **Use company name as the link label.**
+   - Breadcrumb link: replace `{quote.client && quote.client !== "—" ? quote.client : "Account"}` with `quote.company ?? quote.client ?? "Account"`.
+   - Subtitle: keep contact-person text as plain text (it's correctly labeled "Prepared by / for" context), and stop turning `quote.client` into the account link. The account link belongs on the company name, not the contact.
 
-**New Overview structure (3 sub-groups):**
-- **Identity**: Industry, Lead source
-- **Commercial**: Discount %, Discount reason, NDA on file
-- **Status**: Partner status, Lead status
-- **Notes**: Relationship notes, Business description, Legal address
+2. **Make the account button obvious.** Replace the faint breadcrumb-style "Account ↗" link with a real button placed next to the "Web Quote ↗" / "Airtable ↗" buttons in the action row:
+   ```
+   [ ← All quotes ]                       (breadcrumb only)
 
-No data layer, schema, or mutation changes — purely presentational edits in the one component. Header chips, stats, and action buttons are untouched, so removed fields stay editable elsewhere only if they already appear elsewhere (header links cover URLs; hourly rate / contract / engagement / start year / preferred business become read-only from header chips for now).
+   <PageHeader ... />
+
+   Status chips ...     [ View Account ↗ ] [ Web Quote ↗ ] [ Airtable ↗ ]
+   ```
+   - Style: same size as the other action buttons, neutral surface (`bg-bg-elevated border border-rule`), with the company name inline, e.g. `View account: Acme Corp ↗`.
+   - Only render when `quote.companyId` is present; otherwise omit.
+
+3. **Keep the breadcrumb minimal:** just `← All quotes` (or `← Back to client` when `fromClient` is set). Remove the duplicate company link from the breadcrumb row now that the prominent button covers it.
+
+No data-layer, schema, or mutation changes. `quote.company` and `quote.companyId` are already returned by `lib/pipeline.ts`.
+
+## Out of scope
+
+- No changes to the Accounts page, QuoteSheetEditor, or the `client` field semantics elsewhere.
+- Not renaming the `client` field in `PipelineQuote` (still used by tables/filters as the contact label).

@@ -64,25 +64,13 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
         ) : (
           <Link href="/pipeline" className="hover:text-emerald">← All quotes</Link>
         )}
-        {quote.companyId && (
-          <Link href={`/clients/${quote.companyId}`} className="hover:text-emerald">
-            {quote.client && quote.client !== "—" ? quote.client : "Account"} ↗
-          </Link>
-        )}
       </div>
 
       <PageHeader
         title={quote.projectName}
         subtitle={
           <>
-            Quote {quote.autonumber ? `#${quote.autonumber}` : ""} ·{" "}
-            {quote.companyId ? (
-              <Link href={`/clients/${quote.companyId}`} className="text-ink hover:text-emerald underline-offset-2 hover:underline">
-                {quote.client}
-              </Link>
-            ) : (
-              quote.client
-            )}
+            Quote {quote.autonumber ? `#${quote.autonumber}` : ""} · {quote.client}
             {quote.preparedBy && quote.preparedBy !== "—" ? ` · Prepared by ${quote.preparedBy}` : ""} · {fmtDate(quote.preparedDate)}
           </>
         }
@@ -128,6 +116,14 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
           </span>
         )}
         <span className="ml-auto flex gap-2">
+          {quote.companyId && (
+            <Link
+              href={`/clients/${quote.companyId}`}
+              className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-emerald/40 text-emerald font-medium rounded hover:bg-emerald/10 transition-colors"
+            >
+              View account{quote.company ? `: ${quote.company}` : ""} ↗
+            </Link>
+          )}
           <a
             href={quote.webQuoteUrl}
             target="_blank"

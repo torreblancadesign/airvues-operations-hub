@@ -1263,7 +1263,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             onRowClick={openStory}
             title="Original scope total (rolls up from stories)"
             addLabel="+ Add story"
+            quoteId={quote.id}
+            onReordered={(next) => setQuote(next)}
           />
+
           {storyLoading && (
             <div className="mt-2 text-[11px] text-ink-faint">Loading story…</div>
           )}
@@ -1356,7 +1359,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
                 ? "No change orders yet. Click + Add change order story to log one."
                 : "No change orders yet."
             }
+            quoteId={quote.id}
+            onReordered={(next) => setQuote(next)}
           />
+
 
           {/* Grand total */}
           <div className="mt-3 flex items-center justify-between gap-3 px-3 py-3 border border-rule rounded-md bg-bg-elevated">

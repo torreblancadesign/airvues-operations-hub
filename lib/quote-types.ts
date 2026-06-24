@@ -10,7 +10,9 @@ export type QuoteStoryRow = {
   status: string | null;
   assignees: { id: string; name: string }[];
   isChangeOrder: boolean;
+  order: number | null;
 };
+
 
 export type QuoteAttachment = {
   id: string;

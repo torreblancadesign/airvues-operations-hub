@@ -63,21 +63,18 @@ function StatusPill({ status }: { status: string | null }) {
 
 type SortableStoryRowProps = {
   story: QuoteStoryRow;
-  index: number;
   canEdit: boolean;
   onRowClick?: (storyId: string) => void;
-  onOrderInputCommit: (id: string, raw: string) => void;
   pending: boolean;
 };
 
 function SortableStoryRow({
   story: s,
-  index,
   canEdit,
   onRowClick,
-  onOrderInputCommit,
   pending,
 }: SortableStoryRowProps) {
+
   const {
     attributes,
     listeners,

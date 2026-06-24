@@ -1359,7 +1359,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
                 ? "No change orders yet. Click + Add change order story to log one."
                 : "No change orders yet."
             }
+            quoteId={quote.id}
+            onReordered={(next) => setQuote(next)}
           />
+
 
           {/* Grand total */}
           <div className="mt-3 flex items-center justify-between gap-3 px-3 py-3 border border-rule rounded-md bg-bg-elevated">

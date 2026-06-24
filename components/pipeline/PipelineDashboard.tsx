@@ -21,6 +21,16 @@ const STAGE_STATUSES: Record<StageBucket, string[]> = {
   auditing: ["Auditing 🚩"],
 };
 
+const STAGE_TABS: { key: StageBucket; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "draft", label: "Draft" },
+  { key: "sent", label: "Sent · Awaiting" },
+  { key: "signed", label: "Signed" },
+  { key: "paid", label: "Paid" },
+  { key: "auditing", label: "Auditing" },
+  { key: "lost", label: "Cancelled / Rejected" },
+];
+
 function daysSince(iso: string | null): number {
   if (!iso) return -1;
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -142,7 +152,6 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFil
 
   const filterActive =
     !!filter.search ||
-    filter.stage !== "all" ||
     filter.proposalType !== "all" ||
     !!filter.client ||
     !!filter.preparedBy ||
@@ -152,8 +161,53 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFil
     filter.deadlineRisk !== "all" ||
     filter.showRejected;
 
+  // Count quotes per Deal Stage tab — apply non-stage filters so counts reflect current view.
+  const baseForCounts = useMemo(() => {
+    const f = { ...filter, stage: "all" as StageBucket };
+    return applyFilter(quotes, f);
+  }, [quotes, filter]);
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<StageBucket, number> = {
+      all: baseForCounts.length, draft: 0, sent: 0, signed: 0, paid: 0, lost: 0, auditing: 0,
+    };
+    for (const r of baseForCounts) {
+      for (const tab of STAGE_TABS) {
+        if (tab.key === "all") continue;
+        if (r.status && STAGE_STATUSES[tab.key].includes(r.status)) counts[tab.key]++;
+      }
+    }
+    return counts;
+  }, [baseForCounts]);
+
   return (
     <>
+      {/* Deal Stage tabs */}
+      <div className="mb-3 flex items-center gap-1 flex-wrap border-b border-rule">
+        {STAGE_TABS.map((t) => {
+          const active = filter.stage === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setFilter({ ...filter, stage: t.key })}
+              className={`px-3 py-2 text-[12px] font-medium border-b-2 -mb-px transition-colors ${
+                active
+                  ? "border-emerald text-ink-strong"
+                  : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+              <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-full text-[10px] font-mono tabnum ${
+                active ? "bg-emerald-soft text-emerald" : "bg-bg-elevated text-ink-faint"
+              }`}>
+                {tabCounts[t.key]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <PipelineFilterBar
         filter={filter}
         setFilter={setFilter}

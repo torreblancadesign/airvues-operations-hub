@@ -6,6 +6,6 @@ export const DEAL_STAGE_LABEL = "Deal Stage";
 export const DEAL_STAGE_HELP =
   "Internal sales pipeline — where the proposal document sits in our workflow. Not shown to the client.";
 
-export const CLIENT_JOURNEY_LABEL = "Client Journey";
+export const CLIENT_JOURNEY_LABEL = "Proposal Status";
 export const CLIENT_JOURNEY_HELP =
-  "Client-facing delivery milestone — the 7-stage progress bar shown on the web quote.";
+  "Client-facing delivery milestone — the 7-stage progress bar shown on the web quote. (Airtable field: Project Status)";

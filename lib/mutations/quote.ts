@@ -4,7 +4,7 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { createRecords, getRecord, patchRecords } from "../airtable";
+import { createRecords, getRecord, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
 import { getQuoteDetail } from "../quotes";
@@ -395,6 +395,106 @@ export async function reorderQuoteStories(
       updates.map((u) => ({ id: u.id, fields: { "Quote Order": u.order } })),
     );
     invalidateQuote(quoteId);
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+// ---------- Quote Deal Stage (Status field) ----------
+
+const DEAL_STAGE_CHOICES = [
+  "Draft",
+  "Sent. Awaiting Approval.",
+  "Approved and Signed",
+  "Awaiting Payment",
+  "Project In Progress",
+  "Paid",
+  "Cancelled",
+  "Rejected",
+  "Auditing 🚩",
+] as const;
+
+export async function updateQuoteDealStage(
+  quoteId: string,
+  status: string,
+): Promise<MutationResult<{ quote: QuoteDetail }>> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  if (!(DEAL_STAGE_CHOICES as readonly string[]).includes(status)) {
+    return { error: "Invalid deal stage" };
+  }
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    await patchRecords(Tables.Quotes.id, [{ id: quoteId, fields: { "Status": status } }]);
+    invalidateQuote(quoteId);
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+// ---------- Bulk story operations on a quote ----------
+
+export async function bulkDeleteQuoteStories(
+  quoteId: string,
+  storyIds: string[],
+): Promise<MutationResult<{ quote: QuoteDetail }>> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  if (storyIds.length === 0) {
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  }
+  const denied = await gate();
+  if (denied) return denied;
+  try {
+    // No batch DELETE wrapper — fire sequentially in small concurrency.
+    for (const id of storyIds) {
+      await deleteRecord(Tables.Stories.id, id);
+    }
+    invalidateQuote(quoteId);
+    revalidateTag("engineering:stories");
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export type BulkStoryPatch = {
+  assigneeIds?: string[];
+  status?: string;
+};
+
+export async function bulkUpdateQuoteStoriesFields(
+  quoteId: string,
+  storyIds: string[],
+  patch: BulkStoryPatch,
+): Promise<MutationResult<{ quote: QuoteDetail }>> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  if (storyIds.length === 0) {
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  }
+  const denied = await gate();
+  if (denied) return denied;
+
+  const fields: Record<string, unknown> = {};
+  if (patch.assigneeIds !== undefined) fields["Assignee"] = patch.assigneeIds;
+  if (patch.status !== undefined) fields["Story Status"] = patch.status;
+  if (Object.keys(fields).length === 0) {
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  }
+  try {
+    await patchRecords(
+      Tables.Stories.id,
+      storyIds.map((id) => ({ id, fields })),
+    );
+    invalidateQuote(quoteId);
+    revalidateTag("engineering:stories");
     const quote = await getQuoteDetail(quoteId);
     return { ok: true, quote };
   } catch (e) {

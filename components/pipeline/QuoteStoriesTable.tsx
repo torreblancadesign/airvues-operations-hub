@@ -104,7 +104,7 @@ export function QuoteStoriesTable({
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="row-zebra">
               {stories.map((s) => (
                 <tr
                   key={s.id}

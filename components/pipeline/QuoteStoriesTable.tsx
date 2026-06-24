@@ -218,21 +218,8 @@ export function QuoteStoriesTable({
     commitReorder(next);
   }
 
-  function handleOrderInputCommit(id: string, raw: string) {
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return;
-    // Reorder using the new desired order value; tie-break keeps the edited row
-    // first when colliding with an existing value.
-    const next = [...localStories]
-      .map((s) => (s.id === id ? { ...s, order: parsed } : s))
-      .sort((a, b) => {
-        const ao = a.order ?? Number.POSITIVE_INFINITY;
-        const bo = b.order ?? Number.POSITIVE_INFINITY;
-        if (ao !== bo) return ao - bo;
-        return a.id === id ? -1 : b.id === id ? 1 : 0;
-      });
-    commitReorder(next);
-  }
+
+
 
   return (
     <div className="bg-bg-elevated/60 border border-rule rounded-md overflow-hidden">

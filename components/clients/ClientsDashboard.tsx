@@ -130,22 +130,6 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
     });
   }, [filtered, sort]);
 
-  const groups = useMemo(() => {
-    const leads: ClientRow[] = [];
-    const clientsG: ClientRow[] = [];
-    const other: ClientRow[] = [];
-    for (const c of sorted) {
-      if (c.partnerStatus === "Lead") leads.push(c);
-      else if (c.partnerStatus === "Client") clientsG.push(c);
-      else other.push(c);
-    }
-    return [
-      { key: "Lead", label: "Leads", rows: leads },
-      { key: "Client", label: "Clients", rows: clientsG },
-      { key: "Other", label: "Unclassified", rows: other },
-    ] as const;
-  }, [sorted]);
-
   const toggleSort = (key: SortKey) => {
     if (sort.key === key) setSort({ key, dir: sort.dir === "asc" ? "desc" : "asc" });
     else setSort({ key, dir: "desc" });
@@ -156,6 +140,30 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
 
   return (
     <>
+      {/* Tabs */}
+      <div className="mb-3 flex items-center gap-1 flex-wrap border-b border-rule">
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-2 text-[12px] font-medium border-b-2 -mb-px transition-colors ${
+                active ? "border-emerald text-ink-strong" : "border-transparent text-ink-muted hover:text-ink"
+              }`}
+            >
+              {t.label}
+              <span className={`ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[16px] px-1 rounded-full text-[10px] font-mono tabnum ${
+                active ? "bg-emerald-soft text-emerald" : "bg-bg-elevated text-ink-faint"
+              }`}>
+                {counts[t.key]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filter row */}
       <div className="mb-4 flex items-center gap-2 flex-wrap">
         <div className="flex-1 min-w-[240px] relative">
@@ -171,26 +179,18 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
             className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none pl-8 w-full"
           />
         </div>
-        <select
-          value={partner}
-          onChange={(e) => setPartner(e.target.value as PartnerFilter)}
-          className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
-          aria-label="Partner status filter"
-        >
-          {PARTNER_OPTIONS.map((o) => (
-            <option key={o} value={o}>{o === "all" ? "All types" : o}</option>
-          ))}
-        </select>
-        <select
-          value={leadStatus}
-          onChange={(e) => setLeadStatus(e.target.value as LeadStatusFilter)}
-          className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
-          aria-label="Lead status filter"
-        >
-          {LEAD_STATUS_OPTIONS.map((o) => (
-            <option key={o} value={o}>{o === "all" ? "All lead stages" : o}</option>
-          ))}
-        </select>
+        {tab !== "lost" && (
+          <select
+            value={leadStatus}
+            onChange={(e) => setLeadStatus(e.target.value as LeadStatusFilter)}
+            className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
+            aria-label="Lead status filter"
+          >
+            {LEAD_STATUS_OPTIONS.map((o) => (
+              <option key={o} value={o}>{o === "all" ? "All lead stages" : o}</option>
+            ))}
+          </select>
+        )}
         <div className="text-[11px] font-mono text-ink-faint tabnum">
           Showing <span className="text-ink">{filtered.length.toLocaleString()}</span> of {clients.length.toLocaleString()} accounts
         </div>
@@ -225,56 +225,37 @@ export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
                 </th>
               </tr>
             </thead>
-            {sorted.length === 0 ? (
-              <tbody>
-                <tr><td colSpan={COL_COUNT} className="px-3 py-8 text-center text-[13px] text-ink-muted">No accounts match the current filters.</td></tr>
-              </tbody>
-            ) : (
-              groups.filter((g) => g.rows.length > 0).map((g) => (
-                <tbody key={g.key}>
-                  <tr
-                    className="bg-bg-elevated border-y-2 border-emerald/40 cursor-pointer select-none hover:bg-bg-elevated/70 transition-colors"
-                    onClick={() => setCollapsed((s) => ({ ...s, [g.key]: !s[g.key] }))}
-                  >
-                    <td colSpan={COL_COUNT} className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-emerald text-[10px] transition-transform ${collapsed[g.key] ? "-rotate-90" : ""}`}>▼</span>
-                        <span className="text-[12px] font-bold uppercase tracking-wider text-ink-strong">{g.label}</span>
-                        <span className="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1.5 rounded-full bg-emerald-soft text-emerald text-[10px] font-semibold tabnum font-mono">
-                          {g.rows.length}
+            <tbody>
+              {sorted.length === 0 && (
+                <tr><td colSpan={COL_COUNT} className="px-3 py-8 text-center text-[13px] text-ink-muted">No accounts in this view.</td></tr>
+              )}
+              {sorted.map((c) => {
+                const atRisk = c.engagement === "Active" && c.daysSinceLastInvoice != null && c.daysSinceLastInvoice > 90;
+                return (
+                  <tr key={c.id} onClick={() => router.push(`/clients/${c.id}`)} className="border-b border-rule-soft last:border-0 cursor-pointer transition-colors hover:bg-bg-elevated">
+                    <td className="px-3 py-2.5 text-[13px] text-ink-strong">{c.name}</td>
+                    <td className="px-3 py-2.5">
+                      {c.partnerStatus ? (
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${PARTNER_COLOR[c.partnerStatus] ?? "bg-rule text-ink-muted"}`}>
+                          {c.partnerStatus}
                         </span>
-                      </div>
+                      ) : (
+                        <span className="text-[11px] text-ink-faint">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtFullDate(c.communicationStartDate)}</td>
+                    <td className="px-3 py-2.5 text-right text-[12px] font-mono tabnum text-ink-muted">{c.invoiceCount}</td>
+                    <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(c.lifetimeRevenue)}</td>
+                    <td className={`px-3 py-2.5 text-right text-[12px] tabnum font-mono ${c.outstandingAR > 0 ? "text-red font-semibold" : "text-ink-faint"}`}>
+                      {c.outstandingAR > 0 ? fmtCurrency(c.outstandingAR) : "—"}
+                    </td>
+                    <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${atRisk ? "text-red font-semibold" : "text-ink-muted"}`}>
+                      {c.daysSinceLastInvoice != null ? `${c.daysSinceLastInvoice}d` : "—"}
                     </td>
                   </tr>
-                  {!collapsed[g.key] && g.rows.map((c) => {
-                    const atRisk = c.engagement === "Active" && c.daysSinceLastInvoice != null && c.daysSinceLastInvoice > 90;
-                    return (
-                      <tr key={c.id} onClick={() => router.push(`/clients/${c.id}`)} className="border-b border-rule-soft last:border-0 cursor-pointer transition-colors hover:bg-bg-elevated">
-                        <td className="px-3 py-2.5 text-[13px] text-ink-strong">{c.name}</td>
-                        <td className="px-3 py-2.5">
-                          {c.partnerStatus ? (
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${PARTNER_COLOR[c.partnerStatus] ?? "bg-rule text-ink-muted"}`}>
-                              {c.partnerStatus}
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-ink-faint">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{fmtFullDate(c.communicationStartDate)}</td>
-                        <td className="px-3 py-2.5 text-right text-[12px] font-mono tabnum text-ink-muted">{c.invoiceCount}</td>
-                        <td className="px-3 py-2.5 text-right text-[13px] font-semibold text-ink-strong tabnum">{fmtCurrency(c.lifetimeRevenue)}</td>
-                        <td className={`px-3 py-2.5 text-right text-[12px] tabnum font-mono ${c.outstandingAR > 0 ? "text-red font-semibold" : "text-ink-faint"}`}>
-                          {c.outstandingAR > 0 ? fmtCurrency(c.outstandingAR) : "—"}
-                        </td>
-                        <td className={`px-3 py-2.5 text-right text-[12px] font-mono tabnum ${atRisk ? "text-red font-semibold" : "text-ink-muted"}`}>
-                          {c.daysSinceLastInvoice != null ? `${c.daysSinceLastInvoice}d` : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              ))
-            )}
+                );
+              })}
+            </tbody>
           </table>
         </div>
       </div>

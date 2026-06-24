@@ -14,7 +14,13 @@ const fmtFullDate = (iso: string | null): string => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 };
 
-const PARTNER_OPTIONS = ["all", "Lead", "Client"] as const;
+type TabKey = "leads" | "clients" | "lost";
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "leads", label: "Leads" },
+  { key: "clients", label: "Clients" },
+  { key: "lost", label: "Lost Leads" },
+];
+
 const LEAD_STATUS_OPTIONS = [
   "all",
   "New Lead",
@@ -25,7 +31,6 @@ const LEAD_STATUS_OPTIONS = [
   "Lost",
   "On Hold",
 ] as const;
-type PartnerFilter = (typeof PARTNER_OPTIONS)[number];
 type LeadStatusFilter = (typeof LEAD_STATUS_OPTIONS)[number];
 
 const PARTNER_COLOR: Record<string, string> = {
@@ -45,25 +50,37 @@ type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 const COL_COUNT = 7;
 
+function bucketOf(c: ClientRow): TabKey {
+  if (c.leadStatus === "Lost") return "lost";
+  if (c.partnerStatus === "Client") return "clients";
+  // Default: anyone with Lead partner status, or no classification, lands in Leads.
+  return "leads";
+}
+
 export function ClientsDashboard({ clients }: { clients: ClientRow[] }) {
   const router = useRouter();
+  const [tab, setTab] = useState<TabKey>("leads");
   const [search, setSearch] = useState("");
-  const [partner, setPartner] = useState<PartnerFilter>("all");
   const [leadStatus, setLeadStatus] = useState<LeadStatusFilter>("all");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useState<Sort>({ key: "communicationStartDate", dir: "desc" });
+
+  const counts = useMemo(() => {
+    const c: Record<TabKey, number> = { leads: 0, clients: 0, lost: 0 };
+    for (const row of clients) c[bucketOf(row)]++;
+    return c;
+  }, [clients]);
 
   const filtered = useMemo(() => {
     return clients.filter((c) => {
+      if (bucketOf(c) !== tab) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!c.name.toLowerCase().includes(q)) return false;
       }
-      if (partner !== "all" && c.partnerStatus !== partner) return false;
-      if (leadStatus !== "all" && c.leadStatus !== leadStatus) return false;
+      if (tab !== "lost" && leadStatus !== "all" && c.leadStatus !== leadStatus) return false;
       return true;
     });
-  }, [clients, search, partner, leadStatus]);
+  }, [clients, search, leadStatus, tab]);
 
   const sorted = useMemo(() => {
     const dir = sort.dir === "asc" ? 1 : -1;

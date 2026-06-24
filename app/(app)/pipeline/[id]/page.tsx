@@ -9,6 +9,7 @@ import { listPeopleOptions } from "@/lib/quotes";
 import { listSprintOptions } from "@/lib/sprints";
 import { listProjectLogForProject } from "@/lib/project-log";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Section } from "@/components/ui/Section";
 import { QuoteSheetEditor } from "@/components/pipeline/QuoteSheetEditor";
 import { ProjectLogTimeline } from "@/components/projects/ProjectLogTimeline";
 import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";

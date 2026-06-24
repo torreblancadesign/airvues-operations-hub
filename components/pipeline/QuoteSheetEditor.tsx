@@ -982,7 +982,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Prepared by" chip={<PortalChip />} state={stateFor("preparedById")}>
+        <FieldRow label="Prepared by" chip={<PortalChip />} state={stateFor("preparedById")} variant="cell">
           <PersonPicker
             value={quote.preparedById}
             options={people}
@@ -997,6 +997,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Engineer responsible for delivering this epic."
           chip={<InternalChip />}
           state={stateFor("epicOwnerId")}
+          variant="cell"
         >
           <PersonPicker
             value={quote.epicOwnerId}
@@ -1007,7 +1008,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")}>
+        <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")} variant="cell">
           <input
             type="date"
             value={quote.preparedDate ?? ""}
@@ -1024,6 +1025,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Client Delivery Due Date — drives the deadline badge on the Projects page."
           chip={<PortalChip />}
           state={stateFor("deliveryDueDate")}
+          variant="cell"
         >
           <input
             type="date"
@@ -1036,7 +1038,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")}>
+        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")} variant="cell">
           <PersonPicker
             value={quote.preparedForId}
             options={people}
@@ -1051,6 +1053,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Client-visible delivery milestone — drives the 7-stage progress bar on the web quote. (Airtable field: Project Status)"
           chip={<PortalChip />}
           state={stateFor("projectStatus")}
+          variant="cell"
         >
           <select
             value={quote.projectStatus ?? ""}
@@ -1069,7 +1072,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           </select>
         </FieldRow>
 
-        <FieldRow label="Proposal type" chip={<PortalChip />} state={stateFor("proposalType")}>
+        <FieldRow label="Proposal type" chip={<PortalChip />} state={stateFor("proposalType")} variant="cell">
           <select
             value={quote.proposalType ?? ""}
             disabled={!canEdit}
@@ -1092,6 +1095,8 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Tick when this quote is a Blueprint. Grants the salesperson on 'Prepared by' a +5% commission bonus in their personal scorecard."
           chip={<InternalChip />}
           state={stateFor("blueprint")}
+          variant="cell"
+          className="md:col-span-2"
         >
           <label className="inline-flex items-center gap-2 text-[12px] text-ink cursor-pointer select-none">
             <input
@@ -1106,6 +1111,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             <span>{quote.blueprint ? "Yes — +5% commission bonus" : "No"}</span>
           </label>
         </FieldRow>
+        </div>
       </Section>
 
       {/* SECTION 2: Client input — collapsible, internal-only */}

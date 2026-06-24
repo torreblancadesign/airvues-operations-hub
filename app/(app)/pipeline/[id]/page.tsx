@@ -86,11 +86,6 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
             {quote.preparedBy && quote.preparedBy !== "—" ? ` · Prepared by ${quote.preparedBy}` : ""} · {fmtDate(quote.preparedDate)}
           </>
         }
-
-      <PageHeader
-        title={quote.projectName}
-        subtitle={`Quote ${quote.autonumber ? `#${quote.autonumber}` : ""} · ${quote.client}${quote.preparedBy && quote.preparedBy !== "—" ? ` · Prepared by ${quote.preparedBy}` : ""} · ${fmtDate(quote.preparedDate)}`}
-
         meta={
           <div className="text-right">
             <div className="text-[24px] font-semibold tabnum text-ink-strong leading-none">
@@ -105,11 +100,9 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
 
       {/* Status chips */}
       <div className="mb-5 flex items-center gap-2 flex-wrap text-[12px]">
-        <span className="px-2.5 py-1 bg-bg-elevated border border-rule rounded font-mono text-ink">
-          <span className="text-ink-faint mr-1">Deal:</span>{quote.status ?? "—"}
-        </span>
+        <DealStageChip quoteId={quote.id} initialStatus={quote.status} canEdit={canEdit} />
         <span className="px-2.5 py-1 bg-bg-elevated border border-rule rounded text-ink">
-          <span className="text-ink-faint mr-1">Journey:</span>{quote.projectStatus ?? "—"}
+          <span className="text-ink-faint mr-1">Proposal:</span>{quote.projectStatus ?? "—"}
         </span>
         {quote.proposalType && (
           <span className="px-2.5 py-1 bg-bg-elevated border border-rule rounded text-ink">

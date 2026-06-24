@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+
 import {
   DndContext,
   PointerSensor,
@@ -62,21 +63,18 @@ function StatusPill({ status }: { status: string | null }) {
 
 type SortableStoryRowProps = {
   story: QuoteStoryRow;
-  index: number;
   canEdit: boolean;
   onRowClick?: (storyId: string) => void;
-  onOrderInputCommit: (id: string, raw: string) => void;
   pending: boolean;
 };
 
 function SortableStoryRow({
   story: s,
-  index,
   canEdit,
   onRowClick,
-  onOrderInputCommit,
   pending,
 }: SortableStoryRowProps) {
+
   const {
     attributes,
     listeners,
@@ -92,12 +90,8 @@ function SortableStoryRow({
     opacity: isDragging ? 0.6 : undefined,
   };
 
-  const displayOrder = (index + 1) * 10;
-  const [orderText, setOrderText] = useState<string>(String(s.order ?? displayOrder));
 
-  useEffect(() => {
-    setOrderText(String(s.order ?? displayOrder));
-  }, [s.order, displayOrder]);
+
 
   return (
     <tr
@@ -119,45 +113,24 @@ function SortableStoryRow({
       }
     >
       <td
-        className="px-2 py-2.5 w-[64px] whitespace-nowrap"
+        className="px-2 py-2.5 w-[32px] whitespace-nowrap"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-1">
-          {canEdit ? (
-            <button
-              type="button"
-              {...attributes}
-              {...listeners}
-              aria-label="Drag to reorder"
-              className="cursor-grab active:cursor-grabbing text-ink-faint hover:text-ink-muted px-1 select-none"
-              tabIndex={-1}
-            >
-              ⋮⋮
-            </button>
-          ) : (
-            <span className="px-1" />
-          )}
-          {canEdit ? (
-            <input
-              type="number"
-              inputMode="numeric"
-              value={orderText}
-              onChange={(e) => setOrderText(e.target.value)}
-              onBlur={() => onOrderInputCommit(s.id, orderText)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              disabled={pending}
-              className="w-10 px-1 py-0.5 text-[11px] tabnum font-mono bg-bg border border-rule rounded text-ink-strong focus:border-emerald focus:outline-none"
-            />
-          ) : (
-            <span className="text-[11px] tabnum font-mono text-ink-muted">{s.order ?? displayOrder}</span>
-          )}
-        </div>
+        {canEdit ? (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label="Drag to reorder"
+            className="cursor-grab active:cursor-grabbing text-ink-faint hover:text-ink-muted px-1 select-none"
+            tabIndex={-1}
+            disabled={pending}
+          >
+            ⋮⋮
+          </button>
+        ) : null}
       </td>
+
       <td className="px-3 py-2.5 text-ink font-medium max-w-[160px]">
         <div className="truncate" title={s.name}>{s.name}</div>
       </td>
@@ -245,21 +218,8 @@ export function QuoteStoriesTable({
     commitReorder(next);
   }
 
-  function handleOrderInputCommit(id: string, raw: string) {
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return;
-    // Reorder using the new desired order value; tie-break keeps the edited row
-    // first when colliding with an existing value.
-    const next = [...localStories]
-      .map((s) => (s.id === id ? { ...s, order: parsed } : s))
-      .sort((a, b) => {
-        const ao = a.order ?? Number.POSITIVE_INFINITY;
-        const bo = b.order ?? Number.POSITIVE_INFINITY;
-        if (ao !== bo) return ao - bo;
-        return a.id === id ? -1 : b.id === id ? 1 : 0;
-      });
-    commitReorder(next);
-  }
+
+
 
   return (
     <div className="bg-bg-elevated/60 border border-rule rounded-md overflow-hidden">
@@ -300,7 +260,7 @@ export function QuoteStoriesTable({
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wider text-ink-muted border-b border-rule">
-                  <th className="px-2 py-2 font-medium w-[64px]">#</th>
+                  <th className="px-2 py-2 font-medium w-[32px]"></th>
                   <th className="px-3 py-2 font-medium">Story Name</th>
                   <th className="px-3 py-2 font-medium">Description</th>
                   <th className="px-3 py-2 font-medium text-right tabnum">Hours</th>
@@ -318,19 +278,18 @@ export function QuoteStoriesTable({
               </thead>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                 <tbody className="row-zebra">
-                  {localStories.map((s, i) => (
+                  {localStories.map((s) => (
                     <SortableStoryRow
                       key={s.id}
                       story={s}
-                      index={i}
                       canEdit={canEdit}
                       onRowClick={onRowClick}
-                      onOrderInputCommit={handleOrderInputCommit}
                       pending={pending}
                     />
                   ))}
                 </tbody>
               </SortableContext>
+
             </table>
           </DndContext>
         </div>

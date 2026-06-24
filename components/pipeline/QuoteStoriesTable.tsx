@@ -92,12 +92,8 @@ function SortableStoryRow({
     opacity: isDragging ? 0.6 : undefined,
   };
 
-  const displayOrder = (index + 1) * 10;
-  const [orderText, setOrderText] = useState<string>(String(s.order ?? displayOrder));
 
-  useEffect(() => {
-    setOrderText(String(s.order ?? displayOrder));
-  }, [s.order, displayOrder]);
+
 
   return (
     <tr

@@ -273,7 +273,7 @@ export function QuoteStoriesTable({
             <table className="w-full text-[12px]">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wider text-ink-muted border-b border-rule">
-                  <th className="px-2 py-2 font-medium w-[64px]">#</th>
+                  <th className="px-2 py-2 font-medium w-[32px]"></th>
                   <th className="px-3 py-2 font-medium">Story Name</th>
                   <th className="px-3 py-2 font-medium">Description</th>
                   <th className="px-3 py-2 font-medium text-right tabnum">Hours</th>
@@ -291,19 +291,18 @@ export function QuoteStoriesTable({
               </thead>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                 <tbody className="row-zebra">
-                  {localStories.map((s, i) => (
+                  {localStories.map((s) => (
                     <SortableStoryRow
                       key={s.id}
                       story={s}
-                      index={i}
                       canEdit={canEdit}
                       onRowClick={onRowClick}
-                      onOrderInputCommit={handleOrderInputCommit}
                       pending={pending}
                     />
                   ))}
                 </tbody>
               </SortableContext>
+
             </table>
           </DndContext>
         </div>

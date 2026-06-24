@@ -72,8 +72,8 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.problemStatementSolution !== undefined) {
     fields["Problem Statement & Our Solution"] = patch.problemStatementSolution;
   }
-  if (patch.estimateHoursRange !== undefined) fields["Estimate Hours Range"] = patch.estimateHoursRange;
-  if (patch.estimateCostRange !== undefined) fields["Estimate Cost Range"] = patch.estimateCostRange;
+  // Estimate Hours Range / Estimate Cost Range are no longer written from the UI.
+  // Estimate Cost Range is a rollup field in Airtable (read-only); hours range was removed.
   if (patch.blueprint !== undefined) fields["Blueprint"] = patch.blueprint;
   if (patch.epicOwnerId !== undefined) {
     fields["Epic Owner"] = patch.epicOwnerId ? [patch.epicOwnerId] : [];

@@ -1,31 +1,14 @@
-## Problem
+## Changes
 
-On the quote detail page (`app/(app)/pipeline/[id]/page.tsx`), the link to the account/client page currently renders `quote.client`, which is the **contact person's name** (from the Quotes `Client Name` lookup → People). The Accounts page shows the **company name** (`quote.company`, resolved via Prepared for → People → Companies). These don't match, so the link looks wrong.
+**`components/pipeline/QuoteSheetEditor.tsx`**
+- Remove the **Estimate Hours Range** `FieldRow` (lines 1235–1242) entirely.
+- Replace the **Estimate Cost Range** `FieldRow` (lines 1244–1251) with a read-only display (plain text rendering of `quote.estimateCostRange`, or "—" when empty) — no `AiField`, no `onSave`. Keep the row label and PortalChip for visual consistency.
+- Drop `estimateHoursRange` from the `aiContentReady` check in `CreateAiProposalRow` (lines 1167) so the AI completion gate no longer requires it. Keep `estimateCostRange` in the readiness check since the rollup will still populate.
 
-Also, the link is small mono text in the breadcrumb row + an inline underline in the subtitle — easy to miss.
+**`lib/mutations/quote.ts`**
+- Remove the two write lines (75–76) that PATCH `Estimate Hours Range` and `Estimate Cost Range` to Airtable, since the cost range is now a rollup (writes would 422) and hours range is no longer surfaced. Leaves the `QuoteFieldPatch` type alone — callers just stop sending these keys.
 
-## Changes (presentational only, single file: `app/(app)/pipeline/[id]/page.tsx`)
-
-1. **Use company name as the link label.**
-   - Breadcrumb link: replace `{quote.client && quote.client !== "—" ? quote.client : "Account"}` with `quote.company ?? quote.client ?? "Account"`.
-   - Subtitle: keep contact-person text as plain text (it's correctly labeled "Prepared by / for" context), and stop turning `quote.client` into the account link. The account link belongs on the company name, not the contact.
-
-2. **Make the account button obvious.** Replace the faint breadcrumb-style "Account ↗" link with a real button placed next to the "Web Quote ↗" / "Airtable ↗" buttons in the action row:
-   ```
-   [ ← All quotes ]                       (breadcrumb only)
-
-   <PageHeader ... />
-
-   Status chips ...     [ View Account ↗ ] [ Web Quote ↗ ] [ Airtable ↗ ]
-   ```
-   - Style: same size as the other action buttons, neutral surface (`bg-bg-elevated border border-rule`), with the company name inline, e.g. `View account: Acme Corp ↗`.
-   - Only render when `quote.companyId` is present; otherwise omit.
-
-3. **Keep the breadcrumb minimal:** just `← All quotes` (or `← Back to client` when `fromClient` is set). Remove the duplicate company link from the breadcrumb row now that the prominent button covers it.
-
-No data-layer, schema, or mutation changes. `quote.company` and `quote.companyId` are already returned by `lib/pipeline.ts`.
-
-## Out of scope
-
-- No changes to the Accounts page, QuoteSheetEditor, or the `client` field semantics elsewhere.
-- Not renaming the `client` field in `PipelineQuote` (still used by tables/filters as the contact label).
+**Not changing**
+- `lib/quotes.ts` continues to read both fields (cost range from the rollup, hours range harmlessly).
+- `lib/quote-types.ts` types stay so other consumers don't break.
+- `lib/schema.ts` field entries stay (read paths still use them).

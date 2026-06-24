@@ -21,6 +21,7 @@ export type StoryPatch = {
   phase?: string | null;
   sprintIds?: string[];
   comments?: string;
+  clientNotes?: string;
 };
 
 export type MutationResult = { ok: true } | { error: string };
@@ -45,6 +46,7 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   if (patch.phase !== undefined) fields["Phase"] = patch.phase;
   if (patch.sprintIds !== undefined) fields[SPRINT_FIELD_NAME] = patch.sprintIds;
   if (patch.comments !== undefined) fields["Comments"] = patch.comments;
+  if (patch.clientNotes !== undefined) fields["Client Notes"] = patch.clientNotes;
   return fields;
 }
 

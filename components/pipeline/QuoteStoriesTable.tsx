@@ -718,30 +718,14 @@ export function QuoteStoriesTable({
     const patch: Parameters<typeof updateStory>[1] = {};
     if (p.name !== undefined) patch.name = p.name;
     if (p.description !== undefined) patch.description = p.description;
-    if (p.clientNotes !== undefined) (patch as Record<string, unknown>)["comments"]; // no-op: clientNotes lives on Stories as a separate field
+    if (p.clientNotes !== undefined) patch.clientNotes = p.clientNotes;
     if (p.hours !== undefined) patch.hours = p.hours;
     if (p.cost !== undefined) patch.invoice = p.cost;
     if (p.status !== undefined) patch.status = p.status;
     if (p.assigneeIds !== undefined) patch.assigneeIds = p.assigneeIds;
 
-    // clientNotes uses a different Airtable field — use a direct patchRecords call
-    // through updateStory if needed. For simplicity, route through dedicated server action
-    // call for description-as-clientNotes via bulkUpdate (re-uses fields map).
-    if (p.clientNotes !== undefined) {
-      // bulkUpdateQuoteStoriesFields only supports assignee/status — fall back to a
-      // direct patch using a tiny helper via the dedicated endpoint.
-      // We'll piggyback on updateStory by sending it through a separate call.
-      const { updateStoryClientNotes } = await import("@/lib/mutations/story-client-notes");
-      await updateStoryClientNotes(id, p.clientNotes);
-    }
-
     if (Object.keys(patch).length > 0) {
       await updateStory(id, patch);
-    }
-
-    if (onChanged) {
-      // Light refresh: parent will refetch quote on next interaction; we trigger via reorder no-op.
-      // (Skipping to avoid extra round-trip on every keystroke commit.)
     }
   }
 

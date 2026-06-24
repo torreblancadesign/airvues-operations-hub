@@ -1264,7 +1264,9 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             title="Original scope total (rolls up from stories)"
             addLabel="+ Add story"
             quoteId={quote.id}
+            people={people}
             onReordered={(next) => setQuote(next)}
+            onChanged={(next) => setQuote(next)}
           />
 
           {storyLoading && (
@@ -1360,7 +1362,9 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
                 : "No change orders yet."
             }
             quoteId={quote.id}
+            people={people}
             onReordered={(next) => setQuote(next)}
+            onChanged={(next) => setQuote(next)}
           />
 
 

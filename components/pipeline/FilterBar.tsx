@@ -22,7 +22,6 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
 
   const hasActive =
     filter.search !== "" ||
-    filter.stage !== "all" ||
     filter.proposalType !== "all" ||
     filter.client !== null ||
     filter.preparedBy !== null ||
@@ -54,20 +53,7 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
         <span className="text-[11px] text-ink-faint">To</span>
         <input type="date" value={filter.to || ""} onChange={(e) => update("to", e.target.value || null)} className={`${inputCls} font-mono`} />
 
-        <select
-          value={filter.stage}
-          onChange={(e) => update("stage", e.target.value as Filter["stage"])}
-          className={selectCls}
-          title="Filter by Deal Stage (internal sales pipeline)"
-        >
-          <option value="all">All deal stages</option>
-          <option value="draft">Draft</option>
-          <option value="sent">Sent · awaiting</option>
-          <option value="signed">Signed</option>
-          <option value="paid">Paid</option>
-          <option value="lost">Cancelled / Rejected</option>
-          <option value="auditing">Auditing</option>
-        </select>
+        {/* Deal Stage moved to top-of-page tabs */}
 
         <select value={filter.proposalType} onChange={(e) => update("proposalType", e.target.value as Filter["proposalType"])} className={selectCls}>
           <option value="all">All types</option>

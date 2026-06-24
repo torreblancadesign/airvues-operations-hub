@@ -118,13 +118,15 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
           sT.fields["Assignee"].id,
           sT.fields["User (from Assignee)"].id,
           sT.fields["Change Order"].id,
+          sT.fields["Quote Order"].id,
         ],
       },
       [`quote:${quoteId}:stories`],
     );
 
-    // Preserve quote's story ordering
+    // Preserve quote's story ordering as the tiebreaker, but sort primarily by Quote Order.
     const byId = new Map(rows.map((r) => [r.id, r]));
+    const linkIndex = new Map(storyIds.map((id, i) => [id, i]));
     stories = storyIds
       .map((id) => byId.get(id))
       .filter((r): r is NonNullable<typeof r> => Boolean(r))
@@ -150,9 +152,17 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
             name: assigneeNames[i] ?? "(unknown)",
           })),
           isChangeOrder: sf["Change Order"] === true,
+          order: typeof sf["Quote Order"] === "number" ? (sf["Quote Order"] as number) : null,
         };
+      })
+      .sort((a, b) => {
+        const ao = a.order ?? Number.POSITIVE_INFINITY;
+        const bo = b.order ?? Number.POSITIVE_INFINITY;
+        if (ao !== bo) return ao - bo;
+        return (linkIndex.get(a.id) ?? 0) - (linkIndex.get(b.id) ?? 0);
       });
   }
+
 
   const rawDocs = f["Documents needed for Proposal"];
   const docs: QuoteAttachment[] = (Array.isArray(rawDocs) ? rawDocs : []).map((a) => ({

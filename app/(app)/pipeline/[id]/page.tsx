@@ -11,6 +11,7 @@ import { listProjectLogForProject } from "@/lib/project-log";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { QuoteSheetEditor } from "@/components/pipeline/QuoteSheetEditor";
+import { DealStageChip } from "@/components/pipeline/DealStageChip";
 import { ProjectLogTimeline } from "@/components/projects/ProjectLogTimeline";
 import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
 import { assertCanAccess } from "@/lib/page-guard";

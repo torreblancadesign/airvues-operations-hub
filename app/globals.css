@@ -16,13 +16,13 @@
   /* Ink (text) */
   --ink: #E8ECF2;
   --ink-strong: #F8FAFC;
-  --ink-muted: #8B95A5;
-  --ink-faint: #5C6675;
+  --ink-muted: #A3ADBD;
+  --ink-faint: #6B7585;
 
   /* Rules */
-  --rule: #1F2735;
-  --rule-soft: #161C2A;
-  --rule-strong: #2A3245;
+  --rule: #26303F;
+  --rule-soft: #1A2030;
+  --rule-strong: #34405A;
 
   /* Brand */
   --navy: #2B4257;
@@ -86,6 +86,27 @@ html, body {
 }
 
 ::selection { background: var(--emerald); color: var(--bg); }
+
+/* Zebra-striped table bodies. Apply on <tbody>. */
+.row-zebra > tr:nth-child(even) > td {
+  background: rgba(255, 255, 255, 0.018);
+}
+.row-zebra > tr:hover > td {
+  background: var(--bg-elevated);
+}
+.row-zebra > tr {
+  transition: background-color 120ms ease-out;
+}
+
+/* Sticky table headers with a subtle backdrop. */
+.thead-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg-elevated);
+  backdrop-filter: saturate(140%) blur(6px);
+  -webkit-backdrop-filter: saturate(140%) blur(6px);
+}
 html { scroll-behavior: smooth; }
 
 /* Form controls — dark theme defaults so native selects/inputs don't fight us */

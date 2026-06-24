@@ -22,15 +22,15 @@ const config: Config = {
         ink: {
           DEFAULT: "#E8ECF2",
           strong: "#F8FAFC",
-          muted: "#8B95A5",
-          faint: "#5C6675",
+          muted: "#A3ADBD",
+          faint: "#6B7585",
         },
 
         // Rules
         rule: {
-          DEFAULT: "#1F2735",
-          soft: "#161C2A",
-          strong: "#2A3245",
+          DEFAULT: "#26303F",
+          soft: "#1A2030",
+          strong: "#34405A",
         },
 
         // Brand

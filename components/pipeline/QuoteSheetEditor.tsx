@@ -992,21 +992,6 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow
-          label="Epic Owner"
-          hint="Engineer responsible for delivering this epic."
-          chip={<InternalChip />}
-          state={stateFor("epicOwnerId")}
-          variant="cell"
-        >
-          <PersonPicker
-            value={quote.epicOwnerId}
-            options={people.filter((p) => p.isInternal && p.isActive)}
-            disabled={!canEdit}
-            placeholder="Pick the lead engineer"
-            onChange={(id) => void patchAndRefresh("epicOwnerId", { epicOwnerId: id })}
-          />
-        </FieldRow>
 
         <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")} variant="cell">
           <input
@@ -1088,6 +1073,22 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
               </option>
             ))}
           </select>
+        </FieldRow>
+
+        <FieldRow
+          label="Epic Owner"
+          hint="Engineer responsible for delivering this epic."
+          chip={<InternalChip />}
+          state={stateFor("epicOwnerId")}
+          variant="cell"
+        >
+          <PersonPicker
+            value={quote.epicOwnerId}
+            options={people.filter((p) => p.isInternal && p.isActive)}
+            disabled={!canEdit}
+            placeholder="Pick the lead engineer"
+            onChange={(id) => void patchAndRefresh("epicOwnerId", { epicOwnerId: id })}
+          />
         </FieldRow>
 
         <FieldRow

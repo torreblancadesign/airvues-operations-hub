@@ -132,14 +132,12 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
         </span>
       </div>
 
-      <div className="bg-surface border border-rule rounded-card overflow-hidden">
-        <QuoteSheetEditor
-          quoteId={quote.id}
-          people={people}
-          sprints={sprints}
-          canEdit={canEdit}
-        />
-      </div>
+      <QuoteSheetEditor
+        quoteId={quote.id}
+        people={people}
+        sprints={sprints}
+        canEdit={canEdit}
+      />
 
       <div className="mt-6">
         <Section

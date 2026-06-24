@@ -64,11 +64,6 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
         ) : (
           <Link href="/pipeline" className="hover:text-emerald">← All quotes</Link>
         )}
-        {quote.companyId && (
-          <Link href={`/clients/${quote.companyId}`} className="hover:text-emerald">
-            {quote.client && quote.client !== "—" ? quote.client : "Account"} ↗
-          </Link>
-        )}
       </div>
 
       <PageHeader

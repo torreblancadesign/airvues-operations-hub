@@ -1,6 +1,6 @@
 type Props = {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   meta?: React.ReactNode;
 };
 

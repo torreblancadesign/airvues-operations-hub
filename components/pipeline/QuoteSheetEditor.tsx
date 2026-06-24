@@ -1164,7 +1164,6 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             asStr(quote.recommendedApproachSummary).trim().length > 0 &&
             asStr(quote.projectOverview).trim().length > 0 &&
             asStr(quote.problemStatementSolution).trim().length > 0 &&
-            asStr(quote.estimateHoursRange).trim().length > 0 &&
             asStr(quote.estimateCostRange).trim().length > 0 &&
             quote.stories.length > 0
           }
@@ -1232,22 +1231,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Estimate Hours Range" chip={<PortalChip />} state={stateFor("estimateHoursRange")}>
-          <AiField
-            value={quote.estimateHoursRange}
-            canEdit={canEdit}
-            rows={2}
-            onSave={(v) => patchAndRefresh("estimateHoursRange", { estimateHoursRange: v })}
-          />
-        </FieldRow>
-
-        <FieldRow label="Estimate Cost Range" chip={<PortalChip />} state={stateFor("estimateCostRange")}>
-          <AiField
-            value={quote.estimateCostRange}
-            canEdit={canEdit}
-            rows={2}
-            onSave={(v) => patchAndRefresh("estimateCostRange", { estimateCostRange: v })}
-          />
+        <FieldRow label="Estimate Cost Range" chip={<PortalChip />} state="idle">
+          <div className="px-2 py-1.5 text-[13px] text-ink whitespace-pre-wrap">
+            {asStr(quote.estimateCostRange).trim() || "—"}
+          </div>
         </FieldRow>
       </Section>
 

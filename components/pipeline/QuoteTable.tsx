@@ -96,9 +96,9 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
 
   return (
     <div className="bg-surface border border-rule rounded-card overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto max-h-[calc(100vh-260px)]">
         <table className="w-full">
-          <thead className="bg-bg-elevated border-b border-rule">
+          <thead className="thead-sticky border-b border-rule">
             <tr>
               <SortHeader label="#" active={sort.key === "autonumber"} dir={sort.dir} onClick={() => toggle("autonumber")} />
               <SortHeader label="Prepared" active={sort.key === "preparedDate"} dir={sort.dir} onClick={() => toggle("preparedDate")} />
@@ -164,7 +164,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
 
             </tr>
           </thead>
-          <tbody>
+          <tbody className="row-zebra">
             {rows.length === 0 ? (
               <tr><td colSpan={13} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
@@ -172,7 +172,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                 const days = daysSince(q.preparedDate);
                 const stale = days != null && days > 14 && (q.status === "Sent. Awaiting Approval." || q.status === "Draft" || q.status === "Auditing 🚩");
                 return (
-                  <tr key={q.id} onClick={() => onRowClick(q)} className={`border-b border-rule-soft last:border-0 cursor-pointer transition-colors ${selectedId === q.id ? "bg-emerald-soft" : "hover:bg-bg-elevated"}`}>
+                  <tr key={q.id} onClick={() => onRowClick(q)} className={`border-b border-rule-soft last:border-0 cursor-pointer ${selectedId === q.id ? "!bg-emerald-soft" : ""}`}>
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.autonumber ?? "—"}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.preparedDate ? new Date(q.preparedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}</td>
                     <td className="px-3 py-2.5 text-[13px] text-ink-strong max-w-[280px] truncate">{q.projectName}</td>

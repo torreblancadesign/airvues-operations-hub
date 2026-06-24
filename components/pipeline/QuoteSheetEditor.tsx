@@ -1263,7 +1263,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             onRowClick={openStory}
             title="Original scope total (rolls up from stories)"
             addLabel="+ Add story"
+            quoteId={quote.id}
+            onReordered={(next) => setQuote(next)}
           />
+
           {storyLoading && (
             <div className="mt-2 text-[11px] text-ink-faint">Loading story…</div>
           )}

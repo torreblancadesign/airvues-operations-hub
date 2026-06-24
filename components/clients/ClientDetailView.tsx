@@ -223,12 +223,13 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
       </div>
 
       {/* Overview (includes Relationship notes) */}
-      <div className="bg-surface border border-rule rounded-card p-4 mb-4 [&_.if-group_.border-b]:border-b-0">
-        <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-3">
-          Overview
-        </h2>
-
-        <div className="if-group">
+      <Section
+        title="Overview"
+        tone="emerald"
+        storageKey={`client:${detail.id}:overview`}
+        defaultOpen
+      >
+        <div className="if-group [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Identity</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -254,7 +255,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Commercial</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -280,7 +281,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Status</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -316,7 +317,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Links</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -338,7 +339,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Notes</div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4">
             <InlineField
@@ -356,7 +357,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
             />
           </div>
         </div>
-      </div>
+      </Section>
 
 
       {/* Contacts */}

@@ -31,7 +31,7 @@ type QuoteFields = {
   "Project Overview"?: string;
   "Problem Statement & Our Solution"?: string;
   "Estimate Hours Range"?: string;
-  "Estimate Cost Range"?: string;
+  "Estimate Cost Range"?: unknown;
   "Stories"?: string[];
   "Total Cost"?: number;
   "Total Hours"?: number;
@@ -210,7 +210,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     projectOverview: asStr(f["Project Overview"]),
     problemStatementSolution: asStr(f["Problem Statement & Our Solution"]),
     estimateHoursRange: asStr(f["Estimate Hours Range"]),
-    estimateCostRange: asStr(f["Estimate Cost Range"]),
+    estimateCostRange: formatRollupCost(f["Estimate Cost Range"]),
 
     runAiProposalAgent: f["Run AI Proposal Agent"] === true,
     runAiChangeOrderAgent: f["Run AI Change Order Agent"] === true,

@@ -119,45 +119,24 @@ function SortableStoryRow({
       }
     >
       <td
-        className="px-2 py-2.5 w-[64px] whitespace-nowrap"
+        className="px-2 py-2.5 w-[32px] whitespace-nowrap"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-1">
-          {canEdit ? (
-            <button
-              type="button"
-              {...attributes}
-              {...listeners}
-              aria-label="Drag to reorder"
-              className="cursor-grab active:cursor-grabbing text-ink-faint hover:text-ink-muted px-1 select-none"
-              tabIndex={-1}
-            >
-              ⋮⋮
-            </button>
-          ) : (
-            <span className="px-1" />
-          )}
-          {canEdit ? (
-            <input
-              type="number"
-              inputMode="numeric"
-              value={orderText}
-              onChange={(e) => setOrderText(e.target.value)}
-              onBlur={() => onOrderInputCommit(s.id, orderText)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              disabled={pending}
-              className="w-10 px-1 py-0.5 text-[11px] tabnum font-mono bg-bg border border-rule rounded text-ink-strong focus:border-emerald focus:outline-none"
-            />
-          ) : (
-            <span className="text-[11px] tabnum font-mono text-ink-muted">{s.order ?? displayOrder}</span>
-          )}
-        </div>
+        {canEdit ? (
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label="Drag to reorder"
+            className="cursor-grab active:cursor-grabbing text-ink-faint hover:text-ink-muted px-1 select-none"
+            tabIndex={-1}
+            disabled={pending}
+          >
+            ⋮⋮
+          </button>
+        ) : null}
       </td>
+
       <td className="px-3 py-2.5 text-ink font-medium max-w-[160px]">
         <div className="truncate" title={s.name}>{s.name}</div>
       </td>

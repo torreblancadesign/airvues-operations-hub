@@ -142,7 +142,16 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
       </div>
 
       <div className="mt-6">
-        <ProjectLogTimeline entries={logEntries} />
+        <Section
+          title="Project log"
+          tone="neutral"
+          collapsible
+          defaultOpen={false}
+          storageKey={`qs:${quote.id}:log`}
+          meta={`${logEntries.length} ${logEntries.length === 1 ? "event" : "events"}`}
+        >
+          <ProjectLogTimeline entries={logEntries} />
+        </Section>
       </div>
     </main>
   );

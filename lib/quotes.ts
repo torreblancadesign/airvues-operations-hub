@@ -55,6 +55,8 @@ type StoryFields = {
   "Assignee"?: string[];
   "User (from Assignee)"?: string[];
   "Change Order"?: boolean;
+  "Quote Order"?: number;
+
 };
 
 // Airtable rich-text / formula / rollup fields occasionally return non-string

@@ -116,6 +116,14 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
           </span>
         )}
         <span className="ml-auto flex gap-2">
+          {quote.companyId && (
+            <Link
+              href={`/clients/${quote.companyId}`}
+              className="px-3 py-1.5 text-[12px] bg-bg-elevated border border-emerald/40 text-emerald font-medium rounded hover:bg-emerald/10 transition-colors"
+            >
+              View account{quote.company ? `: ${quote.company}` : ""} ↗
+            </Link>
+          )}
           <a
             href={quote.webQuoteUrl}
             target="_blank"

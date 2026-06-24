@@ -970,8 +970,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
   return (
     <>
       {/* SECTION 1: Quote details (client-visible header) */}
-      <Section title="Quote details" chip={<PortalChip />} collapsible storageKey={`qs:${quoteId}:details`} defaultOpen>
-        <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")}>
+      <Section title="Quote details" chip={<PortalChip />} tone="emerald" collapsible storageKey={`qs:${quoteId}:details`} defaultOpen>
+        <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
+        <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")} variant="cell" className="md:col-span-2">
+
           <TextField
             initialValue={quote.projectName}
             disabled={!canEdit}

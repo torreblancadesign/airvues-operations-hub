@@ -70,14 +70,7 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
         title={quote.projectName}
         subtitle={
           <>
-            Quote {quote.autonumber ? `#${quote.autonumber}` : ""} ·{" "}
-            {quote.companyId ? (
-              <Link href={`/clients/${quote.companyId}`} className="text-ink hover:text-emerald underline-offset-2 hover:underline">
-                {quote.client}
-              </Link>
-            ) : (
-              quote.client
-            )}
+            Quote {quote.autonumber ? `#${quote.autonumber}` : ""} · {quote.client}
             {quote.preparedBy && quote.preparedBy !== "—" ? ` · Prepared by ${quote.preparedBy}` : ""} · {fmtDate(quote.preparedDate)}
           </>
         }

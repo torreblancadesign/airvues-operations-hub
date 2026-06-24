@@ -1097,7 +1097,6 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           chip={<InternalChip />}
           state={stateFor("blueprint")}
           variant="cell"
-          className="md:col-span-2"
         >
           <label className="inline-flex items-center gap-2 text-[12px] text-ink cursor-pointer select-none">
             <input

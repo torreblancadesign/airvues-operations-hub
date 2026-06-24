@@ -349,6 +349,16 @@ export async function createQuoteStory(
   if (input.isChangeOrder) fields["Change Order"] = true;
 
   try {
+    // Default Quote Order = max existing order in the same subset + 10, so new rows append.
+    try {
+      const existing = await getQuoteDetail(quoteId);
+      const subset = existing.stories.filter((s) => s.isChangeOrder === !!input.isChangeOrder);
+      const maxOrder = subset.reduce((m, s) => (s.order != null && s.order > m ? s.order : m), 0);
+      fields["Quote Order"] = maxOrder + 10;
+    } catch {
+      fields["Quote Order"] = 10;
+    }
+
     const created = await createRecords(Tables.Stories.id, [{ fields }]);
     invalidateQuote(quoteId);
     const quote = await getQuoteDetail(quoteId);
@@ -364,6 +374,34 @@ export async function createQuoteStory(
     return { error: (e as Error).message };
   }
 }
+
+// ---------- Reorder stories within a quote ----------
+
+export async function reorderQuoteStories(
+  quoteId: string,
+  updates: { id: string; order: number }[],
+): Promise<MutationResult<{ quote: QuoteDetail }>> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  if (updates.length === 0) {
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  }
+  const denied = await gate();
+  if (denied) return denied;
+
+  try {
+    await patchRecords(
+      Tables.Stories.id,
+      updates.map((u) => ({ id: u.id, fields: { "Quote Order": u.order } })),
+    );
+    invalidateQuote(quoteId);
+    const quote = await getQuoteDetail(quoteId);
+    return { ok: true, quote };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
 
 // ---------- Create draft quote (in-context proposal flow) ----------
 

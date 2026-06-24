@@ -9,6 +9,7 @@ import type { PersonOption } from "@/lib/quote-types";
 import { QuoteSheet } from "@/components/pipeline/QuoteSheet";
 import { InvoiceSheet } from "@/components/money/InvoiceSheet";
 import { InlineField } from "@/components/clients/InlineField";
+import { Section } from "@/components/ui/Section";
 import { updateCompany, type CompanyPatch } from "@/lib/mutations/company";
 import { updateContact, type ContactPatch } from "@/lib/mutations/person";
 import { updateClientStatuses, type PartnerStatus, type LeadStatus } from "@/lib/mutations/client";
@@ -222,12 +223,13 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
       </div>
 
       {/* Overview (includes Relationship notes) */}
-      <div className="bg-surface border border-rule rounded-card p-4 mb-4 [&_.if-group_.border-b]:border-b-0">
-        <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted mb-3">
-          Overview
-        </h2>
-
-        <div className="if-group">
+      <Section
+        title="Overview"
+        tone="emerald"
+        storageKey={`client:${detail.id}:overview`}
+        defaultOpen
+      >
+        <div className="if-group [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Identity</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -253,7 +255,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Commercial</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -279,7 +281,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Status</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -315,7 +317,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Links</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-x-4">
             <InlineField
@@ -337,7 +339,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
           </div>
         </div>
 
-        <div className="if-group mt-3 pt-3 border-t border-rule">
+        <div className="if-group mt-4 pt-4 border-t border-rule [&_.border-b]:border-b-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint mb-1">Notes</div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4">
             <InlineField
@@ -355,19 +357,18 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
             />
           </div>
         </div>
-      </div>
+      </Section>
 
 
       {/* Contacts */}
-      <div className="bg-surface border border-rule rounded-card mb-4 overflow-hidden">
-        <div className="px-5 py-3 border-b border-rule flex items-center justify-between">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted">
-            Contacts
-          </h2>
-          <span className="text-[11px] font-mono text-ink-faint tabnum">
-            {detail.contacts.length} {detail.contacts.length === 1 ? "person" : "people"}
-          </span>
-        </div>
+      <Section
+        title="Contacts"
+        tone="sky"
+        storageKey={`client:${detail.id}:contacts`}
+        defaultOpen={detail.contacts.length > 0 && detail.contacts.length <= 3}
+        bodyPadding={false}
+        meta={`${detail.contacts.length} ${detail.contacts.length === 1 ? "person" : "people"}`}
+      >
         {detail.contacts.length === 0 ? (
           <div className="px-5 py-6 text-center text-[13px] text-ink-muted">No contacts linked.</div>
         ) : (
@@ -385,7 +386,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                   {canEdit && <th className="px-3 py-2 w-10"></th>}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="row-zebra">
                 {detail.contacts.map((c) => (
                   <ContactRow
                     key={c.id}
@@ -399,20 +400,23 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
             </table>
           </div>
         )}
-      </div>
+      </Section>
 
       {/* Projects */}
-      <div id="projects-section" className="bg-surface border border-rule rounded-card mb-4 overflow-hidden">
-        <div className="px-5 py-3 border-b border-rule flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted">
-            Projects
-          </h2>
+      <Section
+        id="projects-section"
+        title="Projects"
+        tone="violet"
+        storageKey={`client:${detail.id}:projects`}
+        defaultOpen
+        bodyPadding={false}
+        meta={
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
               {(["active", "completed", "all"] as Tab[]).map((t) => (
                 <button
                   key={t}
-                  onClick={() => setTab(t)}
+                  onClick={(e) => { e.stopPropagation(); setTab(t); }}
                   className={`px-2.5 py-1 text-[11px] rounded font-medium uppercase tracking-wider ${
                     tab === t
                       ? "bg-emerald text-bg"
@@ -426,6 +430,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
             {canEdit && (
               <a
                 href={`/clients/${detail.id}/proposals/new`}
+                onClick={(e) => e.stopPropagation()}
                 className="px-3 py-1 text-[11px] rounded font-medium uppercase tracking-wider bg-emerald text-bg hover:bg-emerald/80"
                 title="Create a new proposal for this account"
               >
@@ -433,7 +438,8 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
               </a>
             )}
           </div>
-        </div>
+        }
+      >
         {projects.length === 0 ? (
           <div className="px-5 py-6 text-center text-[13px] text-ink-muted">No projects in this view.</div>
         ) : (
@@ -451,17 +457,17 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                   <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Stories</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="row-zebra">
                 {projects.map((p) => (
                   <tr
                     key={p.id}
                     id={`project-row-${p.id}`}
                     onClick={() => { window.location.href = `/pipeline/${p.id}`; }}
-                    className={`border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors ${
-                      highlightId === p.id ? "bg-emerald-soft/40 ring-1 ring-emerald" : ""
+                    className={`border-b border-rule-soft last:border-0 cursor-pointer ${
+                      highlightId === p.id ? "!bg-emerald-soft/40 ring-1 ring-emerald" : ""
                     }`}
                   >
-                    <td className="px-3 py-2 text-[13px] text-ink-strong">
+                    <td className="px-3 py-2.5 text-[13px] text-ink-strong">
                       <a href={`/pipeline/${p.id}`} className="hover:text-emerald hover:underline">
                         {p.projectName}
                       </a>
@@ -469,34 +475,32 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                         <span className="ml-1.5 text-[10px] font-mono text-ink-faint">#{p.autonumber}</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{p.status ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{p.projectStatus ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted font-mono">{fmtDate(p.preparedDate)}</td>
-                    <td className="px-3 py-2 text-right text-[13px] tabnum font-semibold text-ink-strong">{fmtCurrency(p.totalCost)}</td>
-                    <td className="px-3 py-2 text-right text-[12px] tabnum font-mono text-ink-muted">{fmtCurrency(p.totalPaid)}</td>
-                    <td className="px-3 py-2 text-right text-[12px] tabnum font-mono text-ink-muted">
+                    <td className="px-3 py-2.5 text-[12px] text-ink-muted">{p.status ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink-muted">{p.projectStatus ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink-muted font-mono">{fmtDate(p.preparedDate)}</td>
+                    <td className="px-3 py-2.5 text-right text-[13px] tabnum font-semibold text-ink-strong">{fmtCurrency(p.totalCost)}</td>
+                    <td className="px-3 py-2.5 text-right text-[12px] tabnum font-mono text-ink-muted">{fmtCurrency(p.totalPaid)}</td>
+                    <td className="px-3 py-2.5 text-right text-[12px] tabnum font-mono text-ink-muted">
                       {p.totalHours != null ? `${p.totalHours}h` : "—"}
                     </td>
-                    <td className="px-3 py-2 text-right text-[12px] tabnum font-mono text-ink-muted">{p.storiesCount}</td>
+                    <td className="px-3 py-2.5 text-right text-[12px] tabnum font-mono text-ink-muted">{p.storiesCount}</td>
                   </tr>
                 ))}
-
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </Section>
 
       {/* Invoices */}
-      <div className="bg-surface border border-rule rounded-card mb-4 overflow-hidden">
-        <div className="px-5 py-3 border-b border-rule flex items-center justify-between">
-          <h2 className="text-[12px] font-semibold uppercase tracking-wider text-ink-muted">
-            Invoices
-          </h2>
-          <span className="text-[11px] font-mono text-ink-faint tabnum">
-            {detail.invoices.length} total
-          </span>
-        </div>
+      <Section
+        title="Invoices"
+        tone="amber"
+        storageKey={`client:${detail.id}:invoices`}
+        defaultOpen={false}
+        bodyPadding={false}
+        meta={`${detail.invoices.length} total · ${fmtCurrency(detail.outstandingAR)} outstanding`}
+      >
         {detail.invoices.length === 0 ? (
           <div className="px-5 py-6 text-center text-[13px] text-ink-muted">No invoices on file.</div>
         ) : (
@@ -512,21 +516,21 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
                   <th className="px-3 py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Amount</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="row-zebra">
                 {detail.invoices.map((inv) => (
                   <tr
                     key={inv.id}
                     onClick={() => setSelectedInvoice(inv)}
-                    className="border-b border-rule-soft last:border-0 cursor-pointer hover:bg-bg-elevated transition-colors"
+                    className="border-b border-rule-soft last:border-0 cursor-pointer"
                   >
-                    <td className="px-3 py-2 text-[12px] font-mono text-ink-muted">{inv.invoiceId ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] font-mono text-ink-muted">{fmtDate(inv.date)}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink max-w-[300px] truncate" title={inv.description ?? ""}>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-ink-muted">{inv.invoiceId ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[12px] font-mono text-ink-muted">{fmtDate(inv.date)}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink max-w-[300px] truncate" title={inv.description ?? ""}>
                       {inv.description ?? "—"}
                     </td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{inv.type ?? "—"}</td>
-                    <td className="px-3 py-2 text-[12px] text-ink-muted">{inv.status ?? "—"}</td>
-                    <td className={`px-3 py-2 text-right text-[13px] tabnum font-semibold ${
+                    <td className="px-3 py-2.5 text-[12px] text-ink-muted">{inv.type ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-[12px] text-ink-muted">{inv.status ?? "—"}</td>
+                    <td className={`px-3 py-2.5 text-right text-[13px] tabnum font-semibold ${
                       inv.status === "paid" ? "text-emerald" :
                       inv.status === "past due" ? "text-red" : "text-ink-strong"
                     }`}>
@@ -538,7 +542,7 @@ export function ClientDetailView({ detail, people, sprints, canEdit }: Props) {
             </table>
           </div>
         )}
-      </div>
+      </Section>
 
       <QuoteSheet
         quote={selectedQuote}

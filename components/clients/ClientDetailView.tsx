@@ -9,6 +9,7 @@ import type { PersonOption } from "@/lib/quote-types";
 import { QuoteSheet } from "@/components/pipeline/QuoteSheet";
 import { InvoiceSheet } from "@/components/money/InvoiceSheet";
 import { InlineField } from "@/components/clients/InlineField";
+import { Section } from "@/components/ui/Section";
 import { updateCompany, type CompanyPatch } from "@/lib/mutations/company";
 import { updateContact, type ContactPatch } from "@/lib/mutations/person";
 import { updateClientStatuses, type PartnerStatus, type LeadStatus } from "@/lib/mutations/client";

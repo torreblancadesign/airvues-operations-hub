@@ -33,6 +33,7 @@ export type PipelineQuote = {
   airtableUrl: string;
   primaryEmail: string | null;
   company: string | null;
+  companyId: string | null;
   companyIds: string[];
   preparedForIds: string[];
   uninvoiced: number;
@@ -212,6 +213,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
       primaryEmail: first(f["Primary Email (from Prepared for)"] as string[] | undefined),
       company: resolvedCompanyName,
+      companyId: resolvedCompanyId,
       companyIds: Array.isArray(f["Existing Company? (from Form Submission)"])
         ? (f["Existing Company? (from Form Submission)"] as string[])
         : [],

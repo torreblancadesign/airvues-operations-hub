@@ -969,8 +969,8 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
 
   return (
     <>
-      {/* SECTION 1: Quote details (client-visible header) */}
-      <Section title="Quote details" chip={<PortalChip />} tone="emerald" collapsible storageKey={`qs:${quoteId}:details`} defaultOpen>
+      {/* SECTION 1: Project details (client-visible header) */}
+      <Section title="Project details" chip={<PortalChip />} tone="emerald" collapsible storageKey={`qs:${quoteId}:details`} defaultOpen>
         <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
         <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")} variant="cell" className="md:col-span-2">
 
@@ -1034,7 +1034,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         </FieldRow>
 
         <FieldRow
-          label="Client Journey"
+          label="Proposal Status"
           hint="Client-visible delivery milestone — drives the 7-stage progress bar on the web quote. (Airtable field: Project Status)"
           chip={<PortalChip />}
           state={stateFor("projectStatus")}

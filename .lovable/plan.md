@@ -1,79 +1,61 @@
+# Project drawer — multi-color sections + denser layout
 
-# UI Polish — Accounts & Projects
+Presentation-only refactor of `components/pipeline/QuoteSheetEditor.tsx` (plus a small wrap of `ProjectLogTimeline` on the project page). No data, mutation, or schema changes.
 
-Focused on two surfaces users live in: **Account detail** (`/clients/[id]`) and **Projects** (`/pipeline` list + Quote drawer). Goal: stop everything looking the same. No business-logic changes — presentation only.
+## 1. Use the shared `Section` primitive with distinct tones
 
-## 1. Shared visual primitives (small, reusable)
+Today the editor uses a local `Section` (lines 566–598) that hardcodes a green left rail on every block, so the whole drawer reads as one giant emerald section. Replace it with the shared `components/ui/Section.tsx` (already used on the Account page) and give each block its own color so the eye can tell them apart:
 
-Add three pieces in `components/ui/` so the language is consistent everywhere:
+| Section in editor | Tone (left rail) | Default state |
+|---|---|---|
+| Quote details (project name → Blueprint engagement) | emerald | open |
+| Client input for proposal | sky | collapsed |
+| AI-generated proposal content | violet | collapsed |
+| Quote calculator (stories table + totals) | amber | open |
+| Change orders | red | collapsed |
+| Project log (timeline) | neutral | collapsed |
 
-- **`Section.tsx`** — titled container with a colored left rail (4px), uppercase eyebrow title, optional right-side meta, optional collapsible body. Replaces today's loose `<div>` blocks that all blend together.
-- **`Field.tsx`** — label-above-value pair with stronger label/value contrast (`text-ink-faint` 10px uppercase → `text-ink-strong` 13px value), used inside Sections.
-- **Table row utility** in `app/globals.css`: `.row-zebra > *:nth-child(even) { background: var(--surface-2); }` plus a `.row-hover` hover state. Applied via a single className on tbody so all list tables get it.
+The shared `Section` already supports `tone`, `storageKey`, `defaultOpen`, and `meta`. Persistence keys stay `qs:<quoteId>:<slug>` so existing user open/closed state is preserved.
 
-Also bump global contrast tokens in `globals.css`:
-- `--ink-muted` from `#8B95A5` → `#A3ADBD` (current muted is hard to read on `--surface`)
-- `--rule` from `#1F2735` → `#26303F` (section borders need to actually show)
+Delete the local `Section` function in `QuoteSheetEditor.tsx` once all call sites are migrated.
 
-## 2. Account detail page (`components/clients/ClientDetailView.tsx`)
+## 2. Denser Quote details layout (responsive 2-col grid)
 
-Today it's a long flat scroll where company info, contacts, projects, invoices all look identical.
+The current "Quote details" section stacks every field full-width via `FieldRow` (one field per row, ~720–880px wide). On desktop that wastes horizontal space. Change just this section to a responsive grid:
 
-- Sticky **summary header**: company name (larger, 24px), engagement chip, partner/lead status chip, 4 inline KPIs (LTV, active projects, last invoice, days since contact). Bottom hairline gradient (same accent as PageHeader).
-- Convert the body to **collapsible Sections**, each with a distinct left-rail accent color so you instantly know where you are:
-  - **Company** (emerald rail) — open by default
-  - **Contacts** (sky rail) — collapsed when >3 contacts; row count in header
-  - **Projects** (violet rail) — open; keeps the active/completed/all tabs
-  - **Invoices** (amber rail) — collapsed by default; count + outstanding total in header
-  - **Activity / Log** (neutral rail) — collapsed
-- Persist collapse state per-section in `localStorage` keyed by `client-detail:<sectionId>`.
-- Projects + Invoices tables get zebra rows, taller row height (40px), hover highlight, and a left-edge status color stripe (3px) per row so you can scan status at a glance.
+- mobile: single column (unchanged feel)
+- ≥`md` (≥768px): `grid-cols-2` with `gap-x-5`
+- full-width spans for the two long fields: **Project name** and **Blueprint engagement** (use `md:col-span-2`)
+- everything else (Prepared by, Prepared date, Delivery due, Prepared for, Project status, Proposal type, Epic owner) sits in two columns
 
-## 3. Projects page — list (`components/pipeline/QuoteTable.tsx`, `PipelineDashboard.tsx`)
+`FieldRow` keeps its label/chip/save-indicator layout; only its outer wrapper changes from "bordered row" to "grid cell" inside Quote details. I'll do this by giving `FieldRow` an optional `variant?: "row" | "cell"` prop — `cell` drops the bottom border + horizontal padding so it sits cleanly inside the grid. Other sections continue using the default `row` variant unchanged.
 
-- Zebra rows + hover state + 40px row height.
-- Sticky table header with subtle backdrop blur so column titles stay visible while scrolling.
-- Group rows by **deal stage** with a sticky group header bar (stage name + row count + subtotal). Collapsible per group, state remembered.
-- Money columns get tighter mono numerics and a divider before "Committed Uninvoiced" so the three money columns (Quote Total / Invoiced / Committed Uninvoiced) read as a unit.
-- Stage column becomes a pill with a left status-color dot — currently it's plain text and blends in.
+## 3. Zebra rows in the Quote calculator
 
-## 4. Project drawer (`components/pipeline/QuoteSheetEditor.tsx`, 1.4K lines)
+The stories sub-table inside `QuoteStoriesTable` is the dense block in "Quote calculator". Apply the same alternating background already in use elsewhere:
 
-This is the densest screen and the biggest readability complaint. Refactor presentation only (no logic changes):
+- add `row-zebra` (utility already in `app/globals.css`) to the `<tbody>` of the stories table
+- add `row-hover` for consistent hover feedback
+- keep totals row visually distinct (existing top border + bold treatment)
 
-- Drawer width: 720px → 880px on ≥1280px screens.
-- Replace the current run-on layout with the new **Section** primitive. Each section is collapsible with persisted state:
-  - **Overview** (always open) — title, client, stage pill, owner, big money trio
-  - **Description / Scope** (collapsed if >300 chars) — show a 2-line preview + "Expand" affordance with chevron
-  - **Stories** (open)
-  - **Financials** (open) — cost breakdown, payment terms
-  - **Files & Links** (collapsed)
-  - **Internal notes** (collapsed)
-  - **Activity log** (collapsed)
-- Sticky section nav rail on the left of the drawer (≥1280px only) with section names → clicking scrolls + expands.
-- Long-text fields (Description, Scope, Notes) get a "show more / show less" toggle at ~6 lines instead of dumping the whole blob.
-- Story sub-table inside the drawer gets the same zebra + hover treatment.
+If `QuoteStoriesTable` doesn't already expose a tbody className path, add the classes directly on the existing tbody element. No logic changes.
+
+## 4. Project log as its own section on the project page
+
+In `app/(app)/pipeline/[id]/page.tsx` the `<ProjectLogTimeline>` currently renders as a bare block under the editor card. Wrap it in the shared `Section` (tone `neutral`, `storageKey="qs:<id>:log"`, `defaultOpen={false}`, `meta={<>{entries.length} events</>}`) so it matches the visual language of the rest of the drawer.
+
+`ProjectLogTimeline` itself is unchanged.
 
 ## 5. Verification
 
 - `npx tsc --noEmit` clean
 - `npm run build` clean
-- Manual: load a client with many projects, a quote with a long description, and confirm collapsed-by-default sections + persistence work.
+- Manual: open a quote drawer, confirm five differently-colored section rails, Quote details in 2 columns on ≥md, zebra rows in the calculator, log section collapsible. Confirm prior collapsed/expanded state still persists by storage key.
 
----
+## Files touched
 
-## Technical notes
+- `components/pipeline/QuoteSheetEditor.tsx` — swap local `Section` for shared, assign tones, refactor Quote details into responsive grid via new `FieldRow` `variant`, delete local `Section`
+- `components/pipeline/QuoteStoriesTable.tsx` — add `row-zebra row-hover` to tbody
+- `app/(app)/pipeline/[id]/page.tsx` — wrap `ProjectLogTimeline` in shared `Section`
 
-- All color/spacing changes go through CSS vars in `app/globals.css` and the new `Section` primitive. No hard-coded hex values in components.
-- New components are **presentational only**, no new data fetching, no schema changes, no mutation changes.
-- Collapsible state uses a tiny `useLocalStorageBoolean(key, default)` hook in `lib/use-local-storage.ts`.
-- Files touched (presentation only):
-  - `app/globals.css` (token tweaks + zebra util)
-  - `components/ui/Section.tsx` (new)
-  - `components/ui/Field.tsx` (new)
-  - `lib/use-local-storage.ts` (new)
-  - `components/clients/ClientDetailView.tsx`
-  - `components/pipeline/PipelineDashboard.tsx`
-  - `components/pipeline/QuoteTable.tsx`
-  - `components/pipeline/QuoteSheet.tsx` (width)
-  - `components/pipeline/QuoteSheetEditor.tsx` (sectionize)
+No changes to `lib/`, mutations, or any data layer.

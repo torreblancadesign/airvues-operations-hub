@@ -33,6 +33,7 @@ import {
 import { PersonPicker } from "./PersonPicker";
 import { QuoteStoriesTable } from "./QuoteStoriesTable";
 import { NewQuoteStoryModal } from "./NewQuoteStoryModal";
+import { Section as SharedSection } from "@/components/ui/Section";
 
 type SprintOption = { id: string; number: number | null; status: string | null };
 
@@ -99,15 +100,24 @@ function FieldRow({
   chip,
   children,
   state,
+  variant = "row",
+  className,
 }: {
   label: string;
   hint?: string;
   chip?: React.ReactNode;
   children: React.ReactNode;
   state?: "idle" | "saving" | "saved" | "error";
+  /** "row" = full-width bordered row (default). "cell" = grid cell, no border/horizontal padding. */
+  variant?: "row" | "cell";
+  className?: string;
 }) {
+  const wrapCls =
+    variant === "cell"
+      ? `py-2 ${className ?? ""}`
+      : `px-5 py-3 border-b border-rule-soft last:border-0 ${className ?? ""}`;
   return (
-    <div className="px-5 py-3 border-b border-rule-soft last:border-0">
+    <div className={wrapCls}>
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
@@ -563,11 +573,17 @@ function AiField({
   );
 }
 
-// ---------- Section wrapper (collapsible support) ----------
+// ---------- Section wrapper ----------
+// Delegates to the shared, tone-aware Section primitive used across the app
+// so the drawer reads as multiple distinctly-colored zones instead of one
+// monolithic green block. `chip` is rendered as the right-side meta slot.
+
+type SectionTone = "emerald" | "sky" | "violet" | "amber" | "red" | "neutral";
 
 function Section({
   title,
   chip,
+  tone = "neutral",
   collapsible = false,
   defaultOpen = true,
   storageKey,
@@ -575,55 +591,24 @@ function Section({
 }: {
   title: string;
   chip?: React.ReactNode;
+  tone?: SectionTone;
   collapsible?: boolean;
   defaultOpen?: boolean;
   storageKey?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState<boolean>(() => {
-    if (!collapsible) return true;
-    if (typeof window === "undefined" || !storageKey) return defaultOpen;
-    const v = window.localStorage.getItem(storageKey);
-    if (v === "open") return true;
-    if (v === "closed") return false;
-    return defaultOpen;
-  });
-
-  useEffect(() => {
-    if (!collapsible || !storageKey || typeof window === "undefined") return;
-    window.localStorage.setItem(storageKey, open ? "open" : "closed");
-  }, [open, collapsible, storageKey]);
-
   return (
-    <section className={`border-t ${collapsible ? "border-rule border-l-2 border-l-emerald/60" : "border-rule"}`}>
-      <button
-        type="button"
-        onClick={() => collapsible && setOpen((o) => !o)}
-        disabled={!collapsible}
-        aria-expanded={collapsible ? open : undefined}
-        className={`w-full flex items-center justify-between gap-2 px-5 py-3 transition-colors ${
-          collapsible ? "cursor-pointer hover:bg-bg-elevated" : "cursor-default"
-        }`}
-      >
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {collapsible && (
-            <span className="text-ink-muted text-[12px] font-mono w-3 inline-block shrink-0">
-              {open ? "▾" : "▸"}
-            </span>
-          )}
-          <h3 className="text-[12px] font-semibold uppercase tracking-wider text-ink-strong">
-            {title}
-          </h3>
-          {chip}
-        </div>
-        {collapsible && (
-          <span className="text-[10px] text-ink-faint shrink-0">
-            {open ? "Click to collapse" : "Click to expand"}
-          </span>
-        )}
-      </button>
-      {open && <div className="pb-2">{children}</div>}
-    </section>
+    <SharedSection
+      title={title}
+      tone={tone}
+      meta={chip}
+      collapsible={collapsible}
+      defaultOpen={defaultOpen}
+      storageKey={storageKey}
+      bodyPadding={false}
+    >
+      {children}
+    </SharedSection>
   );
 }
 
@@ -985,8 +970,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
   return (
     <>
       {/* SECTION 1: Quote details (client-visible header) */}
-      <Section title="Quote details" chip={<PortalChip />} collapsible storageKey={`qs:${quoteId}:details`} defaultOpen>
-        <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")}>
+      <Section title="Quote details" chip={<PortalChip />} tone="emerald" collapsible storageKey={`qs:${quoteId}:details`} defaultOpen>
+        <div className="px-5 py-3 grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-1">
+        <FieldRow label="Project name" chip={<PortalChip />} state={stateFor("projectName")} variant="cell" className="md:col-span-2">
+
           <TextField
             initialValue={quote.projectName}
             disabled={!canEdit}
@@ -995,7 +982,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Prepared by" chip={<PortalChip />} state={stateFor("preparedById")}>
+        <FieldRow label="Prepared by" chip={<PortalChip />} state={stateFor("preparedById")} variant="cell">
           <PersonPicker
             value={quote.preparedById}
             options={people}
@@ -1010,6 +997,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Engineer responsible for delivering this epic."
           chip={<InternalChip />}
           state={stateFor("epicOwnerId")}
+          variant="cell"
         >
           <PersonPicker
             value={quote.epicOwnerId}
@@ -1020,7 +1008,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")}>
+        <FieldRow label="Prepared date" chip={<PortalChip />} state={stateFor("preparedDate")} variant="cell">
           <input
             type="date"
             value={quote.preparedDate ?? ""}
@@ -1037,6 +1025,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Client Delivery Due Date — drives the deadline badge on the Projects page."
           chip={<PortalChip />}
           state={stateFor("deliveryDueDate")}
+          variant="cell"
         >
           <input
             type="date"
@@ -1049,7 +1038,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")}>
+        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")} variant="cell">
           <PersonPicker
             value={quote.preparedForId}
             options={people}
@@ -1064,6 +1053,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Client-visible delivery milestone — drives the 7-stage progress bar on the web quote. (Airtable field: Project Status)"
           chip={<PortalChip />}
           state={stateFor("projectStatus")}
+          variant="cell"
         >
           <select
             value={quote.projectStatus ?? ""}
@@ -1082,7 +1072,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           </select>
         </FieldRow>
 
-        <FieldRow label="Proposal type" chip={<PortalChip />} state={stateFor("proposalType")}>
+        <FieldRow label="Proposal type" chip={<PortalChip />} state={stateFor("proposalType")} variant="cell">
           <select
             value={quote.proposalType ?? ""}
             disabled={!canEdit}
@@ -1105,6 +1095,8 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           hint="Tick when this quote is a Blueprint. Grants the salesperson on 'Prepared by' a +5% commission bonus in their personal scorecard."
           chip={<InternalChip />}
           state={stateFor("blueprint")}
+          variant="cell"
+          className="md:col-span-2"
         >
           <label className="inline-flex items-center gap-2 text-[12px] text-ink cursor-pointer select-none">
             <input
@@ -1119,12 +1111,14 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             <span>{quote.blueprint ? "Yes — +5% commission bonus" : "No"}</span>
           </label>
         </FieldRow>
+        </div>
       </Section>
 
       {/* SECTION 2: Client input — collapsible, internal-only */}
       <Section
         title="Client input for proposal"
         chip={<InternalChip />}
+        tone="sky"
         collapsible
         defaultOpen={false}
         storageKey={`quote:${quoteId}:clientInput`}
@@ -1185,7 +1179,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
       </Section>
 
       {/* SECTION 3: AI proposal output — client-visible */}
-      <Section title="AI-generated proposal content" chip={<PortalChip />} collapsible storageKey={`qs:${quoteId}:ai`} defaultOpen={false}>
+      <Section title="AI-generated proposal content" chip={<PortalChip />} tone="violet" collapsible storageKey={`qs:${quoteId}:ai`} defaultOpen={false}>
         <div className="px-5 pb-3 text-[11px] text-ink-faint">
           Generated by the AI proposal agent. Edit only to override.
         </div>
@@ -1258,7 +1252,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
       </Section>
 
       {/* SECTION 4: Quote calculator — original scope stories */}
-      <Section title="Quote calculator" collapsible storageKey={`qs:${quoteId}:calc`} defaultOpen>
+      <Section title="Quote calculator" tone="amber" collapsible storageKey={`qs:${quoteId}:calc`} defaultOpen>
         <div className="px-5 pb-4">
           <QuoteStoriesTable
             stories={quote.stories.filter((s) => !s.isChangeOrder)}
@@ -1277,7 +1271,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
       </Section>
 
       {/* SECTION 5: Change orders */}
-      <Section title="Change orders" collapsible storageKey={`qs:${quoteId}:co`} defaultOpen={false}>
+      <Section title="Change orders" tone="red" collapsible storageKey={`qs:${quoteId}:co`} defaultOpen={false}>
         <FieldRow
           label="Change Order Input Details"
           hint="Raw context for the AI agent — paste meeting notes, scope deltas, client requests. The agent uses this to draft the summary + stories below."

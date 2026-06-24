@@ -33,6 +33,7 @@ import {
 import { PersonPicker } from "./PersonPicker";
 import { QuoteStoriesTable } from "./QuoteStoriesTable";
 import { NewQuoteStoryModal } from "./NewQuoteStoryModal";
+import { Section as SharedSection } from "@/components/ui/Section";
 
 type SprintOption = { id: string; number: number | null; status: string | null };
 
@@ -576,8 +577,6 @@ function AiField({
 // Delegates to the shared, tone-aware Section primitive used across the app
 // so the drawer reads as multiple distinctly-colored zones instead of one
 // monolithic green block. `chip` is rendered as the right-side meta slot.
-
-import { Section as SharedSection } from "@/components/ui/Section";
 
 type SectionTone = "emerald" | "sky" | "violet" | "amber" | "red" | "neutral";
 

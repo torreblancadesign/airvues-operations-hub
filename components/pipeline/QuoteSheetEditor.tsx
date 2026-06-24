@@ -1231,7 +1231,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow label="Estimate Cost Range" chip={<PortalChip />} state="idle">
+        <FieldRow label="Total Cost Estimate" chip={<PortalChip />} state="idle">
           <div className="px-2 py-1.5 text-[13px] text-ink whitespace-pre-wrap">
             {asStr(quote.estimateCostRange).trim() || "—"}
           </div>

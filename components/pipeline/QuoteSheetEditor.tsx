@@ -99,15 +99,24 @@ function FieldRow({
   chip,
   children,
   state,
+  variant = "row",
+  className,
 }: {
   label: string;
   hint?: string;
   chip?: React.ReactNode;
   children: React.ReactNode;
   state?: "idle" | "saving" | "saved" | "error";
+  /** "row" = full-width bordered row (default). "cell" = grid cell, no border/horizontal padding. */
+  variant?: "row" | "cell";
+  className?: string;
 }) {
+  const wrapCls =
+    variant === "cell"
+      ? `py-2 ${className ?? ""}`
+      : `px-5 py-3 border-b border-rule-soft last:border-0 ${className ?? ""}`;
   return (
-    <div className="px-5 py-3 border-b border-rule-soft last:border-0">
+    <div className={wrapCls}>
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
@@ -563,11 +572,19 @@ function AiField({
   );
 }
 
-// ---------- Section wrapper (collapsible support) ----------
+// ---------- Section wrapper ----------
+// Delegates to the shared, tone-aware Section primitive used across the app
+// so the drawer reads as multiple distinctly-colored zones instead of one
+// monolithic green block. `chip` is rendered as the right-side meta slot.
+
+import { Section as SharedSection } from "@/components/ui/Section";
+
+type SectionTone = "emerald" | "sky" | "violet" | "amber" | "red" | "neutral";
 
 function Section({
   title,
   chip,
+  tone = "neutral",
   collapsible = false,
   defaultOpen = true,
   storageKey,
@@ -575,55 +592,24 @@ function Section({
 }: {
   title: string;
   chip?: React.ReactNode;
+  tone?: SectionTone;
   collapsible?: boolean;
   defaultOpen?: boolean;
   storageKey?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState<boolean>(() => {
-    if (!collapsible) return true;
-    if (typeof window === "undefined" || !storageKey) return defaultOpen;
-    const v = window.localStorage.getItem(storageKey);
-    if (v === "open") return true;
-    if (v === "closed") return false;
-    return defaultOpen;
-  });
-
-  useEffect(() => {
-    if (!collapsible || !storageKey || typeof window === "undefined") return;
-    window.localStorage.setItem(storageKey, open ? "open" : "closed");
-  }, [open, collapsible, storageKey]);
-
   return (
-    <section className={`border-t ${collapsible ? "border-rule border-l-2 border-l-emerald/60" : "border-rule"}`}>
-      <button
-        type="button"
-        onClick={() => collapsible && setOpen((o) => !o)}
-        disabled={!collapsible}
-        aria-expanded={collapsible ? open : undefined}
-        className={`w-full flex items-center justify-between gap-2 px-5 py-3 transition-colors ${
-          collapsible ? "cursor-pointer hover:bg-bg-elevated" : "cursor-default"
-        }`}
-      >
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {collapsible && (
-            <span className="text-ink-muted text-[12px] font-mono w-3 inline-block shrink-0">
-              {open ? "▾" : "▸"}
-            </span>
-          )}
-          <h3 className="text-[12px] font-semibold uppercase tracking-wider text-ink-strong">
-            {title}
-          </h3>
-          {chip}
-        </div>
-        {collapsible && (
-          <span className="text-[10px] text-ink-faint shrink-0">
-            {open ? "Click to collapse" : "Click to expand"}
-          </span>
-        )}
-      </button>
-      {open && <div className="pb-2">{children}</div>}
-    </section>
+    <SharedSection
+      title={title}
+      tone={tone}
+      meta={chip}
+      collapsible={collapsible}
+      defaultOpen={defaultOpen}
+      storageKey={storageKey}
+      bodyPadding={false}
+    >
+      {children}
+    </SharedSection>
   );
 }
 

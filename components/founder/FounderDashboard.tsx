@@ -16,6 +16,7 @@ import {
   requiredRevenueForNetAnnual,
 } from "@/lib/founder-math";
 import { updateRetirementNumber } from "@/lib/mutations/founder";
+import { TeamScalingSimulator } from "./TeamScalingSimulator";
 
 const SCENARIO_ROWS = [40_000, 50_000, 75_000, 100_000, 115_000, 130_000, 150_000];
 
@@ -447,6 +448,15 @@ export function FounderDashboard({
           </table>
         </div>
       </section>
+
+      {/* 5b. Team scaling & margin simulator */}
+      <TeamScalingSimulator
+        monthlyRevenue={revenue}
+        founderOwnership={a.founderOwnership}
+        desiredMonthlyNet={effectiveRetirement / 12}
+        payrollTaxRate={a.employerPayrollTaxRate}
+      />
+
 
       {/* 6. Assumptions */}
       <section className="bg-surface border border-rule rounded-card p-5 sm:p-6">

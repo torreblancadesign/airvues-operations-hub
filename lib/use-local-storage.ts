@@ -35,3 +35,36 @@ export function useLocalStorageBoolean(key: string, defaultValue: boolean): [boo
 
   return [value, setValue];
 }
+
+/**
+ * SSR-safe JSON-serializable value persisted in localStorage.
+ * Returns the default during the first render, then syncs to the stored value after mount.
+ */
+export function useLocalStorageJSON<T>(
+  key: string,
+  defaultValue: T,
+): [T, (v: T | ((p: T) => T)) => void] {
+  const [value, setValue] = useState<T>(defaultValue);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (raw != null) setValue(JSON.parse(raw) as T);
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      /* ignore */
+    }
+  }, [key, value]);
+
+  return [value, setValue];
+}

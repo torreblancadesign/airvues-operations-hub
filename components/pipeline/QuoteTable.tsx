@@ -103,6 +103,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <SortHeader label="#" active={sort.key === "autonumber"} dir={sort.dir} onClick={() => toggle("autonumber")} />
               <SortHeader label="Prepared" active={sort.key === "preparedDate"} dir={sort.dir} onClick={() => toggle("preparedDate")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Project</th>
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left" title="Proposal Type">Type</th>
               <SortHeader label="Client" active={sort.key === "client"} dir={sort.dir} onClick={() => toggle("client")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Company</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Prep By</th>
@@ -166,7 +167,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
           </thead>
           <tbody className="row-zebra">
             {rows.length === 0 ? (
-              <tr><td colSpan={13} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
+              <tr><td colSpan={14} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
               rows.map((q) => {
                 const days = daysSince(q.preparedDate);
@@ -176,6 +177,15 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.autonumber ?? "—"}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.preparedDate ? new Date(q.preparedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}</td>
                     <td className="px-3 py-2.5 text-[13px] text-ink-strong max-w-[280px] truncate">{q.projectName}</td>
+                    <td className="px-3 py-2.5">
+                      {q.proposalType === "Retainer Agreement" ? (
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-violet-soft text-violet" title="Retainer Agreement">Retainer</span>
+                      ) : q.proposalType === "Airtable Solutions Proposal" ? (
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider bg-sky-soft text-sky" title="Airtable Solutions Proposal">Airtable</span>
+                      ) : (
+                        <span className="text-[11px] text-ink-faint">—</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-[12px] text-ink">{q.client}</td>
                     <td className="px-3 py-2.5 text-[12px] text-ink max-w-[200px] truncate" title={q.company ?? undefined}>{q.company ?? "—"}</td>
                     <td className="px-3 py-2.5 text-[12px] text-ink-muted">{q.preparedBy}</td>

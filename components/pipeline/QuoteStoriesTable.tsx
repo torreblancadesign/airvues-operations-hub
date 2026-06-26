@@ -42,6 +42,7 @@ type Props = {
   people: PersonOption[];
   onReordered?: (next: QuoteDetail) => void;
   onChanged?: (next: QuoteDetail) => void;
+  groupByMonth?: boolean;
 };
 
 const STORY_STATUSES = [
@@ -622,6 +623,54 @@ function BulkBar({
   );
 }
 
+// ---------- Month group renderer ----------
+
+function FragmentGroup({
+  group,
+  canEdit,
+  onRowClick,
+  selected,
+  onToggleSelect,
+  engineers,
+  onPatch,
+  pending,
+}: {
+  group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
+  canEdit: boolean;
+  onRowClick?: (id: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  engineers: PersonOption[];
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] }) => Promise<void>;
+  pending: boolean;
+}) {
+  return (
+    <>
+      <tr className="bg-bg-elevated/70 border-y border-rule sticky">
+        <td colSpan={10} className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-ink-strong font-semibold">
+          <span>{group.label}</span>
+          <span className="ml-3 font-mono tabnum text-ink-muted normal-case tracking-normal">
+            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h · {fmtMoney(group.totalCost)}
+          </span>
+        </td>
+      </tr>
+      {group.stories.map((s) => (
+        <SortableStoryRow
+          key={s.id}
+          story={s}
+          canEdit={canEdit}
+          onRowClick={onRowClick}
+          selected={selected.has(s.id)}
+          onToggleSelect={onToggleSelect}
+          engineers={engineers}
+          onPatch={onPatch}
+          pending={pending}
+        />
+      ))}
+    </>
+  );
+}
+
 // ---------- Main table ----------
 
 export function QuoteStoriesTable({
@@ -638,6 +687,7 @@ export function QuoteStoriesTable({
   people,
   onReordered,
   onChanged,
+  groupByMonth = false,
 }: Props) {
   const [localStories, setLocalStories] = useState<QuoteStoryRow[]>(stories);
   const [pending, startTransition] = useTransition();
@@ -666,6 +716,32 @@ export function QuoteStoriesTable({
 
   const ids = useMemo(() => localStories.map((s) => s.id), [localStories]);
 
+  const monthKeyFor = (s: QuoteStoryRow): string => {
+    if (!s.createdTime) return "0000-00";
+    const d = new Date(s.createdTime);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const monthGroups = useMemo(() => {
+    if (!groupByMonth) return null;
+    const map = new Map<
+      string,
+      { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number }
+    >();
+    for (const s of localStories) {
+      const key = monthKeyFor(s);
+      const label = s.createdTime
+        ? new Date(s.createdTime).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+        : "Undated";
+      const g = map.get(key) ?? { key, label, stories: [], totalCost: 0, totalHours: 0 };
+      g.stories.push(s);
+      g.totalCost += s.cost ?? 0;
+      g.totalHours += s.hours ?? 0;
+      map.set(key, g);
+    }
+    return [...map.values()].sort((a, b) => b.key.localeCompare(a.key));
+  }, [groupByMonth, localStories]);
+
   function commitReorder(next: QuoteStoryRow[]) {
     const updates = next.map((s, i) => ({ id: s.id, order: (i + 1) * 10 }));
     setLocalStories(next.map((s, i) => ({ ...s, order: (i + 1) * 10 })));
@@ -681,6 +757,11 @@ export function QuoteStoriesTable({
     const oldIndex = localStories.findIndex((s) => s.id === active.id);
     const newIndex = localStories.findIndex((s) => s.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
+    if (groupByMonth) {
+      const a = localStories[oldIndex];
+      const b = localStories[newIndex];
+      if (monthKeyFor(a) !== monthKeyFor(b)) return;
+    }
     commitReorder(arrayMove(localStories, oldIndex, newIndex));
   }
 
@@ -869,19 +950,33 @@ export function QuoteStoriesTable({
               </thead>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                 <tbody className="row-zebra">
-                  {localStories.map((s) => (
-                    <SortableStoryRow
-                      key={s.id}
-                      story={s}
-                      canEdit={canEdit}
-                      onRowClick={onRowClick}
-                      selected={selected.has(s.id)}
-                      onToggleSelect={toggleSelect}
-                      engineers={engineerOptions}
-                      onPatch={patchStory}
-                      pending={pending}
-                    />
-                  ))}
+                  {monthGroups
+                    ? monthGroups.map((g) => (
+                        <FragmentGroup
+                          key={g.key}
+                          group={g}
+                          canEdit={canEdit}
+                          onRowClick={onRowClick}
+                          selected={selected}
+                          onToggleSelect={toggleSelect}
+                          engineers={engineerOptions}
+                          onPatch={patchStory}
+                          pending={pending}
+                        />
+                      ))
+                    : localStories.map((s) => (
+                        <SortableStoryRow
+                          key={s.id}
+                          story={s}
+                          canEdit={canEdit}
+                          onRowClick={onRowClick}
+                          selected={selected.has(s.id)}
+                          onToggleSelect={toggleSelect}
+                          engineers={engineerOptions}
+                          onPatch={patchStory}
+                          pending={pending}
+                        />
+                      ))}
                 </tbody>
               </SortableContext>
             </table>

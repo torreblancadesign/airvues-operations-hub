@@ -11,6 +11,7 @@ export type QuoteStoryRow = {
   assignees: { id: string; name: string }[];
   isChangeOrder: boolean;
   order: number | null;
+  createdTime: string | null;
 };
 
 

@@ -811,8 +811,7 @@ export function QuoteStoriesTable({
       return next;
     });
   }
-  // Reference to silence unused-var lint for the placeholder hook.
-  void collapsedHydrated;
+
 
   useEffect(() => {
     setLocalStories(stories);

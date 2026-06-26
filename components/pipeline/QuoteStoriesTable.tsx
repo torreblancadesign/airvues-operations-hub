@@ -1115,7 +1115,11 @@ export function QuoteStoriesTable({
                           onPatch={patchStory}
                           pending={pending}
                           groupByMonth={groupByMonth}
+                          collapsed={collapsedMonths.has(g.key)}
+                          onToggleCollapsed={toggleCollapsedMonth}
+                          isCurrent={g.key === currentMonthKey}
                         />
+
                       ))
                     : localStories.map((s) => (
                         <SortableStoryRow

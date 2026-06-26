@@ -350,8 +350,10 @@ type SortableStoryRowProps = {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] }) => Promise<void>;
+  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
   pending: boolean;
+  /** Retainer mode: hide Cost column, show Completed Date column. */
+  groupByMonth?: boolean;
 };
 
 function SortableStoryRow({
@@ -363,6 +365,7 @@ function SortableStoryRow({
   engineers,
   onPatch,
   pending,
+  groupByMonth = false,
 }: SortableStoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: s.id,
@@ -437,15 +440,33 @@ function SortableStoryRow({
         )}
       </td>
 
-      <td className="px-2 py-1.5 w-[110px]">
-        {canEdit ? (
-          <InlineNumber value={s.cost} onSave={(v) => onPatch(s.id, { cost: v })} isCurrency />
-        ) : (
-          <div className="px-1.5 py-1 text-right tabnum text-ink-strong font-mono">
-            {s.cost != null ? fmtMoney(s.cost) : "—"}
-          </div>
-        )}
-      </td>
+      {groupByMonth ? (
+        <td className="px-2 py-1.5 w-[130px]" onClick={stopBubble}>
+          {canEdit ? (
+            <input
+              type="date"
+              value={s.completedDate ?? ""}
+              onChange={(e) => void onPatch(s.id, { completedDate: e.target.value || null })}
+              disabled={pending}
+              className="w-full bg-transparent border border-transparent hover:border-rule focus:border-emerald focus:bg-bg-elevated rounded px-1.5 py-1 text-[12px] text-ink font-mono focus:outline-none disabled:opacity-60"
+            />
+          ) : (
+            <div className="px-1.5 py-1 text-ink-muted font-mono text-[11px]">
+              {s.completedDate ?? "—"}
+            </div>
+          )}
+        </td>
+      ) : (
+        <td className="px-2 py-1.5 w-[110px]">
+          {canEdit ? (
+            <InlineNumber value={s.cost} onSave={(v) => onPatch(s.id, { cost: v })} isCurrency />
+          ) : (
+            <div className="px-1.5 py-1 text-right tabnum text-ink-strong font-mono">
+              {s.cost != null ? fmtMoney(s.cost) : "—"}
+            </div>
+          )}
+        </td>
+      )}
 
       <td className="px-2 py-1.5 max-w-[200px]">
         {canEdit ? (
@@ -498,6 +519,7 @@ function SortableStoryRow({
     </tr>
   );
 }
+
 
 // ---------- Bulk action bar ----------
 

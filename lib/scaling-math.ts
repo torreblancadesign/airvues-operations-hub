@@ -819,6 +819,13 @@ export function proposeRoster(inputs: ScalingInputs): {
     addCommission: 0,
     convertCommissionToSalaried: 0,
     detail: [],
+    tierHires: [],
+  };
+
+  const recordHire = (tierId: string, kind: "salaried" | "commission", delta: number, reason: string) => {
+    const existing = proposal.tierHires.find((h) => h.tierId === tierId && h.kind === kind);
+    if (existing) existing.delta += delta;
+    else proposal.tierHires.push({ tierId, kind, delta, reason });
   };
 
   // 1) Cover unmet demand.

@@ -1,80 +1,112 @@
+## Goal
 
-# Fix commissions + show margin across the Founder page
+Upgrade the Team Scaling Simulator so the user can model a heterogeneous engineering roster (multiple commission tiers), drive the "engineer mix" from real capacity, and get a clear "you need to hire" signal based on projected revenue.
 
-Two changes, applied to both the legacy projection model (`lib/founder-math.ts`) and the new simulator model (`lib/scaling-math.ts`):
-
-1. **Fix commission stacking.** Today every role's commission is applied to *all* project revenue. In reality each billable hour is assigned to one engineer (salaried OR commission-only), so commissions don't double up across the engineer roster. Head of Client Solutions is the only role that applies on top of every new sale.
-2. **Surface margin everywhere it matters** — hero, today's run-rate card, "at goal" card, scenario table, gap analysis, and (already there) the simulator readout.
+All changes are scoped to the Founder simulator UI and its pure math module. No Airtable schema changes, no other pages touched.
 
 ---
 
-## 1. Correct commission model
+## 1. Roster: multiple commission-only tiers
 
-New rule (used by both files):
+Today `commissionOnlyEngineers` is a single `{count, rate}` row. Replace with a list so the user can stack tiers (e.g. 2 @ 30%, 1 @ 20%, 2 @ 35%).
+
+**Data shape (`lib/scaling-math.ts`):**
 
 ```
-engineer mix  = % of project revenue delivered by salaried engineers (slider, 0–100%)
-engineer rate = mix * salariedRate + (1 - mix) * commOnlyRate
-                e.g. 60/40 mix → 0.6*15% + 0.4*30% = 21%
-sales rate    = clientSolutionsRate (default 15%) applied to all project revenue
-                (single role; headcount affects fixed salary, not commission pool)
+type EngineerTier = {
+  id: string;            // local uuid for React keys
+  label: string;         // "Senior", "Junior", "Contractor A" — free text
+  count: number;
+  monthlySalary: number; // 0 for commission-only
+  commissionRate: number;// 0..1
+  hoursPerMonth: number; // capacity per head, default 160
+};
 
-project commission = projectRevenue * (engineerRate + salesRate)
-retainer commission = retainerRevenue * (per-role retainer toggles, default off)
+ScalingInputs {
+  salariedEngineers: EngineerTier[];        // was single role
+  commissionOnlyEngineers: EngineerTier[];  // was single role
+  // salariedEngineerMix REMOVED — derived from capacity now
+  ...
+}
 ```
 
-Headcount of engineers no longer multiplies the commission pool. It only drives **fixed salary cost** (for salaried) and **capacity** (informational). Worst case the user mentioned (15% + 30% = 45%) corresponds to mix = 0% on project work.
+Migration: keep `defaultInputs()` seeding 1 salaried tier + 1 commission tier so existing scenarios still make sense. Old saved scenarios in localStorage are versioned with a `v` field; on read, if `v` is missing, map the old single roles into one-element arrays.
 
-### `lib/scaling-math.ts`
+**UI (`TeamScalingSimulator.tsx`):**
 
-- Replace `commissionBase * count * rate` per role with the mix-based pool above.
-- Add `salariedEngineerMix: number` (0..1) and remove the implicit per-head stacking.
-- `commissionOnlyEngineers` keeps `count` for documentation/capacity, but commission is `(1 - mix) * projectRev * commOnlyRate`.
-- `clientSolutions` commission = `projectRev * rate` (still respects the "include retainers" toggle).
-- `headroomRevenue` recomputed against the new marginal rate (`1 - engineerRate - salesRate`).
-- Output adds `marginPct` (alias of existing `netMarginPct`, kept for clarity).
+- Two stacked sections: "Salaried engineers" and "Commission-only engineers".
+- Each row: label, count, salary (salaried only), commission %, hrs/month, capacity readout (`count × hours`), remove button.
+- "+ Add tier" button under each section.
 
-### `lib/founder-math.ts`
+---
 
-- Replace `engineerCommission` + `shaniaCommission` (which stack on all revenue) with:
-  - `salariedEngineerRate` (default 0.15)
-  - `commissionOnlyRate` (default 0.30)
-  - `clientSolutionsRate` (default 0.15)
-  - `salariedMixPct` (default 0.6 — tune later)
-- `variableRate` becomes `mix*salariedRate + (1-mix)*commOnlyRate + clientSolutionsRate`.
-- Add `marginPct = (revenue - variableCosts - fixedMonthly) / revenue` to `FounderProjection`.
-- `requiredRevenueForNetAnnual` keeps working since it uses `variableRate` (now derived from the new inputs).
-- Defaults: with mix=0.6 → engineer 21% + sales 15% = 36% variable, vs today's 32.5% — close, slightly more conservative, and now changes correctly when the user moves the mix slider.
+## 2. Capacity-driven engineer mix (replaces the slider)
 
-## 2. Margin surfaced in the UI
+Drop the manual mix slider. Compute it from the roster and a single new input:
 
-`components/founder/FounderDashboard.tsx`:
+```
+revenueHourlyRate  (default: pull from a sensible blended rate, e.g.
+                    monthlyProjectRevenue / totalSalariedCapacityHours
+                    on first render; user can override)
+```
 
-- **Hero ("Path to Founder Replacement Income")**: add a 4th HeroStat (or a small inline chip under the progress bar) showing **Current margin** with tone (emerald ≥ target, amber within 5pp, red below). Target defaults to 40% and can be edited in Assumptions.
-- **Today's run-rate card (`ProjectionCard` "current pace")**: add a `Row` for **Margin** between "Estimated monthly profit" and "Founder ownership". Same on the "at goal" card.
-- **Gap analysis tiles**: add a 5th tile (or replace one) showing **Current margin vs target**.
-- **Scenario table ("Revenue → founder earnings")**: add a **Margin** column between "Monthly Profit" and "Founder Monthly (gross)", color-coded by tone.
-- **Assumptions panel**: replace the two old commission inputs with four fields — Salaried engineer % (mix), Salaried engineer rate, Commission-only rate, Client Solutions rate — plus the existing fixed/overhead/payroll tax. Add **Target margin %** (default 40%).
+Then per scenario:
 
-`components/founder/TeamScalingSimulator.tsx`:
+```
+projectHoursNeeded   = monthlyProjectRevenue / revenueHourlyRate
+salariedCapacity     = sum(salaried tiers: count × hoursPerMonth)
+commissionCapacity   = sum(commission tiers: count × hoursPerMonth)
+salariedHoursUsed    = min(projectHoursNeeded, salariedCapacity)  // priority fill
+commissionHoursUsed  = min(projectHoursNeeded - salariedHoursUsed, commissionCapacity)
+unmetHours           = max(0, projectHoursNeeded - salariedHoursUsed - commissionHoursUsed)
 
-- Replace stacked `RoleEditor` commission display with a single **Engineer mix** slider (0–100% salaried) plus per-rate inputs. `count` stays per role for fixed-salary math.
-- Update the "Commission breakdown" footer to show the split as **engineer pool** (broken down by mix) and **sales pool**, not per-headcount totals.
-- Readout already shows margin; keep as-is. Update headroom hint copy to match the new marginal rate.
+salariedRev          = salariedHoursUsed * revenueHourlyRate
+// commission revenue is split across commission tiers proportional to each
+// tier's remaining capacity, so each tier's commission uses its own rate
+```
 
-## Files
+Commission pool becomes the sum over each tier of `tierRev * tier.commissionRate`. Sales commission unchanged (flat 15% applied once to all project revenue).
+
+This naturally handles "priority assign to salaried, overflow to commission-only" that the user described, and per-tier rates flow through.
+
+---
+
+## 3. Capacity & hiring signal
+
+A new "Capacity & hiring" panel below the roster, showing:
+
+- **Total project hours needed** (from revenue ÷ hourly rate)
+- **Per-engineer utilization bars** — for each tier, show `usedHours / capacity` as a colored bar (green ≤80%, amber 80–100%, red >100% which only happens during display rounding edge cases).
+- **Headroom**: remaining salaried + commission hours after demand is met.
+- **Hiring recommendation**:
+  - if `unmetHours > 0`: red banner "Need ~X more engineering hours/month — hire ~ceil(unmetHours / 160) engineer(s)" plus an estimate of margin impact for adding 1 salaried vs 1 commission-only at default rates.
+  - if utilization > 85% across all tiers: amber "Roster running hot — plan next hire".
+  - else: muted "Capacity healthy".
+
+---
+
+## 4. Revenue inputs polish
+
+The two revenue inputs already exist; keep them but:
+
+- Surface them in the same panel as the new capacity readout so it's obvious that moving revenue moves the hiring signal.
+- Show a small helper line: "At $X projected project revenue and $Y/hr blended rate, we need ~N billable hours/month".
+
+Retainer revenue still flows to the math unchanged (used by commission-base toggles on tiers — keep the existing per-tier "applies to projects+retainers" option).
+
+---
+
+## 5. Files changed
 
 **Modified**
-- `lib/founder-math.ts` — replace assumptions shape, add margin to projection, keep `requiredRevenueForNetAnnual` working.
-- `lib/scaling-math.ts` — mix-based commission pool, drop per-head stacking, keep `ScalingOutput` shape (add `marginPct` alias).
-- `components/founder/FounderDashboard.tsx` — margin chip in hero, margin row in both projection cards, margin column in scenario table, margin tile in gap analysis, updated Assumptions inputs.
-- `components/founder/TeamScalingSimulator.tsx` — engineer mix slider, updated `RoleEditor` to drop the per-role commission stacking UI for engineers, updated breakdown copy.
+- `lib/scaling-math.ts` — new tier list shape, capacity-based fill algorithm, `marginPct` preserved, new fields on `ScalingOutput`: `projectHoursNeeded`, `tierBreakdown[]`, `unmetHours`, `hiringRecommendation`.
+- `components/founder/TeamScalingSimulator.tsx` — tier editors with add/remove, capacity panel with utilization bars, hiring banner, scenario-save migration for old shape.
+- `components/founder/FounderDashboard.tsx` — only touched to pass through the new defaults; the dashboard projection model (`lib/founder-math.ts`) is **not** changed in this pass (it stays on the mix-based model so the rest of the page numbers don't shift).
 
 **Not changed**
-- `app/(app)/founder/page.tsx`, `lib/founder.ts` — server data unchanged.
+- `lib/founder-math.ts`, `app/(app)/founder/page.tsx`, Airtable schema, hero/scenario table/gap tiles.
 
-## Notes / out of scope
+## Out of scope
 
-- No Airtable schema changes. Mix and target margin live in client state / Assumptions (already client-only).
-- Retainer commissions remain opt-in per role via existing checkbox — default off.
-- "Capacity-aware" mix (auto-derive mix from salaried headcount × capacity vs total demand) is deferred; manual slider is enough for now.
+- Persisting roster tiers to Airtable.
+- Applying the tiered roster to the dashboard-wide projections (today's pace, at-goal card, scenario table) — those keep using the simpler mix model for now. Easy to lift later once the tier UI proves itself.

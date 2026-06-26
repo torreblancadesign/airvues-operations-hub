@@ -3,19 +3,23 @@
 import { useMemo, useState } from "react";
 import {
   CLIENT_SOLUTIONS_COMMISSION,
-  COMMISSION_ONLY_ENGINEER_COMMISSION,
-  SALARIED_ENGINEER_COMMISSION,
+  DEFAULT_HOURS_PER_MONTH,
+  EngineerTier,
+  HiringSignal,
   ScalingInputs,
   ScalingOutput,
+  TierBreakdown,
   computeScenario,
   defaultInputs,
+  makeTier,
+  migrateInputs,
 } from "@/lib/scaling-math";
 import { fmtPct1, fmtUsd } from "@/lib/founder-math";
 import { useLocalStorageJSON } from "@/lib/use-local-storage";
 
 type SavedScenario = { id: string; name: string; inputs: ScalingInputs };
 
-const STORAGE_KEY = "founder:scaling-scenarios:v1";
+const STORAGE_KEY = "founder:scaling-scenarios:v2";
 const MAX_SCENARIOS = 4;
 
 type Props = {
@@ -43,7 +47,17 @@ export function TeamScalingSimulator({
   );
 
   const [inputs, setInputs] = useState<ScalingInputs>(seed);
-  const [scenarios, setScenarios] = useLocalStorageJSON<SavedScenario[]>(STORAGE_KEY, []);
+  const [rawScenarios, setScenarios] = useLocalStorageJSON<SavedScenario[]>(STORAGE_KEY, []);
+  const scenarios = useMemo(
+    () =>
+      rawScenarios
+        .map((s) => {
+          const migrated = migrateInputs(s.inputs);
+          return migrated ? { ...s, inputs: migrated } : null;
+        })
+        .filter((x): x is SavedScenario => !!x),
+    [rawScenarios],
+  );
   const [scenarioName, setScenarioName] = useState("");
 
   const out = useMemo(() => computeScenario(inputs), [inputs]);
@@ -51,12 +65,30 @@ export function TeamScalingSimulator({
   const update = <K extends keyof ScalingInputs>(k: K, v: ScalingInputs[K]) =>
     setInputs((s) => ({ ...s, [k]: v }));
 
-  const updateRole = (
-    role: "salariedEngineers" | "commissionOnlyEngineers" | "clientSolutions",
-    patch: Partial<ScalingInputs["salariedEngineers"]>,
-  ) => setInputs((s) => ({ ...s, [role]: { ...s[role], ...patch } }));
+  const updateTier = (
+    field: "salariedEngineers" | "commissionOnlyEngineers",
+    id: string,
+    patch: Partial<EngineerTier>,
+  ) =>
+    setInputs((s) => ({
+      ...s,
+      [field]: s[field].map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    }));
 
-  const mixPct = Math.round(inputs.salariedEngineerMix * 100);
+  const addTier = (field: "salariedEngineers" | "commissionOnlyEngineers") =>
+    setInputs((s) => ({
+      ...s,
+      [field]: [
+        ...s[field],
+        makeTier({ kind: field === "salariedEngineers" ? "salaried" : "commission" }),
+      ],
+    }));
+
+  const removeTier = (field: "salariedEngineers" | "commissionOnlyEngineers", id: string) =>
+    setInputs((s) => ({ ...s, [field]: s[field].filter((t) => t.id !== id) }));
+
+  const updateClientSolutions = (patch: Partial<ScalingInputs["clientSolutions"]>) =>
+    setInputs((s) => ({ ...s, clientSolutions: { ...s.clientSolutions, ...patch } }));
 
   const saveScenario = () => {
     const name = scenarioName.trim() || `Scenario ${scenarios.length + 1}`;
@@ -84,8 +116,8 @@ export function TeamScalingSimulator({
             Team Scaling &amp; Margin Simulator
           </h3>
           <p className="text-[12px] text-ink-muted mt-1">
-            Model how team composition and revenue mix affect margins and founder take-home.
-            Stays in your browser — no Airtable writes.
+            Model team tiers, capacity, and revenue mix to see margin, founder take-home, and when
+            to hire next. Stays in your browser — no Airtable writes.
           </p>
         </div>
         <button
@@ -101,64 +133,95 @@ export function TeamScalingSimulator({
         {/* Inputs */}
         <div className="space-y-5">
           {/* Revenue */}
-          <Card title="Revenue mix">
-            <div className="grid grid-cols-2 gap-3">
-              <Num label="Project revenue ($/mo)" value={inputs.monthlyProjectRevenue} step={1000}
+          <Card title="Projected revenue">
+            <div className="grid grid-cols-3 gap-3">
+              <Num label="Project rev ($/mo)" value={inputs.monthlyProjectRevenue} step={1000}
                 onChange={(v) => update("monthlyProjectRevenue", v)} />
-              <Num label="Retainer revenue ($/mo)" value={inputs.monthlyRetainerRevenue} step={500}
+              <Num label="Retainer rev ($/mo)" value={inputs.monthlyRetainerRevenue} step={500}
                 onChange={(v) => update("monthlyRetainerRevenue", v)} />
+              <Num label="Billing rate ($/hr)" value={inputs.revenueHourlyRate} step={5}
+                onChange={(v) => update("revenueHourlyRate", v)} />
             </div>
             <div className="mt-2 text-[11px] font-mono text-ink-faint uppercase tracking-wider">
               Total: <span className="tabnum text-ink-strong">{fmtUsd(out.totalRevenue)}/mo</span>
+              {" · "}Needs{" "}
+              <span className="tabnum text-ink-strong">{Math.round(out.projectHoursNeeded)} hrs/mo</span>{" "}
+              of project work
             </div>
           </Card>
 
-          {/* Team */}
-          <Card title="Team composition">
-            <RoleEditor
-              label="Salaried engineers"
-              role={inputs.salariedEngineers}
-              showSalary
-              defaultRate={SALARIED_ENGINEER_COMMISSION}
-              onChange={(p) => updateRole("salariedEngineers", p)}
-            />
-            <RoleEditor
-              label="Commission-only engineers"
-              role={inputs.commissionOnlyEngineers}
-              defaultRate={COMMISSION_ONLY_ENGINEER_COMMISSION}
-              onChange={(p) => updateRole("commissionOnlyEngineers", p)}
-            />
-            {/* Engineer mix — splits project revenue between the two pools */}
-            <div className="py-2.5 border-b border-rule/40">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="text-[12px] text-ink-strong font-medium">Engineer mix</div>
-                <div className="text-[11px] font-mono text-ink-faint tabnum">
-                  {mixPct}% salaried · {100 - mixPct}% commission-only
-                </div>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={mixPct}
-                onChange={(e) => update("salariedEngineerMix", Number(e.target.value) / 100)}
-                className="w-full accent-emerald"
+          {/* Salaried tiers */}
+          <Card
+            title="Salaried engineers"
+            action={
+              <button
+                type="button"
+                onClick={() => addTier("salariedEngineers")}
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:opacity-80"
+              >
+                + Add tier
+              </button>
+            }
+          >
+            {inputs.salariedEngineers.length === 0 && (
+              <p className="text-[11px] text-ink-faint">No salaried engineers.</p>
+            )}
+            {inputs.salariedEngineers.map((t) => (
+              <TierEditor
+                key={t.id}
+                tier={t}
+                showSalary
+                onChange={(p) => updateTier("salariedEngineers", t.id, p)}
+                onRemove={() => removeTier("salariedEngineers", t.id)}
               />
-              <div className="mt-1 text-[10px] text-ink-faint">
-                Each $ of project revenue is delivered by one engineer — commissions never stack.
-                Salaried priority; commission-only handles the overflow.
+            ))}
+          </Card>
+
+          {/* Commission tiers */}
+          <Card
+            title="Commission-only engineers"
+            action={
+              <button
+                type="button"
+                onClick={() => addTier("commissionOnlyEngineers")}
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:opacity-80"
+              >
+                + Add tier
+              </button>
+            }
+          >
+            {inputs.commissionOnlyEngineers.length === 0 && (
+              <p className="text-[11px] text-ink-faint">No commission-only engineers.</p>
+            )}
+            {inputs.commissionOnlyEngineers.map((t) => (
+              <TierEditor
+                key={t.id}
+                tier={t}
+                onChange={(p) => updateTier("commissionOnlyEngineers", t.id, p)}
+                onRemove={() => removeTier("commissionOnlyEngineers", t.id)}
+              />
+            ))}
+          </Card>
+
+          {/* Sales + other */}
+          <Card title="Sales & other fixed">
+            <div className="py-2 border-b border-rule/40">
+              <div className="text-[12px] text-ink-strong font-medium mb-2">
+                Head of Client Solutions
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <Num label="Count" value={inputs.clientSolutions.count} step={1}
+                  onChange={(v) => updateClientSolutions({ count: v })} />
+                <Num label="Salary ($/mo)" value={inputs.clientSolutions.monthlySalary} step={500}
+                  onChange={(v) => updateClientSolutions({ monthlySalary: v })} />
+                <Num label="Commission (%)" value={inputs.clientSolutions.commissionRate * 100} step={0.5}
+                  onChange={(v) => updateClientSolutions({ commissionRate: v / 100 })} />
+              </div>
+              <div className="mt-1.5 text-[10px] text-ink-faint">
+                Default {fmtPct1(CLIENT_SOLUTIONS_COMMISSION)} — applies once to all project revenue.
               </div>
             </div>
-            <RoleEditor
-              label="Head of Client Solutions / sales"
-              role={inputs.clientSolutions}
-              showSalary
-              defaultRate={CLIENT_SOLUTIONS_COMMISSION}
-              rateHint="10% sales + 5% blueprint (applies to all new project revenue)"
-              onChange={(p) => updateRole("clientSolutions", p)}
-            />
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t border-rule/60">
+            <div className="grid grid-cols-2 gap-3 pt-3">
               <Num
                 label="Other fixed roles (count)"
                 value={inputs.otherFixed.count}
@@ -192,7 +255,10 @@ export function TeamScalingSimulator({
         </div>
 
         {/* Readout */}
-        <Readout out={out} target={inputs.targetMarginPct} />
+        <div className="space-y-5">
+          <Readout out={out} target={inputs.targetMarginPct} />
+          <CapacityPanel out={out} />
+        </div>
       </div>
 
       {/* Scenarios */}
@@ -228,16 +294,16 @@ export function TeamScalingSimulator({
           </p>
         ) : (
           <div className="mt-4 overflow-x-auto -mx-5 sm:-mx-6">
-            <table className="w-full text-[13px] min-w-[720px]">
+            <table className="w-full text-[13px] min-w-[760px]">
               <thead>
                 <tr className="text-left text-[11px] font-mono text-ink-faint uppercase tracking-wider border-b border-rule">
                   <th className="py-2 px-5 sm:px-6">Scenario</th>
                   <th className="py-2 px-3 text-right">Revenue</th>
                   <th className="py-2 px-3 text-right">Team cost</th>
-                  <th className="py-2 px-3 text-right">Gross profit</th>
                   <th className="py-2 px-3 text-right">Margin</th>
                   <th className="py-2 px-3 text-right">Founder net/mo</th>
                   <th className="py-2 px-3 text-right">Founder net/yr</th>
+                  <th className="py-2 px-3 text-right">Hiring</th>
                   <th className="py-2 px-5 sm:px-6"></th>
                 </tr>
               </thead>
@@ -249,10 +315,12 @@ export function TeamScalingSimulator({
                       <td className="py-2.5 px-5 sm:px-6 text-ink-strong">{s.name}</td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.totalRevenue)}</td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.totalTeamCost)}</td>
-                      <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.grossProfit)}</td>
                       <td className={`py-2.5 px-3 text-right tabnum font-mono ${marginColor(o.netMarginPct, s.inputs.targetMarginPct)}`}>{fmtPct1(o.netMarginPct)}</td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-strong">{fmtUsd(o.founderNetMonthly)}</td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-strong">{fmtUsd(o.founderNetAnnual)}</td>
+                      <td className={`py-2.5 px-3 text-right text-[11px] ${hiringTextColor(o.hiring)}`}>
+                        {hiringChip(o.hiring)}
+                      </td>
                       <td className="py-2.5 px-5 sm:px-6 text-right">
                         <button onClick={() => loadScenario(s.id)} className="text-[11px] text-emerald hover:underline mr-3">Load</button>
                         <button onClick={() => deleteScenario(s.id)} className="text-[11px] text-red hover:underline">Delete</button>
@@ -273,6 +341,16 @@ function marginColor(margin: number, target: number): string {
   if (margin >= target) return "text-emerald";
   if (margin >= target - 0.05) return "text-amber";
   return "text-red";
+}
+
+function hiringTextColor(h: HiringSignal): string {
+  return h.kind === "hire" ? "text-red" : h.kind === "warn" ? "text-amber" : "text-ink-muted";
+}
+
+function hiringChip(h: HiringSignal): string {
+  if (h.kind === "hire") return `Hire +${h.salariedNeeded}`;
+  if (h.kind === "warn") return "Hot";
+  return "Healthy";
 }
 
 function Readout({ out, target }: { out: ScalingOutput; target: number }) {
@@ -329,70 +407,166 @@ function Readout({ out, target }: { out: ScalingOutput; target: number }) {
       </div>
 
       <div className="pt-3 border-t border-rule/60 text-[11px] text-ink-faint leading-snug">
-        Commission pool (mix-based, never stacked):{" "}
-        <span className="tabnum">{fmtUsd(out.commissions.salariedEngineers)}</span> salaried eng share ·{" "}
-        <span className="tabnum">{fmtUsd(out.commissions.commissionOnlyEngineers)}</span> comm-only share ·{" "}
-        <span className="tabnum">{fmtUsd(out.commissions.clientSolutions)}</span> client solutions (single role)
+        Commission split (capacity-driven, never stacked):{" "}
+        <span className="tabnum">{fmtUsd(out.commissions.salariedEngineers)}</span> salaried ·{" "}
+        <span className="tabnum">{fmtUsd(out.commissions.commissionOnlyEngineers)}</span> commission-only ·{" "}
+        <span className="tabnum">{fmtUsd(out.commissions.clientSolutions)}</span> client solutions
       </div>
     </div>
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function CapacityPanel({ out }: { out: ScalingOutput }) {
+  const banner =
+    out.hiring.kind === "hire"
+      ? "border-red/40 bg-red/10 text-red"
+      : out.hiring.kind === "warn"
+        ? "border-amber/40 bg-amber/10 text-amber"
+        : "border-emerald/40 bg-emerald/10 text-emerald";
+
+  return (
+    <div className="bg-bg-elevated/40 border border-rule rounded-card p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="eyebrow">Capacity & hiring</div>
+        <div className="text-[11px] font-mono tabnum text-ink-faint">
+          {Math.round(out.projectHoursNeeded)} hrs needed /{" "}
+          {Math.round(out.salariedCapacityHours + out.commissionCapacityHours)} hrs available
+        </div>
+      </div>
+
+      <div className={`text-[12px] px-3 py-2 rounded border ${banner}`}>{out.hiring.message}</div>
+
+      <div className="space-y-2">
+        {out.tierBreakdown.length === 0 && (
+          <div className="text-[11px] text-ink-faint">No engineer tiers configured.</div>
+        )}
+        {out.tierBreakdown.map((t) => (
+          <TierBar key={t.id} t={t} />
+        ))}
+      </div>
+
+      {out.unmetHours > 0.5 && (
+        <div className="pt-2 border-t border-rule/60 text-[11px] text-ink-faint">
+          Unmet demand:{" "}
+          <span className="tabnum text-red">{Math.round(out.unmetHours)} hrs/mo</span>{" "}
+          (~{Math.ceil(out.unmetHours / DEFAULT_HOURS_PER_MONTH)} engineer
+          {Math.ceil(out.unmetHours / DEFAULT_HOURS_PER_MONTH) === 1 ? "" : "s"}).
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TierBar({ t }: { t: TierBreakdown }) {
+  const pct = Math.min(1.2, t.utilizationPct);
+  const pctDisplay = Math.round(t.utilizationPct * 100);
+  const tone =
+    t.utilizationPct > 1
+      ? "bg-red"
+      : t.utilizationPct > 0.85
+        ? "bg-amber"
+        : t.utilizationPct > 0
+          ? "bg-emerald"
+          : "bg-ink-faint/40";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between text-[11px] mb-1">
+        <span className="text-ink-strong">
+          {t.label}{" "}
+          <span className="text-ink-faint">({t.kind === "salaried" ? "salaried" : "commission"})</span>
+        </span>
+        <span className="font-mono tabnum text-ink-muted">
+          {Math.round(t.usedHours)}/{Math.round(t.capacityHours)} hrs · {pctDisplay}%
+        </span>
+      </div>
+      <div className="h-1.5 bg-bg-elevated rounded overflow-hidden">
+        <div className={`h-full ${tone}`} style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function Card({
+  title,
+  children,
+  action,
+}: {
+  title: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
     <div className="bg-bg-elevated/30 border border-rule rounded-md p-3.5">
-      <div className="text-[11px] font-mono text-ink-faint uppercase tracking-wider mb-2.5">{title}</div>
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="text-[11px] font-mono text-ink-faint uppercase tracking-wider">{title}</div>
+        {action}
+      </div>
       {children}
     </div>
   );
 }
 
-function RoleEditor({
-  label,
-  role,
+function TierEditor({
+  tier,
   showSalary,
-  defaultRate,
-  rateHint,
   onChange,
+  onRemove,
 }: {
-  label: string;
-  role: ScalingInputs["salariedEngineers"];
+  tier: EngineerTier;
   showSalary?: boolean;
-  defaultRate: number;
-  rateHint?: string;
-  onChange: (patch: Partial<ScalingInputs["salariedEngineers"]>) => void;
+  onChange: (patch: Partial<EngineerTier>) => void;
+  onRemove: () => void;
 }) {
   return (
     <div className="py-2.5 border-b border-rule/40 last:border-0">
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[12px] text-ink-strong font-medium">{label}</div>
-        <div className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">
-          default {fmtPct1(defaultRate)}
-        </div>
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="text"
+          value={tier.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          className="flex-1 bg-bg-elevated border border-rule rounded px-2 py-1 text-[12px] text-ink-strong focus:outline-none focus:border-emerald"
+        />
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-[11px] text-red hover:underline"
+          title="Remove tier"
+        >
+          Remove
+        </button>
       </div>
-      <div className={`grid gap-2 ${showSalary ? "grid-cols-3" : "grid-cols-2"}`}>
-        <Num label="Count" value={role.count} step={1} onChange={(v) => onChange({ count: v })} />
+      <div className={`grid gap-2 ${showSalary ? "grid-cols-4" : "grid-cols-3"}`}>
+        <Num label="Count" value={tier.count} step={1} onChange={(v) => onChange({ count: v })} />
         {showSalary && (
           <Num
             label="Salary ($/mo)"
-            value={role.monthlySalary}
+            value={tier.monthlySalary}
             step={500}
             onChange={(v) => onChange({ monthlySalary: v })}
           />
         )}
         <Num
           label="Commission (%)"
-          value={role.commissionRate * 100}
+          value={tier.commissionRate * 100}
           step={0.5}
           onChange={(v) => onChange({ commissionRate: v / 100 })}
         />
+        <Num
+          label="Hrs/mo each"
+          value={tier.hoursPerMonth}
+          step={10}
+          onChange={(v) => onChange({ hoursPerMonth: v })}
+        />
       </div>
       <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
-        <span>{rateHint ?? ""}</span>
+        <span>
+          Capacity: <span className="tabnum">{tier.count * tier.hoursPerMonth}</span> hrs/mo
+        </span>
         <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="checkbox"
-            checked={role.appliesTo === "projects+retainers"}
+            checked={tier.appliesTo === "projects+retainers"}
             onChange={(e) =>
               onChange({ appliesTo: e.target.checked ? "projects+retainers" : "projects" })
             }
@@ -444,11 +618,9 @@ function Kpi({
   const toneClass =
     tone === "emerald" ? "text-emerald" : tone === "amber" ? "text-amber" : tone === "red" ? "text-red" : "text-ink-strong";
   return (
-    <div className={`rounded-md border border-rule px-2.5 py-2 ${muted ? "bg-transparent" : "bg-bg-elevated/40"}`}>
+    <div className={`rounded border border-rule/60 px-2.5 py-1.5 ${muted ? "bg-transparent" : "bg-surface/40"}`}>
       <div className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">{label}</div>
-      <div className={`mt-0.5 text-[15px] font-semibold tabnum font-mono ${muted ? "text-ink-muted" : toneClass}`}>
-        {value}
-      </div>
+      <div className={`mt-0.5 text-[14px] font-semibold tabnum font-mono ${toneClass}`}>{value}</div>
     </div>
   );
 }

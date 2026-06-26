@@ -238,6 +238,25 @@ export function FounderDashboard({
             />
           </div>
 
+          {/* Margin chip */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">Current margin</span>
+            <span
+              className={`text-[12px] font-mono tabnum px-2 py-0.5 rounded-full border ${
+                marginVerdict(current.marginPct, a.targetMarginPct) === "healthy"
+                  ? "border-emerald/40 bg-emerald/10 text-emerald"
+                  : marginVerdict(current.marginPct, a.targetMarginPct) === "tight"
+                    ? "border-amber/40 bg-amber/10 text-amber"
+                    : "border-red/40 bg-red/10 text-red"
+              }`}
+            >
+              {fmtPct1(current.marginPct)} · target {fmtPct1(a.targetMarginPct)}
+            </span>
+            <span className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">
+              · variable rate {fmtPct1(current.variableRate)} ({Math.round(a.salariedMixPct * 100)}% salaried mix)
+            </span>
+          </div>
+
           {/* Footer row — quieter edit affordances */}
           <div className="mt-5 pt-4 border-t border-rule/60 flex items-end gap-4 flex-wrap">
             <label className="block">

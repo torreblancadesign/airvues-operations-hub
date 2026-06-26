@@ -435,6 +435,7 @@ export function FounderDashboard({
               <tr className="text-left text-[11px] font-mono text-ink-faint uppercase tracking-wider border-b border-rule">
                 <th className="py-2 px-5 sm:px-6">Monthly Revenue</th>
                 <th className="py-2 px-3 text-right">Monthly Profit</th>
+                <th className="py-2 px-3 text-right">Margin</th>
                 <th className="py-2 px-3 text-right">Founder Monthly (gross)</th>
                 <th className="py-2 px-3 text-right">Founder Annual (gross)</th>
                 <th className="py-2 px-3 text-right">Founder Net Annual</th>
@@ -446,6 +447,7 @@ export function FounderDashboard({
               {SCENARIO_ROWS.map((r) => {
                 const p = project(r, a);
                 const highlight = r === closestScenario;
+                const v = marginVerdict(p.marginPct, a.targetMarginPct);
                 return (
                   <tr
                     key={r}
@@ -463,6 +465,9 @@ export function FounderDashboard({
                     </td>
                     <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.monthlyProfit)}
+                    </td>
+                    <td className={`py-2.5 px-3 text-right tabnum font-mono ${marginToneClass(v)}`}>
+                      {fmtPct1(p.marginPct)}
                     </td>
                     <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.founderMonthly)}

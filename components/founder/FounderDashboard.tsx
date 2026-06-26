@@ -632,6 +632,8 @@ function ProjectionCard({
   eyebrow,
   revenue,
   monthlyProfit,
+  marginPct,
+  targetMarginPct,
   founderMonthly,
   founderAnnual,
   payrollTaxMonthly,
@@ -646,6 +648,8 @@ function ProjectionCard({
   eyebrow: string;
   revenue: number;
   monthlyProfit: number;
+  marginPct: number;
+  targetMarginPct: number;
   founderMonthly: number;
   founderAnnual: number;
   payrollTaxMonthly: number;
@@ -656,6 +660,8 @@ function ProjectionCard({
   footnote: string;
   accent?: boolean;
 }) {
+  const v = marginVerdict(marginPct, targetMarginPct);
+  const marginTone = v === "healthy" ? "emerald" : v === "tight" ? "amber" : "red";
   return (
     <section
       className={`bg-surface border rounded-card p-5 sm:p-6 ${
@@ -667,6 +673,7 @@ function ProjectionCard({
       <dl className="space-y-2 text-[13px]">
         <Row label="Monthly revenue" value={fmtUsd(revenue)} />
         <Row label="Estimated monthly profit" value={fmtUsd(monthlyProfit)} />
+        <Row label={`Margin (target ${fmtPct1(targetMarginPct)})`} value={fmtPct1(marginPct)} tone={marginTone} />
         <Row label="Founder ownership" value={fmtPct1(ownership)} />
         <Row label="Founder monthly (gross)" value={fmtUsd(founderMonthly)} />
         <Row label="Founder annualized (gross)" value={fmtUsd(founderAnnual)} />
@@ -687,6 +694,7 @@ function ProjectionCard({
     </section>
   );
 }
+
 
 function Row({
   label,

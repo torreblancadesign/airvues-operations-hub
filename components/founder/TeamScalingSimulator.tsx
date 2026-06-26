@@ -473,6 +473,8 @@ export function TeamScalingSimulator({
           </div>
         )}
       </div>
+
+      <ScalingCurves inputs={inputs} />
     </section>
   );
 }

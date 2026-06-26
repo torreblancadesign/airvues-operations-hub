@@ -528,14 +528,27 @@ export function defaultInputs(seed: {
   };
 }
 
+// Normalize a tier (legacy or current) into the current EngineerTier shape.
+function normalizeTier(raw: unknown, kind: "salaried" | "commission"): EngineerTier {
+  const t = (raw ?? {}) as Partial<EngineerTier> & { appliesTo?: CommissionBase };
+  return makeTier({ ...t, kind });
+}
+
 // Migrate legacy scenario inputs to v3.
 export function migrateInputs(raw: unknown): ScalingInputs | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
 
-  // Already v3
+  // Already v3 — normalize tiers to ensure new flags are present.
   if (r.v === 3 && Array.isArray(r.retainers)) {
-    return r as unknown as ScalingInputs;
+    const inp = r as unknown as ScalingInputs;
+    return {
+      ...inp,
+      salariedEngineers: (inp.salariedEngineers ?? []).map((t) => normalizeTier(t, "salaried")),
+      commissionOnlyEngineers: (inp.commissionOnlyEngineers ?? []).map((t) =>
+        normalizeTier(t, "commission"),
+      ),
+    };
   }
 
   // v2 → v3

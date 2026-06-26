@@ -1,99 +1,83 @@
 ## Goal
 
-Model retainers separately from project work in the Team Scaling Simulator so capacity planning reflects that retainers consume engineering hours at a different (usually higher per-dollar) load than billable project work, and surface "we need a dedicated retainer/logistics engineer" as a hiring signal.
+Give the Team Scaling Simulator three new controls:
+1. Reorder engineer tiers (priority for capacity fill).
+2. Per-tier eligibility for project work vs retainer work.
+3. Update an existing saved scenario instead of always creating a new one.
 
-Scope is limited to the Founder simulator: `lib/scaling-math.ts` and `components/founder/TeamScalingSimulator.tsx`. No dashboard projections, no Airtable schema, no other pages.
-
----
-
-## 1. Split the billable rate
-
-Today `revenueHourlyRate` is shared. Split into:
-
-- `projectHourlyRate` — used to convert project revenue → hours needed (today's behavior).
-- Retainers no longer use an hourly rate at all for capacity. Instead, capacity comes from an explicit per-retainer hours commitment (see §2).
-
-UI: rename the existing rate field to "Project billing rate ($/hr)". Remove the single blended rate.
+Scope: `lib/scaling-math.ts` and `components/founder/TeamScalingSimulator.tsx` only.
 
 ---
 
-## 2. Retainer roster (replaces the single retainer revenue number)
+## 1. Tier prioritization
 
-Replace `monthlyRetainerRevenue: number` with a list:
+Today fills go salaried-array-order → commission-array-order. Make that order user-controlled.
+
+- Keep the two arrays (`salariedEngineers`, `commissionOnlyEngineers`) — array order = priority.
+- Add ▲ / ▼ buttons on each tier row in the simulator UI to swap with its neighbor within the same group.
+- Salaried still fills before commission overall (matches the "use salaried capacity first" intent already established). Within each group, user-defined order rules.
+- No math change needed beyond honoring array order (already does).
+
+## 2. Per-tier eligibility: projects / retainers
+
+Replace the existing `appliesTo: "projects" | "projects+retainers"` (which today only gates commission base) with two explicit eligibility flags that gate BOTH capacity fill AND commission base:
 
 ```
-type Retainer = {
-  id: string;
-  label: string;            // "Acme support", "Beta logistics"
-  monthlyRevenue: number;   // $/mo we bill them
-  supportHoursPerMonth: number; // engineering hours we owe them
-  appliesToCommission: boolean; // include this retainer in commission base?
-};
-ScalingInputs.retainers: Retainer[];
+EngineerTier {
+  ...
+  worksOnProjects: boolean;   // eligible to be assigned project hours
+  worksOnRetainers: boolean;  // eligible to be assigned retainer hours
+  retainerCommission: boolean; // pay commission on retainer revenue serviced (replaces appliesTo)
+}
 ```
 
-Derived totals:
-- `monthlyRetainerRevenue = sum(r.monthlyRevenue)` (used everywhere the old field was used — totals, founder math, commission base)
-- `retainerHoursNeeded = sum(r.supportHoursPerMonth)`
+Migration in `migrateInputs` / on read: derive
+- `worksOnProjects = true` (legacy default)
+- `worksOnRetainers = true` (legacy default — preserves today's behavior)
+- `retainerCommission = appliesTo === "projects+retainers"`
 
-UI: a "Retainers" section with rows (label, $/mo, hrs/mo, commission toggle, remove) and "+ Add retainer".
+Math changes in `computeScenario`:
+- `fillTiers` takes the candidate tier list filtered by eligibility:
+  - Retainer pass: only tiers with `worksOnRetainers`.
+  - Project pass: only tiers with `worksOnProjects`.
+- Tier commission calc uses `retainerCommission` instead of `appliesTo`.
+- Marginal-rate calc for headroom also filters by `worksOnProjects`.
 
-Migration: legacy `monthlyRetainerRevenue > 0` becomes one row labeled "Existing retainers" with `supportHoursPerMonth = monthlyRetainerRevenue / projectHourlyRate` as a starting estimate the user can edit. v bumps to 3 with a `migrateInputs` branch.
+UI per tier row:
+- Two compact checkboxes: "Projects" and "Retainers".
+- The existing "Retainer commission" toggle stays, relabeled clearly.
+- Guard: if a tier has `worksOnRetainers=false` it cannot earn retainer commission (UI disables the toggle).
 
----
+Hiring signal: when `unmetRetainerHours > 0` and no tier has `worksOnRetainers`, the banner specifically says "No engineer tier is eligible for retainers — enable one or hire a dedicated retainer engineer."
 
-## 3. Capacity fill: retainers first, then projects
+## 3. Update saved scenario
 
-Retainer support is contractual — model it as fixed demand that gets fulfilled before project work:
+Today `saveScenario` always appends. Add update + rename.
 
-```
-retainerHoursNeeded = sum(retainers.supportHoursPerMonth)
-projectHoursNeeded  = monthlyProjectRevenue / projectHourlyRate
-totalDemand         = retainerHoursNeeded + projectHoursNeeded
-```
+- Track `activeScenarioId: string | null` (the last loaded/saved scenario).
+- `loadScenario(id)` sets active id and seeds `scenarioName` from the saved name.
+- Replace the single "Save current" button with two:
+  - **Update "<name>"** — visible when `activeScenarioId` exists and that scenario still exists; overwrites that scenario's `inputs` and `name`.
+  - **Save as new** — always available; creates a new entry and sets it active.
+- Scenario row in the table gets a small "active" dot when it matches `activeScenarioId`, plus an inline Rename action (uses current `scenarioName` input or a prompt — small, doesn't grow the row much).
+- If the user edits inputs after loading, show a faint "modified" chip next to the Update button so it's obvious there are unsaved changes (compare `inputs` to the saved snapshot via JSON equality).
 
-Fill order on the existing tier lists (salaried → commission-only, in array order):
-
-1. Fill `retainerHoursNeeded` first across salaried tiers, then commission tiers.
-2. Then fill `projectHoursNeeded` with whatever capacity remains.
-3. `unmetRetainerHours` and `unmetProjectHours` tracked separately.
-
-`TierBreakdown` gains `retainerHours` and `projectHours` (and keeps `usedHours = retainerHours + projectHours`) so the UI can show the split per tier.
-
----
-
-## 4. Commission math
-
-- Project revenue commission: unchanged — each tier's `projectHours * projectHourlyRate * commissionRate`.
-- Retainer revenue commission: per retainer, if `appliesToCommission` is true, pay the commission to whichever engineer tier actually services it. Use the same proportional split we already use for tiers — distribute each retainer's revenue across tiers in proportion to retainer hours each tier covered for that retainer (computed during the fill).
-- Sales (Client Solutions) commission: keep current behavior; the existing per-role `appliesTo: "projects" | "projects+retainers"` toggle continues to control whether retainer revenue is in the sales base.
+Storage key bumps to `founder:scaling-scenarios:v3` only if the SavedScenario shape changes; otherwise reuse v2 (the `inputs` migration handles the tier shape internally).
 
 ---
 
-## 5. Hiring signal upgrades
-
-The signal already exists; extend it to call out retainer shortfalls explicitly:
-
-- If `unmetRetainerHours > 0` → red banner: "Retainers under-served by ~X hrs/mo — hire a dedicated retainer/logistics engineer (~ceil(X/160))." Highest priority.
-- Else if `unmetProjectHours > 0` → existing project-shortfall banner.
-- Else amber/healthy as today, but utilization shown per tier already.
-
-Also add a small per-retainer chip showing "covered" or "short by N hrs" next to each retainer row.
-
----
-
-## 6. Files touched
+## Files touched
 
 **Modified**
-- `lib/scaling-math.ts` — new `Retainer` type, `ScalingInputs.retainers`, `projectHourlyRate`, two-pass capacity fill, expanded `TierBreakdown` + `ScalingOutput` (`retainerHoursNeeded`, `unmetRetainerHours`, `unmetProjectHours`, per-retainer coverage), updated commission split, `defaultInputs` seeding one example retainer, `migrateInputs` v2→v3.
-- `components/founder/TeamScalingSimulator.tsx` — rename rate input, add Retainers editor section, update capacity panel to show retainer vs project hours per tier, update hiring banner copy, per-retainer coverage chips.
+- `lib/scaling-math.ts` — `EngineerTier` gains `worksOnProjects` / `worksOnRetainers` / `retainerCommission`; `migrateInputs` v3→v3 (in-place tier shape migration); `computeScenario` filters fill lists by eligibility and reads `retainerCommission`; `makeTier` defaults both eligibilities to true.
+- `components/founder/TeamScalingSimulator.tsx` — reorder ▲▼ buttons per tier; two eligibility checkboxes per tier; replace single Save with Update/Save-as-new + active-scenario tracking + modified indicator + rename.
 
 **Not touched**
-- `lib/founder-math.ts`, `FounderDashboard.tsx` math (still uses aggregate retainer revenue — the new sum is API-compatible).
+- `FounderDashboard.tsx`, `lib/founder-math.ts` — aggregate revenue contract unchanged.
 - Airtable schema, other pages.
 
 ## Out of scope
 
-- Persisting retainer roster to Airtable.
-- Per-retainer SLA / response-time modeling.
-- Auto-assigning a specific tier to a specific retainer (today it's just priority fill order).
+- Per-retainer assignment to a specific tier (still priority-based within eligible tiers).
+- Server-side persistence of scenarios (still localStorage).
+- Drag-and-drop reordering (buttons only, keeps scope tight).

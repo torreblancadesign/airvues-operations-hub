@@ -744,8 +744,10 @@ export function QuoteStoriesTable({
   const ids = useMemo(() => localStories.map((s) => s.id), [localStories]);
 
   const monthKeyFor = (s: QuoteStoryRow): string => {
-    if (!s.createdTime) return "0000-00";
-    const d = new Date(s.createdTime);
+    const src = s.completedDate || s.createdTime;
+    if (!src) return "0000-00-unscheduled";
+    const d = new Date(src);
+    if (isNaN(d.getTime())) return "0000-00-unscheduled";
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   };
 
@@ -757,16 +759,27 @@ export function QuoteStoriesTable({
     >();
     for (const s of localStories) {
       const key = monthKeyFor(s);
-      const label = s.createdTime
-        ? new Date(s.createdTime).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-        : "Undated";
-      const g = map.get(key) ?? { key, label, stories: [], totalCost: 0, totalHours: 0 };
+      const src = s.completedDate || s.createdTime;
+      const isUnscheduled = key === "0000-00-unscheduled" || !s.completedDate;
+      const label = isUnscheduled
+        ? "Unscheduled"
+        : src
+          ? new Date(src).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+          : "Unscheduled";
+      // Re-key unscheduled to a single bucket regardless of createdTime.
+      const bucketKey = isUnscheduled ? "0000-00-unscheduled" : key;
+      const g = map.get(bucketKey) ?? { key: bucketKey, label, stories: [], totalCost: 0, totalHours: 0 };
       g.stories.push(s);
       g.totalCost += s.cost ?? 0;
       g.totalHours += s.hours ?? 0;
-      map.set(key, g);
+      map.set(bucketKey, g);
     }
-    return [...map.values()].sort((a, b) => b.key.localeCompare(a.key));
+    // Sort: Unscheduled first, then newest month → oldest.
+    return [...map.values()].sort((a, b) => {
+      if (a.key === "0000-00-unscheduled") return -1;
+      if (b.key === "0000-00-unscheduled") return 1;
+      return b.key.localeCompare(a.key);
+    });
   }, [groupByMonth, localStories]);
 
   function commitReorder(next: QuoteStoryRow[]) {

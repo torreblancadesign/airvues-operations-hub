@@ -623,6 +623,54 @@ function BulkBar({
   );
 }
 
+// ---------- Month group renderer ----------
+
+function FragmentGroup({
+  group,
+  canEdit,
+  onRowClick,
+  selected,
+  onToggleSelect,
+  engineers,
+  onPatch,
+  pending,
+}: {
+  group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
+  canEdit: boolean;
+  onRowClick?: (id: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  engineers: PersonOption[];
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] }) => Promise<void>;
+  pending: boolean;
+}) {
+  return (
+    <>
+      <tr className="bg-bg-elevated/70 border-y border-rule sticky">
+        <td colSpan={10} className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-ink-strong font-semibold">
+          <span>{group.label}</span>
+          <span className="ml-3 font-mono tabnum text-ink-muted normal-case tracking-normal">
+            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h · {fmtMoney(group.totalCost)}
+          </span>
+        </td>
+      </tr>
+      {group.stories.map((s) => (
+        <SortableStoryRow
+          key={s.id}
+          story={s}
+          canEdit={canEdit}
+          onRowClick={onRowClick}
+          selected={selected.has(s.id)}
+          onToggleSelect={onToggleSelect}
+          engineers={engineers}
+          onPatch={onPatch}
+          pending={pending}
+        />
+      ))}
+    </>
+  );
+}
+
 // ---------- Main table ----------
 
 export function QuoteStoriesTable({

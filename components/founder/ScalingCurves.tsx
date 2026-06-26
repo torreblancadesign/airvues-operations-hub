@@ -321,6 +321,8 @@ function ChartFrame({
   subtitle,
   yFormat,
   values,
+  secondaryValues,
+  secondaryTone,
   xValues,
   xFor,
   refLine,
@@ -335,6 +337,8 @@ function ChartFrame({
   subtitle?: string;
   yFormat: (v: number) => string;
   values: number[];
+  secondaryValues?: number[];
+  secondaryTone?: string;
   xValues: number[];
   xFor: (v: number) => number;
   refLine?: number;
@@ -345,8 +349,9 @@ function ChartFrame({
   onLeave: () => void;
   hireIdx: number;
 }) {
-  const yMin = Math.min(0, ...values, refLine ?? 0);
-  const yMax = Math.max(...values, refLine ?? 0, 1);
+  const allVals = secondaryValues ? [...values, ...secondaryValues] : values;
+  const yMin = Math.min(0, ...allVals, refLine ?? 0);
+  const yMax = Math.max(...allVals, refLine ?? 0, 1);
   const range = yMax - yMin || 1;
   const innerH = H - PAD_T - PAD_B;
   const yFor = (v: number) => PAD_T + innerH - ((v - yMin) / range) * innerH;
@@ -355,7 +360,14 @@ function ChartFrame({
     .map((v, i) => `${i === 0 ? "M" : "L"}${xFor(xValues[i]).toFixed(1)} ${yFor(v).toFixed(1)}`)
     .join(" ");
 
+  const secondaryPath = secondaryValues
+    ? secondaryValues
+        .map((v, i) => `${i === 0 ? "M" : "L"}${xFor(xValues[i]).toFixed(1)} ${yFor(v).toFixed(1)}`)
+        .join(" ")
+    : "";
+
   const lastColor = tone(values[values.length - 1] ?? 0);
+
 
   return (
     <div>

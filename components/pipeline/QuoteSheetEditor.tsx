@@ -1240,9 +1240,10 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           </div>
         </FieldRow>
       </Section>
+      )}
 
       {/* SECTION 4: Quote calculator — original scope stories */}
-      <Section title="Quote calculator" tone="amber" collapsible storageKey={`qs:${quoteId}:calc`} defaultOpen>
+      <Section title={quote.proposalType === "Retainer Agreement" ? "Retainer delivery — monthly stories" : "Quote calculator"} tone="amber" collapsible storageKey={`qs:${quoteId}:calc`} defaultOpen>
         <div className="px-5 pb-4">
           <QuoteStoriesTable
             stories={quote.stories.filter((s) => !s.isChangeOrder)}

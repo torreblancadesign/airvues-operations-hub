@@ -103,6 +103,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
               <SortHeader label="#" active={sort.key === "autonumber"} dir={sort.dir} onClick={() => toggle("autonumber")} />
               <SortHeader label="Prepared" active={sort.key === "preparedDate"} dir={sort.dir} onClick={() => toggle("preparedDate")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Project</th>
+              <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left" title="Proposal Type">Type</th>
               <SortHeader label="Client" active={sort.key === "client"} dir={sort.dir} onClick={() => toggle("client")} />
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Company</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-left">Prep By</th>

@@ -1258,6 +1258,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             people={people}
             onReordered={(next) => setQuote(next)}
             onChanged={(next) => setQuote(next)}
+            groupByMonth={quote.proposalType === "Retainer Agreement"}
           />
 
           {storyLoading && (

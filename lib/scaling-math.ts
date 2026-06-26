@@ -444,6 +444,7 @@ export function makeTier(
   partial: Partial<EngineerTier> & { kind?: "salaried" | "commission" },
 ): EngineerTier {
   const isSal = partial.kind === "salaried";
+  const legacyRetainerComm = partial.appliesTo === "projects+retainers";
   return {
     id: partial.id ?? newId("t"),
     label: partial.label ?? (isSal ? "Salaried tier" : "Commission tier"),
@@ -453,7 +454,9 @@ export function makeTier(
       partial.commissionRate ??
       (isSal ? SALARIED_ENGINEER_COMMISSION : COMMISSION_ONLY_ENGINEER_COMMISSION),
     hoursPerMonth: partial.hoursPerMonth ?? DEFAULT_HOURS_PER_MONTH,
-    appliesTo: partial.appliesTo ?? "projects",
+    worksOnProjects: partial.worksOnProjects ?? true,
+    worksOnRetainers: partial.worksOnRetainers ?? true,
+    retainerCommission: partial.retainerCommission ?? legacyRetainerComm,
   };
 }
 

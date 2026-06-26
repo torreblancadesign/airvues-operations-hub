@@ -428,7 +428,20 @@ function ChartFrame({
           />
         )}
 
+        {secondaryPath && secondaryTone && (
+          <path
+            d={secondaryPath}
+            fill="none"
+            stroke={secondaryTone}
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.85}
+          />
+        )}
         <path d={path} fill="none" stroke={lastColor} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+
 
         {/* points */}
         {values.map((v, i) => (

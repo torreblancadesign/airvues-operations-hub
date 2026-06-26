@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
 
 import {
   DndContext,
@@ -417,10 +418,20 @@ function SortableStoryRow({
       <td className="px-2 py-1.5 max-w-[180px]">
         {canEdit ? (
           <InlineText value={s.name} onSave={(v) => onPatch(s.id, { name: v })} />
+        ) : onRowClick ? (
+          <button
+            type="button"
+            onClick={() => onRowClick(s.id)}
+            className="px-1.5 py-1 text-ink-strong font-medium truncate text-left hover:text-emerald hover:underline underline-offset-2 w-full"
+            title={`Open ${s.name}`}
+          >
+            {s.name}
+          </button>
         ) : (
           <div className="px-1.5 py-1 text-ink font-medium truncate" title={s.name}>{s.name}</div>
         )}
       </td>
+
 
       <td className="px-2 py-1.5 max-w-[240px]">
         {canEdit ? (
@@ -504,18 +515,20 @@ function SortableStoryRow({
         )}
       </td>
 
-      <td className="px-2 py-1.5 w-[40px] text-right" onClick={stopBubble}>
+      <td className="px-2 py-1.5 w-[80px] text-right" onClick={stopBubble}>
         {onRowClick && (
           <button
             type="button"
             onClick={() => onRowClick(s.id)}
-            className="text-[11px] text-ink-faint hover:text-emerald"
-            title="Open story"
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-ink-muted hover:text-emerald border border-rule hover:border-emerald rounded transition-colors"
+            title="Open story details"
           >
-            ↗
+            <span>Open</span>
+            <ArrowUpRight className="w-3 h-3" />
           </button>
         )}
       </td>
+
     </tr>
   );
 }
@@ -657,6 +670,9 @@ function FragmentGroup({
   onPatch,
   pending,
   groupByMonth = false,
+  collapsed = false,
+  onToggleCollapsed,
+  isCurrent = false,
 }: {
   group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
   canEdit: boolean;
@@ -667,35 +683,70 @@ function FragmentGroup({
   onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
   pending: boolean;
   groupByMonth?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: (key: string) => void;
+  isCurrent?: boolean;
 }) {
   return (
     <>
-      <tr className="bg-bg-elevated/70 border-y border-rule sticky">
-        <td colSpan={10} className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-ink-strong font-semibold">
-          <span>{group.label}</span>
-          <span className="ml-3 font-mono tabnum text-ink-muted normal-case tracking-normal">
-            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h
-            {groupByMonth ? "" : ` · ${fmtMoney(group.totalCost)}`}
-          </span>
+      <tr className="bg-bg-elevated border-y border-rule">
+        <td colSpan={10} className="px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => onToggleCollapsed?.(group.key)}
+              className="flex items-center gap-2 text-left group"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-4 h-4 text-ink-muted group-hover:text-ink-strong transition-colors" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-ink-muted group-hover:text-ink-strong transition-colors" />
+              )}
+              {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald" aria-hidden />}
+              <span className="text-[14px] font-semibold text-ink-strong group-hover:text-emerald transition-colors">
+                {group.label}
+              </span>
+              {isCurrent && (
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald">Current</span>
+              )}
+            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2 py-0.5 rounded border border-rule bg-bg/60 text-[11px] font-mono tabnum text-ink">
+                {group.stories.length} {group.stories.length === 1 ? "story" : "stories"}
+              </span>
+              <span className="px-2 py-0.5 rounded border border-rule bg-bg/60 text-[11px] font-mono tabnum text-ink-strong">
+                {group.totalHours}h
+              </span>
+              {!groupByMonth && (
+                <span className="px-2 py-0.5 rounded border border-rule bg-bg/60 text-[11px] font-mono tabnum text-ink-strong">
+                  {fmtMoney(group.totalCost)}
+                </span>
+              )}
+            </div>
+          </div>
         </td>
       </tr>
-      {group.stories.map((s) => (
-        <SortableStoryRow
-          key={s.id}
-          story={s}
-          canEdit={canEdit}
-          onRowClick={onRowClick}
-          selected={selected.has(s.id)}
-          onToggleSelect={onToggleSelect}
-          engineers={engineers}
-          onPatch={onPatch}
-          pending={pending}
-          groupByMonth={groupByMonth}
-        />
-      ))}
+      {!collapsed &&
+        group.stories.map((s) => (
+          <SortableStoryRow
+            key={s.id}
+            story={s}
+            canEdit={canEdit}
+            onRowClick={onRowClick}
+            selected={selected.has(s.id)}
+            onToggleSelect={onToggleSelect}
+            engineers={engineers}
+            onPatch={onPatch}
+            pending={pending}
+            groupByMonth={groupByMonth}
+          />
+        ))}
     </>
   );
 }
+
 
 
 // ---------- Main table ----------
@@ -719,6 +770,48 @@ export function QuoteStoriesTable({
   const [localStories, setLocalStories] = useState<QuoteStoryRow[]>(stories);
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  
+
+  // Hydrate persisted collapsed state (client-only) once.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`qst:${quoteId}:collapsedMonths`);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        if (Array.isArray(arr)) setCollapsedMonths(new Set(arr));
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteId]);
+
+  const currentMonthKey = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  function toggleCollapsedMonth(key: string) {
+    setCollapsedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            `qst:${quoteId}:collapsedMonths`,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      return next;
+    });
+  }
+
 
   useEffect(() => {
     setLocalStories(stories);
@@ -1004,7 +1097,7 @@ export function QuoteStoriesTable({
                   <th className="px-2 py-2 font-medium whitespace-nowrap">
                     Engineer Assigned<span className="ml-1 text-ink-faint normal-case tracking-normal">(internal)</span>
                   </th>
-                  <th className="px-2 py-2 font-medium w-[40px]"></th>
+                  <th className="px-2 py-2 font-medium w-[80px]"></th>
                 </tr>
               </thead>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -1022,7 +1115,11 @@ export function QuoteStoriesTable({
                           onPatch={patchStory}
                           pending={pending}
                           groupByMonth={groupByMonth}
+                          collapsed={collapsedMonths.has(g.key)}
+                          onToggleCollapsed={toggleCollapsedMonth}
+                          isCurrent={g.key === currentMonthKey}
                         />
+
                       ))
                     : localStories.map((s) => (
                         <SortableStoryRow

@@ -1,59 +1,42 @@
-## Retainer polish: stories, project page, and monthly grouping
+## Goals
 
-### 1. Schema — add the Completed Date field
-`lib/schema.ts` (Stories table)
-- Add `"Completed Date": { id: "Completed Date", type: "date" }` (using the field name as the write key until the real `fldXXX` ID is captured, same pattern used for `Change Order`).
+Three small polishes to the Retainer (and standard) Quote Stories experience, plus confirm the prior async build error is stale.
 
-### 2. Story shape — surface completedDate
-`lib/quote-types.ts`
-- Add `completedDate: string | null` to `QuoteStoryRow`.
+### 1. NewQuoteStoryModal — remove Client Notes when adding a story
 
-`lib/quotes.ts`
-- Fetch `Completed Date` for each linked Story; map to `completedDate`.
+- In `components/pipeline/NewQuoteStoryModal.tsx`, drop the Client Notes textarea and its `clientNotes` state entirely (it's currently always shown). Client notes can still be edited inline from the table/drawer after creation.
 
-### 3. Monthly bucket — prefer Completed Date, fall back to createdTime
-`components/pipeline/QuoteStoriesTable.tsx`
-- When `groupByMonth` is true, derive the month label from `completedDate` if present, else from `createdTime` (existing behavior). Stories without a completed date go into a leading "Unscheduled" group.
+### 2. QuoteStoriesTable — make "Open story" much more discoverable
 
-### 4. New-story modal — retainer-aware
-`components/pipeline/NewQuoteStoryModal.tsx`
-- Accept a new prop `isRetainer: boolean`.
-- When `isRetainer`:
-  - Hide the **Cost** input (don't validate, don't send).
-  - Show a new **Completed Date** date input (optional; if set, sent on create so the story lands in the right month bucket).
-- Non-retainer behavior is unchanged (Cost stays required, no date field).
+In `components/pipeline/QuoteStoriesTable.tsx`:
+- Replace the tiny `↗` glyph in the right-side `w-[40px]` cell with a proper button: a lucide `ArrowUpRight` (or `Maximize2`) icon inside a bordered pill that says "Open", visible on every row (not hover-only), right-aligned, with `title="Open story details"`.
+- Additionally, make the **Story Name cell itself clickable** — wrap the name text in a button styled as a subtle link (underline-on-hover, ink-strong color) that also calls `onRowClick(s.id)`. This gives two obvious affordances: click the name OR the "Open" pill.
+- Keep `stopBubble` behavior on all inline-edit cells so editing fields never accidentally opens the drawer.
 
-`lib/mutations/quote.ts` → `createQuoteStory`
-- Accept optional `completedDate?: string` and optional `cost?: number` (currently required). For retainers we'll omit cost; Airtable currency field stays empty.
-- Write `Completed Date` when provided.
+### 3. Month group headers — collapsible + bigger, clearer totals
 
-`components/pipeline/QuoteSheetEditor.tsx`
-- Pass `isRetainer={quote.proposalType === "Retainer Agreement"}` to `NewQuoteStoryModal`.
+In `QuoteStoriesTable.tsx` (`FragmentGroup` + parent):
+- Lift collapsed-state up to the table: `const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())` keyed by `group.key`, persisted to `localStorage` under `qst:${quoteId}:collapsedMonths` so it survives reloads.
+- Redesign the month header row: replace the small uppercase 10px label with a taller (py-2.5) row containing:
+  - A chevron button on the left (`ChevronDown` when open, `ChevronRight` when collapsed) that toggles the group.
+  - Month label at `text-[14px] font-semibold text-ink-strong` (e.g. "June 2026"), with a colored dot if it's the current month.
+  - Right side: two compact stat pills — `{n} stories` and `{totalHours}h` — at `text-[12px]` with tabnum, bg-bg-elevated/80, border-rule, rounded.
+  - Only show the row's stories when not collapsed (skip rendering `SortableStoryRow`s for collapsed groups).
+- Default state: current + most recent month expanded, older months collapsed.
+- Apply only when `groupByMonth` is true; non-retainer rendering stays unchanged.
 
-### 5. Inline editing — retainer-aware columns
-`components/pipeline/QuoteStoriesTable.tsx`
-- When `groupByMonth` (i.e. retainer):
-  - Hide the **Cost** column entirely (header + cells + totals row Cost).
-  - Add a **Completed** date column (inline-editable; editing it moves the row to the corresponding month group on save).
-- Keep all other columns/behaviors identical for non-retainers.
+### 4. Stale build error
 
-`lib/mutations/quote.ts` → `updateQuoteStory` (or the existing inline-edit action)
-- Accept `completedDate` patches and write `Completed Date`.
+The "dist-check failed" message is leftover from the prior async build; a fresh local typecheck now passes clean. No additional fix needed — the next build after these edits will clear it.
 
-### 6. Project detail — retainer cleanups
-`components/pipeline/QuoteSheetEditor.tsx`
-When `quote.proposalType === "Retainer Agreement"`:
-- Hide the **Change orders** section + the change-order stories block (already kept; remove for retainers).
-- Hide the **Delivery due date** field/chip in the header.
-- Hide the **Blueprint engagement** toggle.
+## Out of scope
 
-`app/(app)/pipeline/[id]/page.tsx`
-- Mirror the header changes: don't render the delivery-due-date chip for retainers (the Paid-status hide stays for all types).
+- No schema or mutation changes.
+- No changes to non-retainer (standard quote) stories table layout besides the new "Open" button affordance (which is a global UX win).
+- No drag-and-drop changes.
 
-### 7. Verify
-- `npx tsc --noEmit` and `npm run build` (the project's required gates per `CLAUDE.md`).
+## Technical notes
 
-### Notes / assumptions
-- Field name "Completed Date" is used as the write key (matches the `Change Order` pattern in `schema.ts`). When you grab the real `fldXXX` ID later, swap the value in one place.
-- "Unscheduled" bucket for retainer stories with no completed date keeps newly-added stories visible until you set a date.
-- Non-retainer projects (Airtable Solutions) are untouched by all of these changes.
+- `lucide-react` already used elsewhere in the project — import `ArrowUpRight`, `ChevronDown`, `ChevronRight` from it.
+- Persisted collapsed state uses a JSON-serialized array of keys, hydrated in a `useEffect` to avoid SSR hydration mismatch.
+- Stats per group already computed in `monthGroups` memo (`totalHours`, `stories.length`) — just re-style.

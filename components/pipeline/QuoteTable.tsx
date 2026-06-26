@@ -188,7 +188,9 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                       <ProjectProgress status={q.projectStatus} />
                     </td>
                     <td className="px-3 py-2.5">
-                      {q.deliveryDueDate ? (
+                      {q.status === "Paid" ? (
+                        <span className="text-[11px] text-ink-faint">—</span>
+                      ) : q.deliveryDueDate ? (
                         <span
                           className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium uppercase tracking-wider ${deadlineRiskClass(q.deadlineRisk)}`}
                           title={`Client Delivery Due Date: ${new Date(q.deliveryDueDate).toLocaleDateString()}`}

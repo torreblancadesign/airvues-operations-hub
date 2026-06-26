@@ -102,7 +102,7 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
             {quote.totalHours}h
           </span>
         )}
-        {quote.deliveryDueDate && (
+        {quote.deliveryDueDate && quote.status !== "Paid" && (
           <span
             className={`px-2.5 py-1 rounded font-medium ${deadlineRiskClass(quote.deadlineRisk)}`}
             title={`Client Delivery Due Date: ${new Date(quote.deliveryDueDate).toLocaleDateString()}`}

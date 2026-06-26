@@ -56,6 +56,8 @@ export function TeamScalingSimulator({
     patch: Partial<ScalingInputs["salariedEngineers"]>,
   ) => setInputs((s) => ({ ...s, [role]: { ...s[role], ...patch } }));
 
+  const mixPct = Math.round(inputs.salariedEngineerMix * 100);
+
   const saveScenario = () => {
     const name = scenarioName.trim() || `Scenario ${scenarios.length + 1}`;
     const id = `${Date.now()}`;

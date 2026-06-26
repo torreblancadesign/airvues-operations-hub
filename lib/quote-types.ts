@@ -12,6 +12,7 @@ export type QuoteStoryRow = {
   isChangeOrder: boolean;
   order: number | null;
   createdTime: string | null;
+  completedDate: string | null;
 };
 
 

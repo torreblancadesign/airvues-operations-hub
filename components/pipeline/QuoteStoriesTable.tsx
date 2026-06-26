@@ -992,7 +992,11 @@ export function QuoteStoriesTable({
                   <th className="px-2 py-2 font-medium">Story Name</th>
                   <th className="px-2 py-2 font-medium">Description</th>
                   <th className="px-2 py-2 font-medium text-right tabnum">Hours</th>
-                  <th className="px-2 py-2 font-medium text-right tabnum">Cost</th>
+                  {groupByMonth ? (
+                    <th className="px-2 py-2 font-medium">Completed</th>
+                  ) : (
+                    <th className="px-2 py-2 font-medium text-right tabnum">Cost</th>
+                  )}
                   <th className="px-2 py-2 font-medium">Client Notes</th>
                   <th className="px-2 py-2 font-medium whitespace-nowrap">
                     Story Status<span className="ml-1 text-ink-faint normal-case tracking-normal">(internal)</span>
@@ -1017,6 +1021,7 @@ export function QuoteStoriesTable({
                           engineers={engineerOptions}
                           onPatch={patchStory}
                           pending={pending}
+                          groupByMonth={groupByMonth}
                         />
                       ))
                     : localStories.map((s) => (

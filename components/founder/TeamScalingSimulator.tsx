@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import {
-  CLIENT_SOLUTIONS_COMMISSION,
+  CLIENT_SOLUTIONS_PROJECT_COMMISSION,
+  CLIENT_SOLUTIONS_RETAINER_COMMISSION,
   DEFAULT_HOURS_PER_MONTH,
   EngineerTier,
   HiringSignal,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/scaling-math";
 import { fmtPct1, fmtUsd } from "@/lib/founder-math";
 import { useLocalStorageJSON } from "@/lib/use-local-storage";
+import { ScalingCurves } from "./ScalingCurves";
 
 type SavedScenario = { id: string; name: string; inputs: ScalingInputs };
 
@@ -314,16 +316,28 @@ export function TeamScalingSimulator({
               <div className="text-[12px] text-ink-strong font-medium mb-2">
                 Head of Client Solutions
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Num label="Count" value={inputs.clientSolutions.count} step={1}
                   onChange={(v) => updateClientSolutions({ count: v })} />
                 <Num label="Salary ($/mo)" value={inputs.clientSolutions.monthlySalary} step={500}
                   onChange={(v) => updateClientSolutions({ monthlySalary: v })} />
-                <Num label="Commission (%)" value={inputs.clientSolutions.commissionRate * 100} step={0.5}
-                  onChange={(v) => updateClientSolutions({ commissionRate: v / 100 })} />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Num
+                  label="Project commission (%)"
+                  value={(inputs.clientSolutions.projectCommissionRate ?? 0) * 100}
+                  step={0.5}
+                  onChange={(v) => updateClientSolutions({ projectCommissionRate: v / 100 })}
+                />
+                <Num
+                  label="Retainer commission (%)"
+                  value={(inputs.clientSolutions.retainerCommissionRate ?? 0) * 100}
+                  step={0.5}
+                  onChange={(v) => updateClientSolutions({ retainerCommissionRate: v / 100 })}
+                />
               </div>
               <div className="mt-1.5 text-[10px] text-ink-faint">
-                Default {fmtPct1(CLIENT_SOLUTIONS_COMMISSION)} — applies once to all project revenue.
+                Defaults {fmtPct1(CLIENT_SOLUTIONS_PROJECT_COMMISSION)} on projects, {fmtPct1(CLIENT_SOLUTIONS_RETAINER_COMMISSION)} on retainers (per-retainer toggle below).
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-3">
@@ -459,6 +473,8 @@ export function TeamScalingSimulator({
           </div>
         )}
       </div>
+
+      <ScalingCurves inputs={inputs} />
     </section>
   );
 }
@@ -771,6 +787,23 @@ function TierEditor({
           </label>
         </div>
       </div>
+      <div
+        className="mt-2 grid grid-cols-2 gap-2"
+        title="Force a fixed number of hours to this tier each month regardless of priority order. Useful when a senior tier has specific technical skills needed."
+      >
+        <Num
+          label="Reserve project hrs/mo"
+          value={tier.manualProjectHours}
+          step={5}
+          onChange={(v) => onChange({ manualProjectHours: Math.max(0, v) })}
+        />
+        <Num
+          label="Reserve retainer hrs/mo"
+          value={tier.manualRetainerHours}
+          step={5}
+          onChange={(v) => onChange({ manualRetainerHours: Math.max(0, v) })}
+        />
+      </div>
     </div>
   );
 }
@@ -828,7 +861,7 @@ function RetainerEditor({
           onChange={(v) => onChange({ supportHoursPerMonth: v })}
         />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
+      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint gap-3 flex-wrap">
         <span>
           Effective rate:{" "}
           <span className="tabnum">
@@ -837,15 +870,26 @@ function RetainerEditor({
               : "—"}
           </span>
         </span>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={retainer.appliesToCommission}
-            onChange={(e) => onChange({ appliesToCommission: e.target.checked })}
-            className="accent-emerald"
-          />
-          <span>Pay engineer commission on this retainer</span>
-        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={retainer.appliesToCommission}
+              onChange={(e) => onChange({ appliesToCommission: e.target.checked })}
+              className="accent-emerald"
+            />
+            <span>Engineer commission</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={retainer.paySalesCommission}
+              onChange={(e) => onChange({ paySalesCommission: e.target.checked })}
+              className="accent-sky"
+            />
+            <span>Sales commission</span>
+          </label>
+        </div>
       </div>
     </div>
   );

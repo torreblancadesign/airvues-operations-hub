@@ -6,11 +6,14 @@ import {
   DEFAULT_HOURS_PER_MONTH,
   EngineerTier,
   HiringSignal,
+  Retainer,
+  RetainerCoverage,
   ScalingInputs,
   ScalingOutput,
   TierBreakdown,
   computeScenario,
   defaultInputs,
+  makeRetainer,
   makeTier,
   migrateInputs,
 } from "@/lib/scaling-math";
@@ -90,6 +93,16 @@ export function TeamScalingSimulator({
   const updateClientSolutions = (patch: Partial<ScalingInputs["clientSolutions"]>) =>
     setInputs((s) => ({ ...s, clientSolutions: { ...s.clientSolutions, ...patch } }));
 
+  const updateRetainer = (id: string, patch: Partial<Retainer>) =>
+    setInputs((s) => ({
+      ...s,
+      retainers: s.retainers.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    }));
+  const addRetainer = () =>
+    setInputs((s) => ({ ...s, retainers: [...s.retainers, makeRetainer()] }));
+  const removeRetainer = (id: string) =>
+    setInputs((s) => ({ ...s, retainers: s.retainers.filter((r) => r.id !== id) }));
+
   const saveScenario = () => {
     const name = scenarioName.trim() || `Scenario ${scenarios.length + 1}`;
     const id = `${Date.now()}`;
@@ -134,20 +147,49 @@ export function TeamScalingSimulator({
         <div className="space-y-5">
           {/* Revenue */}
           <Card title="Projected revenue">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Num label="Project rev ($/mo)" value={inputs.monthlyProjectRevenue} step={1000}
                 onChange={(v) => update("monthlyProjectRevenue", v)} />
-              <Num label="Retainer rev ($/mo)" value={inputs.monthlyRetainerRevenue} step={500}
-                onChange={(v) => update("monthlyRetainerRevenue", v)} />
-              <Num label="Billing rate ($/hr)" value={inputs.revenueHourlyRate} step={5}
-                onChange={(v) => update("revenueHourlyRate", v)} />
+              <Num label="Project billing rate ($/hr)" value={inputs.projectHourlyRate} step={5}
+                onChange={(v) => update("projectHourlyRate", v)} />
             </div>
             <div className="mt-2 text-[11px] font-mono text-ink-faint uppercase tracking-wider">
               Total: <span className="tabnum text-ink-strong">{fmtUsd(out.totalRevenue)}/mo</span>
-              {" · "}Needs{" "}
-              <span className="tabnum text-ink-strong">{Math.round(out.projectHoursNeeded)} hrs/mo</span>{" "}
-              of project work
+              {" · "}Project:{" "}
+              <span className="tabnum text-ink-strong">{Math.round(out.projectHoursNeeded)} hrs/mo</span>
+              {" · "}Retainers:{" "}
+              <span className="tabnum text-ink-strong">{Math.round(out.retainerHoursNeeded)} hrs/mo</span>
             </div>
+          </Card>
+
+          {/* Retainers */}
+          <Card
+            title="Retainers"
+            action={
+              <button
+                type="button"
+                onClick={addRetainer}
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:opacity-80"
+              >
+                + Add retainer
+              </button>
+            }
+          >
+            {inputs.retainers.length === 0 && (
+              <p className="text-[11px] text-ink-faint">No retainers configured.</p>
+            )}
+            {inputs.retainers.map((r) => {
+              const coverage = out.retainerCoverage.find((c) => c.id === r.id);
+              return (
+                <RetainerEditor
+                  key={r.id}
+                  retainer={r}
+                  coverage={coverage}
+                  onChange={(p) => updateRetainer(r.id, p)}
+                  onRemove={() => removeRetainer(r.id)}
+                />
+              );
+            })}
           </Card>
 
           {/* Salaried tiers */}
@@ -458,7 +500,6 @@ function CapacityPanel({ out }: { out: ScalingOutput }) {
 }
 
 function TierBar({ t }: { t: TierBreakdown }) {
-  const pct = Math.min(1.2, t.utilizationPct);
   const pctDisplay = Math.round(t.utilizationPct * 100);
   const tone =
     t.utilizationPct > 1
@@ -480,8 +521,25 @@ function TierBar({ t }: { t: TierBreakdown }) {
           {Math.round(t.usedHours)}/{Math.round(t.capacityHours)} hrs · {pctDisplay}%
         </span>
       </div>
-      <div className="h-1.5 bg-bg-elevated rounded overflow-hidden">
-        <div className={`h-full ${tone}`} style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      <div className="h-1.5 bg-bg-elevated rounded overflow-hidden flex">
+        <div
+          className="h-full bg-violet"
+          style={{
+            width: `${t.capacityHours > 0 ? Math.min(100, (t.retainerHours / t.capacityHours) * 100) : 0}%`,
+          }}
+          title={`Retainer: ${Math.round(t.retainerHours)} hrs`}
+        />
+        <div
+          className={`h-full ${tone}`}
+          style={{
+            width: `${t.capacityHours > 0 ? Math.min(100, (t.projectHours / t.capacityHours) * 100) : 0}%`,
+          }}
+          title={`Project: ${Math.round(t.projectHours)} hrs`}
+        />
+      </div>
+      <div className="mt-1 text-[10px] font-mono tabnum text-ink-faint">
+        <span className="text-violet">{Math.round(t.retainerHours)}</span> retainer ·{" "}
+        <span>{Math.round(t.projectHours)}</span> project
       </div>
     </div>
   );
@@ -573,6 +631,82 @@ function TierEditor({
             className="accent-emerald"
           />
           <span>Include retainers in commission base</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function RetainerEditor({
+  retainer,
+  coverage,
+  onChange,
+  onRemove,
+}: {
+  retainer: Retainer;
+  coverage?: RetainerCoverage;
+  onChange: (patch: Partial<Retainer>) => void;
+  onRemove: () => void;
+}) {
+  const short = coverage?.shortHours ?? 0;
+  const chip =
+    short > 0.5
+      ? { cls: "border-red/40 bg-red/10 text-red", label: `Short ${Math.round(short)} hrs` }
+      : { cls: "border-emerald/40 bg-emerald/10 text-emerald", label: "Covered" };
+  return (
+    <div className="py-2.5 border-b border-rule/40 last:border-0">
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="text"
+          value={retainer.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          className="flex-1 bg-bg-elevated border border-rule rounded px-2 py-1 text-[12px] text-ink-strong focus:outline-none focus:border-emerald"
+        />
+        <span
+          className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border ${chip.cls}`}
+        >
+          {chip.label}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-[11px] text-red hover:underline"
+          title="Remove retainer"
+        >
+          Remove
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Num
+          label="Revenue ($/mo)"
+          value={retainer.monthlyRevenue}
+          step={500}
+          onChange={(v) => onChange({ monthlyRevenue: v })}
+        />
+        <Num
+          label="Support hrs/mo"
+          value={retainer.supportHoursPerMonth}
+          step={5}
+          onChange={(v) => onChange({ supportHoursPerMonth: v })}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
+        <span>
+          Effective rate:{" "}
+          <span className="tabnum">
+            {retainer.supportHoursPerMonth > 0
+              ? `$${Math.round(retainer.monthlyRevenue / retainer.supportHoursPerMonth)}/hr`
+              : "—"}
+          </span>
+        </span>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={retainer.appliesToCommission}
+            onChange={(e) => onChange({ appliesToCommission: e.target.checked })}
+            className="accent-emerald"
+          />
+          <span>Pay engineer commission on this retainer</span>
         </label>
       </div>
     </div>

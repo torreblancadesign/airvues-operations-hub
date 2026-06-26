@@ -295,10 +295,13 @@ export function TeamScalingSimulator({
             {inputs.commissionOnlyEngineers.length === 0 && (
               <p className="text-[11px] text-ink-faint">No commission-only engineers.</p>
             )}
-            {inputs.commissionOnlyEngineers.map((t) => (
+            {inputs.commissionOnlyEngineers.map((t, i) => (
               <TierEditor
                 key={t.id}
                 tier={t}
+                index={i}
+                lastIndex={inputs.commissionOnlyEngineers.length - 1}
+                onMove={(dir) => moveTier("commissionOnlyEngineers", t.id, dir)}
                 onChange={(p) => updateTier("commissionOnlyEngineers", t.id, p)}
                 onRemove={() => removeTier("commissionOnlyEngineers", t.id)}
               />

@@ -702,19 +702,31 @@ function Row({
   strong,
   accent,
   muted,
+  tone,
 }: {
   label: string;
   value: string;
   strong?: boolean;
   accent?: boolean;
   muted?: boolean;
+  tone?: "emerald" | "amber" | "red";
 }) {
+  const toneClass =
+    tone === "emerald" ? "text-emerald" : tone === "amber" ? "text-amber" : tone === "red" ? "text-red" : null;
   return (
     <div className="flex items-center justify-between gap-3 py-1">
       <dt className={muted ? "text-ink-faint" : "text-ink-muted"}>{label}</dt>
       <dd
         className={`tabnum font-mono ${
-          accent ? "text-emerald text-[18px] font-semibold" : strong ? "text-ink-strong font-semibold" : muted ? "text-ink-muted" : "text-ink-strong"
+          toneClass
+            ? `${toneClass} font-semibold`
+            : accent
+              ? "text-emerald text-[18px] font-semibold"
+              : strong
+                ? "text-ink-strong font-semibold"
+                : muted
+                  ? "text-ink-muted"
+                  : "text-ink-strong"
         }`}
       >
         {value}
@@ -722,6 +734,7 @@ function Row({
     </div>
   );
 }
+
 
 function NumInput({
   label,

@@ -265,11 +265,14 @@ export function TeamScalingSimulator({
             {inputs.salariedEngineers.length === 0 && (
               <p className="text-[11px] text-ink-faint">No salaried engineers.</p>
             )}
-            {inputs.salariedEngineers.map((t) => (
+            {inputs.salariedEngineers.map((t, i) => (
               <TierEditor
                 key={t.id}
                 tier={t}
                 showSalary
+                index={i}
+                lastIndex={inputs.salariedEngineers.length - 1}
+                onMove={(dir) => moveTier("salariedEngineers", t.id, dir)}
                 onChange={(p) => updateTier("salariedEngineers", t.id, p)}
                 onRemove={() => removeTier("salariedEngineers", t.id)}
               />

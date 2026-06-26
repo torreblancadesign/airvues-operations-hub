@@ -282,10 +282,9 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     const projectRev = projHours * projHourly;
     const retainerRev = tierRetainerRevenue.get(t.id) ?? 0;
     const retainerCommBase = tierRetainerCommBase.get(t.id) ?? 0;
-    // Per-tier commission: project rev always counted; retainer rev counted if either the retainer
-    // (per-retainer toggle) OR the tier's own toggle opts in. To keep semantics simple we treat the
-    // tier's `appliesTo` as a gate too: tier must include retainers AND retainer must opt in.
-    const retainerBaseForTier = t.appliesTo === "projects+retainers" ? retainerCommBase : 0;
+    // Per-tier commission: project rev always counted (if eligible); retainer rev counted when
+    // BOTH the retainer opted in AND the tier opts in via `retainerCommission`.
+    const retainerBaseForTier = t.retainerCommission ? retainerCommBase : 0;
     const comm = (projectRev + retainerBaseForTier) * t.commissionRate;
     if (kind === "salaried") cSalEng += comm;
     else cCommEng += comm;

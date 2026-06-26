@@ -167,7 +167,7 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
           </thead>
           <tbody className="row-zebra">
             {rows.length === 0 ? (
-              <tr><td colSpan={13} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
+              <tr><td colSpan={14} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
               rows.map((q) => {
                 const days = daysSince(q.preparedDate);

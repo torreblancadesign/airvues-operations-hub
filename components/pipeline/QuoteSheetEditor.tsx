@@ -1272,6 +1272,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
       </Section>
 
       {/* SECTION 5: Change orders */}
+      {quote.proposalType !== "Retainer Agreement" && (
       <Section title="Change orders" tone="red" collapsible storageKey={`qs:${quoteId}:co`} defaultOpen={false}>
         <FieldRow
           label="Change Order Input Details"
@@ -1384,13 +1385,18 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           </div>
         </div>
       </Section>
+      )}
+
+
 
       <NewQuoteStoryModal
         open={showAddStory}
         quoteId={quoteId}
         onClose={() => setShowAddStory(false)}
         onCreated={(next) => setQuote(next)}
+        isRetainer={quote.proposalType === "Retainer Agreement"}
       />
+
 
       <NewQuoteStoryModal
         open={showAddChangeOrder}

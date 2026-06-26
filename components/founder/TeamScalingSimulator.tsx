@@ -128,12 +128,34 @@ export function TeamScalingSimulator({
               defaultRate={COMMISSION_ONLY_ENGINEER_COMMISSION}
               onChange={(p) => updateRole("commissionOnlyEngineers", p)}
             />
+            {/* Engineer mix — splits project revenue between the two pools */}
+            <div className="py-2.5 border-b border-rule/40">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[12px] text-ink-strong font-medium">Engineer mix</div>
+                <div className="text-[11px] font-mono text-ink-faint tabnum">
+                  {mixPct}% salaried · {100 - mixPct}% commission-only
+                </div>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={mixPct}
+                onChange={(e) => update("salariedEngineerMix", Number(e.target.value) / 100)}
+                className="w-full accent-emerald"
+              />
+              <div className="mt-1 text-[10px] text-ink-faint">
+                Each $ of project revenue is delivered by one engineer — commissions never stack.
+                Salaried priority; commission-only handles the overflow.
+              </div>
+            </div>
             <RoleEditor
               label="Head of Client Solutions / sales"
               role={inputs.clientSolutions}
               showSalary
               defaultRate={CLIENT_SOLUTIONS_COMMISSION}
-              rateHint="10% sales + 5% blueprint (always blueprinting)"
+              rateHint="10% sales + 5% blueprint (applies to all new project revenue)"
               onChange={(p) => updateRole("clientSolutions", p)}
             />
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-rule/60">

@@ -316,16 +316,28 @@ export function TeamScalingSimulator({
               <div className="text-[12px] text-ink-strong font-medium mb-2">
                 Head of Client Solutions
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Num label="Count" value={inputs.clientSolutions.count} step={1}
                   onChange={(v) => updateClientSolutions({ count: v })} />
                 <Num label="Salary ($/mo)" value={inputs.clientSolutions.monthlySalary} step={500}
                   onChange={(v) => updateClientSolutions({ monthlySalary: v })} />
-                <Num label="Commission (%)" value={inputs.clientSolutions.commissionRate * 100} step={0.5}
-                  onChange={(v) => updateClientSolutions({ commissionRate: v / 100 })} />
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Num
+                  label="Project commission (%)"
+                  value={(inputs.clientSolutions.projectCommissionRate ?? 0) * 100}
+                  step={0.5}
+                  onChange={(v) => updateClientSolutions({ projectCommissionRate: v / 100 })}
+                />
+                <Num
+                  label="Retainer commission (%)"
+                  value={(inputs.clientSolutions.retainerCommissionRate ?? 0) * 100}
+                  step={0.5}
+                  onChange={(v) => updateClientSolutions({ retainerCommissionRate: v / 100 })}
+                />
               </div>
               <div className="mt-1.5 text-[10px] text-ink-faint">
-                Default {fmtPct1(CLIENT_SOLUTIONS_COMMISSION)} — applies once to all project revenue.
+                Defaults {fmtPct1(CLIENT_SOLUTIONS_PROJECT_COMMISSION)} on projects, {fmtPct1(CLIENT_SOLUTIONS_RETAINER_COMMISSION)} on retainers (per-retainer toggle below).
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 pt-3">

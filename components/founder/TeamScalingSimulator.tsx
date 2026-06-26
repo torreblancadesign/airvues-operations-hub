@@ -861,7 +861,7 @@ function RetainerEditor({
           onChange={(v) => onChange({ supportHoursPerMonth: v })}
         />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
+      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint gap-3 flex-wrap">
         <span>
           Effective rate:{" "}
           <span className="tabnum">
@@ -870,15 +870,26 @@ function RetainerEditor({
               : "—"}
           </span>
         </span>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={retainer.appliesToCommission}
-            onChange={(e) => onChange({ appliesToCommission: e.target.checked })}
-            className="accent-emerald"
-          />
-          <span>Pay engineer commission on this retainer</span>
-        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={retainer.appliesToCommission}
+              onChange={(e) => onChange({ appliesToCommission: e.target.checked })}
+              className="accent-emerald"
+            />
+            <span>Engineer commission</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={retainer.paySalesCommission}
+              onChange={(e) => onChange({ paySalesCommission: e.target.checked })}
+              className="accent-sky"
+            />
+            <span>Sales commission</span>
+          </label>
+        </div>
       </div>
     </div>
   );

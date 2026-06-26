@@ -656,6 +656,7 @@ function FragmentGroup({
   engineers,
   onPatch,
   pending,
+  groupByMonth = false,
 }: {
   group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
   canEdit: boolean;
@@ -663,8 +664,9 @@ function FragmentGroup({
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] }) => Promise<void>;
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
   pending: boolean;
+  groupByMonth?: boolean;
 }) {
   return (
     <>
@@ -672,7 +674,8 @@ function FragmentGroup({
         <td colSpan={10} className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-ink-strong font-semibold">
           <span>{group.label}</span>
           <span className="ml-3 font-mono tabnum text-ink-muted normal-case tracking-normal">
-            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h · {fmtMoney(group.totalCost)}
+            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h
+            {groupByMonth ? "" : ` · ${fmtMoney(group.totalCost)}`}
           </span>
         </td>
       </tr>
@@ -687,11 +690,13 @@ function FragmentGroup({
           engineers={engineers}
           onPatch={onPatch}
           pending={pending}
+          groupByMonth={groupByMonth}
         />
       ))}
     </>
   );
 }
+
 
 // ---------- Main table ----------
 

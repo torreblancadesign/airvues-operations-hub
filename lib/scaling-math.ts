@@ -954,6 +954,7 @@ export function computeScalingCurve(
       addCommission: 0,
       convertCommissionToSalaried: 0,
       detail: [],
+      tierHires: [],
     };
     let post = base;
     if (autoHire) {

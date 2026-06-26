@@ -147,20 +147,49 @@ export function TeamScalingSimulator({
         <div className="space-y-5">
           {/* Revenue */}
           <Card title="Projected revenue">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Num label="Project rev ($/mo)" value={inputs.monthlyProjectRevenue} step={1000}
                 onChange={(v) => update("monthlyProjectRevenue", v)} />
-              <Num label="Retainer rev ($/mo)" value={inputs.monthlyRetainerRevenue} step={500}
-                onChange={(v) => update("monthlyRetainerRevenue", v)} />
-              <Num label="Billing rate ($/hr)" value={inputs.revenueHourlyRate} step={5}
-                onChange={(v) => update("revenueHourlyRate", v)} />
+              <Num label="Project billing rate ($/hr)" value={inputs.projectHourlyRate} step={5}
+                onChange={(v) => update("projectHourlyRate", v)} />
             </div>
             <div className="mt-2 text-[11px] font-mono text-ink-faint uppercase tracking-wider">
               Total: <span className="tabnum text-ink-strong">{fmtUsd(out.totalRevenue)}/mo</span>
-              {" · "}Needs{" "}
-              <span className="tabnum text-ink-strong">{Math.round(out.projectHoursNeeded)} hrs/mo</span>{" "}
-              of project work
+              {" · "}Project:{" "}
+              <span className="tabnum text-ink-strong">{Math.round(out.projectHoursNeeded)} hrs/mo</span>
+              {" · "}Retainers:{" "}
+              <span className="tabnum text-ink-strong">{Math.round(out.retainerHoursNeeded)} hrs/mo</span>
             </div>
+          </Card>
+
+          {/* Retainers */}
+          <Card
+            title="Retainers"
+            action={
+              <button
+                type="button"
+                onClick={addRetainer}
+                className="text-[11px] font-mono uppercase tracking-wider text-emerald hover:opacity-80"
+              >
+                + Add retainer
+              </button>
+            }
+          >
+            {inputs.retainers.length === 0 && (
+              <p className="text-[11px] text-ink-faint">No retainers configured.</p>
+            )}
+            {inputs.retainers.map((r) => {
+              const coverage = out.retainerCoverage.find((c) => c.id === r.id);
+              return (
+                <RetainerEditor
+                  key={r.id}
+                  retainer={r}
+                  coverage={coverage}
+                  onChange={(p) => updateRetainer(r.id, p)}
+                  onRemove={() => removeRetainer(r.id)}
+                />
+              );
+            })}
           </Card>
 
           {/* Salaried tiers */}

@@ -26,12 +26,14 @@ const fmtCompact = (n: number) =>
 export function ScalingCurves({ inputs }: { inputs: ScalingInputs }) {
   const [maxMult, setMaxMult] = useState(3);
   const [scaleRetainers, setScaleRetainers] = useState(false);
+  const [autoHire, setAutoHire] = useState(true);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const points = useMemo(
-    () => computeScalingCurve(inputs, { steps: 13, maxMultiplier: maxMult, scaleRetainers }),
-    [inputs, maxMult, scaleRetainers],
+    () => computeScalingCurve(inputs, { steps: 13, maxMultiplier: maxMult, scaleRetainers, autoHire }),
+    [inputs, maxMult, scaleRetainers, autoHire],
   );
+
 
   const target = inputs.targetMarginPct;
   const monthlyGoal = inputs.desiredMonthlyNet;

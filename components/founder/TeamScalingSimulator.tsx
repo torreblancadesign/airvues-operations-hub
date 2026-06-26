@@ -429,8 +429,15 @@ export function TeamScalingSimulator({
                 {scenarios.map((s) => {
                   const o = computeScenario(s.inputs);
                   return (
-                    <tr key={s.id} className="border-b border-rule/60 last:border-0">
-                      <td className="py-2.5 px-5 sm:px-6 text-ink-strong">{s.name}</td>
+                    <tr key={s.id} className={`border-b border-rule/60 last:border-0 ${s.id === activeScenarioId ? "bg-emerald/5" : ""}`}>
+                      <td className="py-2.5 px-5 sm:px-6 text-ink-strong">
+                        <span className="inline-flex items-center gap-2">
+                          {s.id === activeScenarioId && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald" title="Active scenario" />
+                          )}
+                          {s.name}
+                        </span>
+                      </td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.totalRevenue)}</td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.totalTeamCost)}</td>
                       <td className={`py-2.5 px-3 text-right tabnum font-mono ${marginColor(o.netMarginPct, s.inputs.targetMarginPct)}`}>{fmtPct1(o.netMarginPct)}</td>
@@ -441,6 +448,7 @@ export function TeamScalingSimulator({
                       </td>
                       <td className="py-2.5 px-5 sm:px-6 text-right">
                         <button onClick={() => loadScenario(s.id)} className="text-[11px] text-emerald hover:underline mr-3">Load</button>
+                        <button onClick={() => renameScenario(s.id)} className="text-[11px] text-ink-muted hover:text-ink-strong hover:underline mr-3">Rename</button>
                         <button onClick={() => deleteScenario(s.id)} className="text-[11px] text-red hover:underline">Delete</button>
                       </td>
                     </tr>

@@ -522,8 +522,25 @@ function TierBar({ t }: { t: TierBreakdown }) {
           {Math.round(t.usedHours)}/{Math.round(t.capacityHours)} hrs · {pctDisplay}%
         </span>
       </div>
-      <div className="h-1.5 bg-bg-elevated rounded overflow-hidden">
-        <div className={`h-full ${tone}`} style={{ width: `${Math.min(100, pct * 100)}%` }} />
+      <div className="h-1.5 bg-bg-elevated rounded overflow-hidden flex">
+        <div
+          className="h-full bg-violet"
+          style={{
+            width: `${t.capacityHours > 0 ? Math.min(100, (t.retainerHours / t.capacityHours) * 100) : 0}%`,
+          }}
+          title={`Retainer: ${Math.round(t.retainerHours)} hrs`}
+        />
+        <div
+          className={`h-full ${tone}`}
+          style={{
+            width: `${t.capacityHours > 0 ? Math.min(100, (t.projectHours / t.capacityHours) * 100) : 0}%`,
+          }}
+          title={`Project: ${Math.round(t.projectHours)} hrs`}
+        />
+      </div>
+      <div className="mt-1 text-[10px] font-mono tabnum text-ink-faint">
+        <span className="text-violet">{Math.round(t.retainerHours)}</span> retainer ·{" "}
+        <span>{Math.round(t.projectHours)}</span> project
       </div>
     </div>
   );

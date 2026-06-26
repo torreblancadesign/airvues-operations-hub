@@ -329,10 +329,10 @@ function Readout({ out, target }: { out: ScalingOutput; target: number }) {
       </div>
 
       <div className="pt-3 border-t border-rule/60 text-[11px] text-ink-faint leading-snug">
-        Commission breakdown:{" "}
-        <span className="tabnum">{fmtUsd(out.commissions.salariedEngineers)}</span> salaried eng ·{" "}
-        <span className="tabnum">{fmtUsd(out.commissions.commissionOnlyEngineers)}</span> comm-only ·{" "}
-        <span className="tabnum">{fmtUsd(out.commissions.clientSolutions)}</span> client solutions
+        Commission pool (mix-based, never stacked):{" "}
+        <span className="tabnum">{fmtUsd(out.commissions.salariedEngineers)}</span> salaried eng share ·{" "}
+        <span className="tabnum">{fmtUsd(out.commissions.commissionOnlyEngineers)}</span> comm-only share ·{" "}
+        <span className="tabnum">{fmtUsd(out.commissions.clientSolutions)}</span> client solutions (single role)
       </div>
     </div>
   );

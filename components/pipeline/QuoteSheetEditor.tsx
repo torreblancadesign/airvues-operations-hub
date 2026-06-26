@@ -1005,6 +1005,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
+        {quote.proposalType !== "Retainer Agreement" && (
         <FieldRow
           label="Delivery due date"
           hint="Client Delivery Due Date — drives the deadline badge on the Projects page."
@@ -1022,6 +1023,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             className={`${inputCls} font-mono w-auto`}
           />
         </FieldRow>
+        )}
 
         <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")} variant="cell">
           <PersonPicker
@@ -1091,6 +1093,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
+        {quote.proposalType !== "Retainer Agreement" && (
         <FieldRow
           label="Blueprint engagement"
           hint="Tick when this quote is a Blueprint. Grants the salesperson on 'Prepared by' a +5% commission bonus in their personal scorecard."
@@ -1111,6 +1114,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
             <span>{quote.blueprint ? "Yes — +5% commission bonus" : "No"}</span>
           </label>
         </FieldRow>
+        )}
         </div>
       </Section>
 

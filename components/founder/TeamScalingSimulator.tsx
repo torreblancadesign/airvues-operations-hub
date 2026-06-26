@@ -62,8 +62,18 @@ export function TeamScalingSimulator({
     [rawScenarios],
   );
   const [scenarioName, setScenarioName] = useState("");
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
 
   const out = useMemo(() => computeScenario(inputs), [inputs]);
+
+  const activeScenario = useMemo(
+    () => (activeScenarioId ? scenarios.find((s) => s.id === activeScenarioId) ?? null : null),
+    [activeScenarioId, scenarios],
+  );
+  const isModified = useMemo(() => {
+    if (!activeScenario) return false;
+    return JSON.stringify(activeScenario.inputs) !== JSON.stringify(inputs);
+  }, [activeScenario, inputs]);
 
   const update = <K extends keyof ScalingInputs>(k: K, v: ScalingInputs[K]) =>
     setInputs((s) => ({ ...s, [k]: v }));
@@ -77,6 +87,20 @@ export function TeamScalingSimulator({
       ...s,
       [field]: s[field].map((t) => (t.id === id ? { ...t, ...patch } : t)),
     }));
+
+  const moveTier = (
+    field: "salariedEngineers" | "commissionOnlyEngineers",
+    id: string,
+    dir: -1 | 1,
+  ) =>
+    setInputs((s) => {
+      const list = [...s[field]];
+      const idx = list.findIndex((t) => t.id === id);
+      const next = idx + dir;
+      if (idx < 0 || next < 0 || next >= list.length) return s;
+      [list[idx], list[next]] = [list[next], list[idx]];
+      return { ...s, [field]: list };
+    });
 
   const addTier = (field: "salariedEngineers" | "commissionOnlyEngineers") =>
     setInputs((s) => ({
@@ -103,22 +127,55 @@ export function TeamScalingSimulator({
   const removeRetainer = (id: string) =>
     setInputs((s) => ({ ...s, retainers: s.retainers.filter((r) => r.id !== id) }));
 
-  const saveScenario = () => {
+  const saveAsNew = () => {
     const name = scenarioName.trim() || `Scenario ${scenarios.length + 1}`;
     const id = `${Date.now()}`;
     setScenarios((prev) => [...prev, { id, name, inputs }].slice(-MAX_SCENARIOS));
     setScenarioName("");
+    setActiveScenarioId(id);
+  };
+
+  const updateActiveScenario = () => {
+    if (!activeScenarioId) return;
+    const name = scenarioName.trim() || activeScenario?.name || "Scenario";
+    setScenarios((prev) =>
+      prev.map((s) => (s.id === activeScenarioId ? { ...s, name, inputs } : s)),
+    );
+  };
+
+  const renameScenario = (id: string) => {
+    if (typeof window === "undefined") return;
+    const current = scenarios.find((s) => s.id === id);
+    if (!current) return;
+    const next = window.prompt("Rename scenario", current.name);
+    if (!next || !next.trim()) return;
+    setScenarios((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, name: next.trim() } : s)),
+    );
   };
 
   const loadScenario = (id: string) => {
     const s = scenarios.find((x) => x.id === id);
-    if (s) setInputs(s.inputs);
+    if (s) {
+      setInputs(s.inputs);
+      setActiveScenarioId(id);
+      setScenarioName(s.name);
+    }
   };
 
-  const deleteScenario = (id: string) =>
+  const deleteScenario = (id: string) => {
     setScenarios((prev) => prev.filter((s) => s.id !== id));
+    if (activeScenarioId === id) {
+      setActiveScenarioId(null);
+      setScenarioName("");
+    }
+  };
 
-  const resetInputs = () => setInputs(seed);
+  const resetInputs = () => {
+    setInputs(seed);
+    setActiveScenarioId(null);
+    setScenarioName("");
+  };
 
   return (
     <section className="bg-surface border border-rule rounded-card p-5 sm:p-6">

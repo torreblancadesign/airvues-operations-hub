@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import {
-  CLIENT_SOLUTIONS_COMMISSION,
+  CLIENT_SOLUTIONS_PROJECT_COMMISSION,
+  CLIENT_SOLUTIONS_RETAINER_COMMISSION,
   DEFAULT_HOURS_PER_MONTH,
   EngineerTier,
   HiringSignal,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/scaling-math";
 import { fmtPct1, fmtUsd } from "@/lib/founder-math";
 import { useLocalStorageJSON } from "@/lib/use-local-storage";
+import { ScalingCurves } from "./ScalingCurves";
 
 type SavedScenario = { id: string; name: string; inputs: ScalingInputs };
 

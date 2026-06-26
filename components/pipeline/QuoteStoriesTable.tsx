@@ -922,10 +922,21 @@ export function QuoteStoriesTable({
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{title}</div>
           <div className="mt-0.5 flex items-baseline gap-3">
-            <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">{fmtMoney(totalCost)}</div>
-            {totalHours != null && (
+            {groupByMonth ? (
+              <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">
+                {totalHours ?? 0}h
+              </div>
+            ) : (
+              <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">{fmtMoney(totalCost)}</div>
+            )}
+            {!groupByMonth && totalHours != null && (
               <div className="text-[11px] text-ink-muted font-mono tabnum">
                 {totalHours}h · {localStories.length} {localStories.length === 1 ? "story" : "stories"}
+              </div>
+            )}
+            {groupByMonth && (
+              <div className="text-[11px] text-ink-muted font-mono tabnum">
+                {localStories.length} {localStories.length === 1 ? "story" : "stories"}
               </div>
             )}
           </div>
@@ -940,6 +951,7 @@ export function QuoteStoriesTable({
           </button>
         )}
       </div>
+
 
       {canEdit && selected.size > 0 && (
         <div className="px-3 pt-2">

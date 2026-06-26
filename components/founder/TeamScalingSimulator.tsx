@@ -62,8 +62,18 @@ export function TeamScalingSimulator({
     [rawScenarios],
   );
   const [scenarioName, setScenarioName] = useState("");
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null);
 
   const out = useMemo(() => computeScenario(inputs), [inputs]);
+
+  const activeScenario = useMemo(
+    () => (activeScenarioId ? scenarios.find((s) => s.id === activeScenarioId) ?? null : null),
+    [activeScenarioId, scenarios],
+  );
+  const isModified = useMemo(() => {
+    if (!activeScenario) return false;
+    return JSON.stringify(activeScenario.inputs) !== JSON.stringify(inputs);
+  }, [activeScenario, inputs]);
 
   const update = <K extends keyof ScalingInputs>(k: K, v: ScalingInputs[K]) =>
     setInputs((s) => ({ ...s, [k]: v }));
@@ -77,6 +87,20 @@ export function TeamScalingSimulator({
       ...s,
       [field]: s[field].map((t) => (t.id === id ? { ...t, ...patch } : t)),
     }));
+
+  const moveTier = (
+    field: "salariedEngineers" | "commissionOnlyEngineers",
+    id: string,
+    dir: -1 | 1,
+  ) =>
+    setInputs((s) => {
+      const list = [...s[field]];
+      const idx = list.findIndex((t) => t.id === id);
+      const next = idx + dir;
+      if (idx < 0 || next < 0 || next >= list.length) return s;
+      [list[idx], list[next]] = [list[next], list[idx]];
+      return { ...s, [field]: list };
+    });
 
   const addTier = (field: "salariedEngineers" | "commissionOnlyEngineers") =>
     setInputs((s) => ({
@@ -103,22 +127,55 @@ export function TeamScalingSimulator({
   const removeRetainer = (id: string) =>
     setInputs((s) => ({ ...s, retainers: s.retainers.filter((r) => r.id !== id) }));
 
-  const saveScenario = () => {
+  const saveAsNew = () => {
     const name = scenarioName.trim() || `Scenario ${scenarios.length + 1}`;
     const id = `${Date.now()}`;
     setScenarios((prev) => [...prev, { id, name, inputs }].slice(-MAX_SCENARIOS));
     setScenarioName("");
+    setActiveScenarioId(id);
+  };
+
+  const updateActiveScenario = () => {
+    if (!activeScenarioId) return;
+    const name = scenarioName.trim() || activeScenario?.name || "Scenario";
+    setScenarios((prev) =>
+      prev.map((s) => (s.id === activeScenarioId ? { ...s, name, inputs } : s)),
+    );
+  };
+
+  const renameScenario = (id: string) => {
+    if (typeof window === "undefined") return;
+    const current = scenarios.find((s) => s.id === id);
+    if (!current) return;
+    const next = window.prompt("Rename scenario", current.name);
+    if (!next || !next.trim()) return;
+    setScenarios((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, name: next.trim() } : s)),
+    );
   };
 
   const loadScenario = (id: string) => {
     const s = scenarios.find((x) => x.id === id);
-    if (s) setInputs(s.inputs);
+    if (s) {
+      setInputs(s.inputs);
+      setActiveScenarioId(id);
+      setScenarioName(s.name);
+    }
   };
 
-  const deleteScenario = (id: string) =>
+  const deleteScenario = (id: string) => {
     setScenarios((prev) => prev.filter((s) => s.id !== id));
+    if (activeScenarioId === id) {
+      setActiveScenarioId(null);
+      setScenarioName("");
+    }
+  };
 
-  const resetInputs = () => setInputs(seed);
+  const resetInputs = () => {
+    setInputs(seed);
+    setActiveScenarioId(null);
+    setScenarioName("");
+  };
 
   return (
     <section className="bg-surface border border-rule rounded-card p-5 sm:p-6">
@@ -208,11 +265,14 @@ export function TeamScalingSimulator({
             {inputs.salariedEngineers.length === 0 && (
               <p className="text-[11px] text-ink-faint">No salaried engineers.</p>
             )}
-            {inputs.salariedEngineers.map((t) => (
+            {inputs.salariedEngineers.map((t, i) => (
               <TierEditor
                 key={t.id}
                 tier={t}
                 showSalary
+                index={i}
+                lastIndex={inputs.salariedEngineers.length - 1}
+                onMove={(dir) => moveTier("salariedEngineers", t.id, dir)}
                 onChange={(p) => updateTier("salariedEngineers", t.id, p)}
                 onRemove={() => removeTier("salariedEngineers", t.id)}
               />
@@ -235,10 +295,13 @@ export function TeamScalingSimulator({
             {inputs.commissionOnlyEngineers.length === 0 && (
               <p className="text-[11px] text-ink-faint">No commission-only engineers.</p>
             )}
-            {inputs.commissionOnlyEngineers.map((t) => (
+            {inputs.commissionOnlyEngineers.map((t, i) => (
               <TierEditor
                 key={t.id}
                 tier={t}
+                index={i}
+                lastIndex={inputs.commissionOnlyEngineers.length - 1}
+                onMove={(dir) => moveTier("commissionOnlyEngineers", t.id, dir)}
                 onChange={(p) => updateTier("commissionOnlyEngineers", t.id, p)}
                 onRemove={() => removeTier("commissionOnlyEngineers", t.id)}
               />
@@ -310,22 +373,35 @@ export function TeamScalingSimulator({
             <div className="eyebrow">Compare</div>
             <h4 className="text-[14px] font-semibold text-ink-strong">Saved scenarios</h4>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               type="text"
-              placeholder="Scenario name"
+              placeholder={activeScenario ? "Rename or keep current name" : "Scenario name"}
               value={scenarioName}
               onChange={(e) => setScenarioName(e.target.value)}
               className="bg-bg-elevated border border-rule rounded px-2 py-1.5 text-[12px] text-ink-strong w-[180px] focus:outline-none focus:border-emerald"
             />
+            {activeScenario && (
+              <button
+                type="button"
+                onClick={updateActiveScenario}
+                className="px-3 py-1.5 text-[12px] font-medium bg-sky text-bg rounded hover:opacity-90 flex items-center gap-1.5"
+                title={`Overwrite "${activeScenario.name}"`}
+              >
+                Update “{activeScenario.name}”
+                {isModified && (
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber" title="Unsaved changes" />
+                )}
+              </button>
+            )}
             <button
               type="button"
-              onClick={saveScenario}
+              onClick={saveAsNew}
               disabled={scenarios.length >= MAX_SCENARIOS}
               className="px-3 py-1.5 text-[12px] font-medium bg-emerald text-bg rounded hover:opacity-90 disabled:opacity-40"
               title={scenarios.length >= MAX_SCENARIOS ? `Max ${MAX_SCENARIOS} scenarios` : ""}
             >
-              Save current
+              {activeScenario ? "Save as new" : "Save current"}
             </button>
           </div>
         </div>
@@ -353,8 +429,15 @@ export function TeamScalingSimulator({
                 {scenarios.map((s) => {
                   const o = computeScenario(s.inputs);
                   return (
-                    <tr key={s.id} className="border-b border-rule/60 last:border-0">
-                      <td className="py-2.5 px-5 sm:px-6 text-ink-strong">{s.name}</td>
+                    <tr key={s.id} className={`border-b border-rule/60 last:border-0 ${s.id === activeScenarioId ? "bg-emerald/5" : ""}`}>
+                      <td className="py-2.5 px-5 sm:px-6 text-ink-strong">
+                        <span className="inline-flex items-center gap-2">
+                          {s.id === activeScenarioId && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald" title="Active scenario" />
+                          )}
+                          {s.name}
+                        </span>
+                      </td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.totalRevenue)}</td>
                       <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">{fmtUsd(o.totalTeamCost)}</td>
                       <td className={`py-2.5 px-3 text-right tabnum font-mono ${marginColor(o.netMarginPct, s.inputs.targetMarginPct)}`}>{fmtPct1(o.netMarginPct)}</td>
@@ -365,6 +448,7 @@ export function TeamScalingSimulator({
                       </td>
                       <td className="py-2.5 px-5 sm:px-6 text-right">
                         <button onClick={() => loadScenario(s.id)} className="text-[11px] text-emerald hover:underline mr-3">Load</button>
+                        <button onClick={() => renameScenario(s.id)} className="text-[11px] text-ink-muted hover:text-ink-strong hover:underline mr-3">Rename</button>
                         <button onClick={() => deleteScenario(s.id)} className="text-[11px] text-red hover:underline">Delete</button>
                       </td>
                     </tr>
@@ -568,17 +652,44 @@ function Card({
 function TierEditor({
   tier,
   showSalary,
+  index,
+  lastIndex,
+  onMove,
   onChange,
   onRemove,
 }: {
   tier: EngineerTier;
   showSalary?: boolean;
+  index: number;
+  lastIndex: number;
+  onMove: (dir: -1 | 1) => void;
   onChange: (patch: Partial<EngineerTier>) => void;
   onRemove: () => void;
 }) {
   return (
     <div className="py-2.5 border-b border-rule/40 last:border-0">
       <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-col">
+          <button
+            type="button"
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            className="text-[10px] leading-none text-ink-faint hover:text-ink-strong disabled:opacity-30"
+            title="Move up (higher priority)"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            onClick={() => onMove(1)}
+            disabled={index >= lastIndex}
+            className="text-[10px] leading-none text-ink-faint hover:text-ink-strong disabled:opacity-30 mt-0.5"
+            title="Move down (lower priority)"
+          >
+            ▼
+          </button>
+        </div>
+        <span className="text-[10px] font-mono tabnum text-ink-faint w-5 text-center">#{index + 1}</span>
         <input
           type="text"
           value={tier.label}
@@ -617,21 +728,48 @@ function TierEditor({
           onChange={(v) => onChange({ hoursPerMonth: v })}
         />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
+      <div className="mt-1.5 flex items-center justify-between gap-3 text-[10px] text-ink-faint flex-wrap">
         <span>
           Capacity: <span className="tabnum">{tier.count * tier.hoursPerMonth}</span> hrs/mo
         </span>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={tier.appliesTo === "projects+retainers"}
-            onChange={(e) =>
-              onChange({ appliesTo: e.target.checked ? "projects+retainers" : "projects" })
-            }
-            className="accent-emerald"
-          />
-          <span>Include retainers in commission base</span>
-        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tier.worksOnProjects}
+              onChange={(e) => onChange({ worksOnProjects: e.target.checked })}
+              className="accent-emerald"
+            />
+            <span>Projects</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tier.worksOnRetainers}
+              onChange={(e) =>
+                onChange({
+                  worksOnRetainers: e.target.checked,
+                  ...(e.target.checked ? {} : { retainerCommission: false }),
+                })
+              }
+              className="accent-violet"
+            />
+            <span>Retainers</span>
+          </label>
+          <label
+            className={`flex items-center gap-1.5 ${tier.worksOnRetainers ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+            title={tier.worksOnRetainers ? "" : "Enable Retainers to allow retainer commission"}
+          >
+            <input
+              type="checkbox"
+              disabled={!tier.worksOnRetainers}
+              checked={tier.retainerCommission}
+              onChange={(e) => onChange({ retainerCommission: e.target.checked })}
+              className="accent-emerald"
+            />
+            <span>Retainer commission</span>
+          </label>
+        </div>
       </div>
     </div>
   );

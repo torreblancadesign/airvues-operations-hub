@@ -18,7 +18,11 @@ export type EngineerTier = {
   monthlySalary: number; // 0 for commission-only
   commissionRate: number; // 0..1
   hoursPerMonth: number; // capacity per head
-  appliesTo: CommissionBase;
+  worksOnProjects: boolean; // eligible to be assigned project hours
+  worksOnRetainers: boolean; // eligible to be assigned retainer hours
+  retainerCommission: boolean; // pay commission on retainer revenue serviced
+  // Legacy — kept optional for migration only.
+  appliesTo?: CommissionBase;
 };
 
 export type Retainer = {
@@ -198,8 +202,13 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     inp.commissionOnlyEngineers.map((t) => [t.id, t.count * t.hoursPerMonth]),
   );
 
-  // Pass 1: retainers per-retainer (priority: salaried → commission).
-  // Track per-tier retainer hours and per-tier retainer revenue serviced.
+  // Eligibility-filtered tier lists (preserve user-defined order = priority).
+  const salRetainerEligible = inp.salariedEngineers.filter((t) => t.worksOnRetainers);
+  const comRetainerEligible = inp.commissionOnlyEngineers.filter((t) => t.worksOnRetainers);
+  const salProjectEligible = inp.salariedEngineers.filter((t) => t.worksOnProjects);
+  const comProjectEligible = inp.commissionOnlyEngineers.filter((t) => t.worksOnProjects);
+
+  // Pass 1: retainers per-retainer (priority: salaried → commission, eligible only).
   const tierRetainerHours = new Map<string, number>();
   const tierRetainerRevenue = new Map<string, number>();
   const tierRetainerCommBase = new Map<string, number>();
@@ -218,9 +227,9 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
       });
       continue;
     }
-    const salFill = fillTiers(inp.salariedEngineers, need, salRemaining);
+    const salFill = fillTiers(salRetainerEligible, need, salRemaining);
     const after = need - salFill.used;
-    const comFill = fillTiers(inp.commissionOnlyEngineers, after, comRemaining);
+    const comFill = fillTiers(comRetainerEligible, after, comRemaining);
     const covered = salFill.used + comFill.used;
     const short = Math.max(0, need - covered);
     unmetRetainerHours += short;
@@ -250,10 +259,10 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     accumulate(comFill.tierUse);
   }
 
-  // Pass 2: project work fills remaining capacity.
-  const salProj = fillTiers(inp.salariedEngineers, projectHoursNeeded, salRemaining);
+  // Pass 2: project work fills remaining capacity (eligible only).
+  const salProj = fillTiers(salProjectEligible, projectHoursNeeded, salRemaining);
   const remainingAfterSalaried = Math.max(0, projectHoursNeeded - salProj.used);
-  const comProj = fillTiers(inp.commissionOnlyEngineers, remainingAfterSalaried, comRemaining);
+  const comProj = fillTiers(comProjectEligible, remainingAfterSalaried, comRemaining);
 
   const projectSalHoursUsed = salProj.used;
   const projectComHoursUsed = comProj.used;
@@ -273,10 +282,9 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     const projectRev = projHours * projHourly;
     const retainerRev = tierRetainerRevenue.get(t.id) ?? 0;
     const retainerCommBase = tierRetainerCommBase.get(t.id) ?? 0;
-    // Per-tier commission: project rev always counted; retainer rev counted if either the retainer
-    // (per-retainer toggle) OR the tier's own toggle opts in. To keep semantics simple we treat the
-    // tier's `appliesTo` as a gate too: tier must include retainers AND retainer must opt in.
-    const retainerBaseForTier = t.appliesTo === "projects+retainers" ? retainerCommBase : 0;
+    // Per-tier commission: project rev always counted (if eligible); retainer rev counted when
+    // BOTH the retainer opted in AND the tier opts in via `retainerCommission`.
+    const retainerBaseForTier = t.retainerCommission ? retainerCommBase : 0;
     const comm = (projectRev + retainerBaseForTier) * t.commissionRate;
     if (kind === "salaried") cSalEng += comm;
     else cCommEng += comm;
@@ -339,13 +347,20 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
 
   const unmetHours = unmetRetainerHours + unmetProjectHours;
 
-  // Marginal rate for headroom: assume marginal $1 hits salaried first if room, else commission-only.
+  // Marginal rate for headroom: assume marginal $1 hits a project-eligible salaried tier first if room,
+  // else a project-eligible commission-only tier.
+  const salProjOpen = inp.salariedEngineers.filter(
+    (t) => t.worksOnProjects && (salRemaining.get(t.id) ?? 0) > 0,
+  );
+  const comProjOpen = inp.commissionOnlyEngineers.filter(
+    (t) => t.worksOnProjects && (comRemaining.get(t.id) ?? 0) > 0,
+  );
   const marginalEngineerRate =
-    salRemaining && Array.from(salRemaining.values()).some((v) => v > 0)
-      ? (inp.salariedEngineers.find((t) => (salRemaining.get(t.id) ?? 0) > 0)?.commissionRate ??
-        SALARIED_ENGINEER_COMMISSION)
-      : (inp.commissionOnlyEngineers.find((t) => (comRemaining.get(t.id) ?? 0) > 0)
-          ?.commissionRate ?? COMMISSION_ONLY_ENGINEER_COMMISSION);
+    salProjOpen.length > 0
+      ? salProjOpen[0].commissionRate
+      : comProjOpen.length > 0
+        ? comProjOpen[0].commissionRate
+        : COMMISSION_ONLY_ENGINEER_COMMISSION;
   const marginalSalesRate = inp.clientSolutions.count > 0 ? inp.clientSolutions.commissionRate : 0;
   const marginalKeep = 1 - marginalEngineerRate - marginalSalesRate;
 
@@ -362,12 +377,18 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
   else verdict = "below";
 
   // Hiring signal — retainers first.
+  const anyRetainerEligible =
+    inp.salariedEngineers.some((t) => t.worksOnRetainers) ||
+    inp.commissionOnlyEngineers.some((t) => t.worksOnRetainers);
   let hiring: HiringSignal;
   if (unmetRetainerHours > 0.5) {
     const need = Math.ceil(unmetRetainerHours / DEFAULT_HOURS_PER_MONTH);
+    const msg = !anyRetainerEligible
+      ? `No engineer tier is eligible for retainers — enable one or hire a dedicated retainer engineer (~${need}).`
+      : `Retainers under-served by ~${Math.round(unmetRetainerHours)} hrs/mo — hire a dedicated retainer/logistics engineer (~${need}).`;
     hiring = {
       kind: "hire",
-      message: `Retainers under-served by ~${Math.round(unmetRetainerHours)} hrs/mo — hire a dedicated retainer/logistics engineer (~${need}).`,
+      message: msg,
       salariedNeeded: need,
       commissionNeeded: need,
       unmetHours: unmetRetainerHours,
@@ -375,9 +396,15 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     };
   } else if (unmetProjectHours > 0.5) {
     const need = Math.ceil(unmetProjectHours / DEFAULT_HOURS_PER_MONTH);
+    const anyProjEligible =
+      inp.salariedEngineers.some((t) => t.worksOnProjects) ||
+      inp.commissionOnlyEngineers.some((t) => t.worksOnProjects);
+    const msg = !anyProjEligible
+      ? `No engineer tier is eligible for projects — enable one or hire ${need} engineer(s).`
+      : `Need ~${Math.round(unmetProjectHours)} more project hrs/mo — hire ${need} salaried or ${need} commission-only engineer(s).`;
     hiring = {
       kind: "hire",
-      message: `Need ~${Math.round(unmetProjectHours)} more project hrs/mo — hire ${need} salaried or ${need} commission-only engineer(s).`,
+      message: msg,
       salariedNeeded: need,
       commissionNeeded: need,
       unmetHours: unmetProjectHours,
@@ -440,6 +467,7 @@ export function makeTier(
   partial: Partial<EngineerTier> & { kind?: "salaried" | "commission" },
 ): EngineerTier {
   const isSal = partial.kind === "salaried";
+  const legacyRetainerComm = partial.appliesTo === "projects+retainers";
   return {
     id: partial.id ?? newId("t"),
     label: partial.label ?? (isSal ? "Salaried tier" : "Commission tier"),
@@ -449,7 +477,9 @@ export function makeTier(
       partial.commissionRate ??
       (isSal ? SALARIED_ENGINEER_COMMISSION : COMMISSION_ONLY_ENGINEER_COMMISSION),
     hoursPerMonth: partial.hoursPerMonth ?? DEFAULT_HOURS_PER_MONTH,
-    appliesTo: partial.appliesTo ?? "projects",
+    worksOnProjects: partial.worksOnProjects ?? true,
+    worksOnRetainers: partial.worksOnRetainers ?? true,
+    retainerCommission: partial.retainerCommission ?? legacyRetainerComm,
   };
 }
 
@@ -498,14 +528,27 @@ export function defaultInputs(seed: {
   };
 }
 
+// Normalize a tier (legacy or current) into the current EngineerTier shape.
+function normalizeTier(raw: unknown, kind: "salaried" | "commission"): EngineerTier {
+  const t = (raw ?? {}) as Partial<EngineerTier> & { appliesTo?: CommissionBase };
+  return makeTier({ ...t, kind });
+}
+
 // Migrate legacy scenario inputs to v3.
 export function migrateInputs(raw: unknown): ScalingInputs | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
 
-  // Already v3
+  // Already v3 — normalize tiers to ensure new flags are present.
   if (r.v === 3 && Array.isArray(r.retainers)) {
-    return r as unknown as ScalingInputs;
+    const inp = r as unknown as ScalingInputs;
+    return {
+      ...inp,
+      salariedEngineers: (inp.salariedEngineers ?? []).map((t) => normalizeTier(t, "salaried")),
+      commissionOnlyEngineers: (inp.commissionOnlyEngineers ?? []).map((t) =>
+        normalizeTier(t, "commission"),
+      ),
+    };
   }
 
   // v2 → v3
@@ -530,8 +573,10 @@ export function migrateInputs(raw: unknown): ScalingInputs | null {
               }),
             ]
           : [],
-      salariedEngineers: r.salariedEngineers as EngineerTier[],
-      commissionOnlyEngineers: r.commissionOnlyEngineers as EngineerTier[],
+      salariedEngineers: (r.salariedEngineers as unknown[]).map((t) => normalizeTier(t, "salaried")),
+      commissionOnlyEngineers: (r.commissionOnlyEngineers as unknown[]).map((t) =>
+        normalizeTier(t, "commission"),
+      ),
       clientSolutions: r.clientSolutions as SalesRole,
       otherFixed: (r.otherFixed as ScalingInputs["otherFixed"]) ?? { count: 0, monthlySalary: 0 },
       overhead: Number(r.overhead) || 0,

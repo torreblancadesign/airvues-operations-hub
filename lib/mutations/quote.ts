@@ -316,10 +316,13 @@ export type CreateQuoteStoryInput = {
   name: string;
   description?: string;
   hours: number;
-  cost: number;
+  /** Optional for retainer stories (no cost line). */
+  cost?: number;
   clientNotes?: string;
   status?: string;
   isChangeOrder?: boolean;
+  /** Optional ISO YYYY-MM-DD; used for retainer monthly grouping. */
+  completedDate?: string | null;
 };
 
 export async function createQuoteStory(
@@ -329,7 +332,12 @@ export async function createQuoteStory(
   if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
   if (!input.name || input.name.trim() === "") return { error: "Story Name is required" };
   if (!isFinite(input.hours) || input.hours <= 0) return { error: "Hours must be positive" };
-  if (!isFinite(input.cost) || input.cost < 0) return { error: "Cost must be 0 or greater" };
+  if (input.cost !== undefined && (!isFinite(input.cost) || input.cost < 0)) {
+    return { error: "Cost must be 0 or greater" };
+  }
+  if (input.completedDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.completedDate)) {
+    return { error: "Completed date must be YYYY-MM-DD" };
+  }
 
   const denied = await gate();
   if (denied) return denied;
@@ -339,14 +347,17 @@ export async function createQuoteStory(
   const fields: Record<string, unknown> = {
     "Story Name": input.name.trim(),
     Hours: input.hours,
-    Cost: input.cost,
-    Invoice: input.cost,
     Quote: [quoteId],
     "Story Status": input.status ?? "Todo",
   };
+  if (input.cost !== undefined) {
+    fields["Cost"] = input.cost;
+    fields["Invoice"] = input.cost;
+  }
   if (input.description) fields["Description"] = input.description;
   if (input.clientNotes) fields["Client Notes"] = input.clientNotes;
   if (input.isChangeOrder) fields["Change Order"] = true;
+  if (input.completedDate) fields["Completed Date"] = input.completedDate;
 
   try {
     // Default Quote Order = max existing order in the same subset + 10, so new rows append.
@@ -366,7 +377,7 @@ export async function createQuoteStory(
       accountId: quote.preparedForId ?? null,
       projectId: quoteId,
       eventType: "Story created",
-      detail: `${input.name.trim()}${input.isChangeOrder ? " (change order)" : ""} · ${input.hours}h · $${input.cost}`,
+      detail: `${input.name.trim()}${input.isChangeOrder ? " (change order)" : ""} · ${input.hours}h${input.cost !== undefined ? ` · $${input.cost}` : ""}`,
     });
     void created;
     return { ok: true, quote };

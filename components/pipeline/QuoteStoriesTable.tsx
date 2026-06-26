@@ -350,8 +350,10 @@ type SortableStoryRowProps = {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] }) => Promise<void>;
+  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
   pending: boolean;
+  /** Retainer mode: hide Cost column, show Completed Date column. */
+  groupByMonth?: boolean;
 };
 
 function SortableStoryRow({
@@ -363,6 +365,7 @@ function SortableStoryRow({
   engineers,
   onPatch,
   pending,
+  groupByMonth = false,
 }: SortableStoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: s.id,
@@ -437,15 +440,33 @@ function SortableStoryRow({
         )}
       </td>
 
-      <td className="px-2 py-1.5 w-[110px]">
-        {canEdit ? (
-          <InlineNumber value={s.cost} onSave={(v) => onPatch(s.id, { cost: v })} isCurrency />
-        ) : (
-          <div className="px-1.5 py-1 text-right tabnum text-ink-strong font-mono">
-            {s.cost != null ? fmtMoney(s.cost) : "—"}
-          </div>
-        )}
-      </td>
+      {groupByMonth ? (
+        <td className="px-2 py-1.5 w-[130px]" onClick={stopBubble}>
+          {canEdit ? (
+            <input
+              type="date"
+              value={s.completedDate ?? ""}
+              onChange={(e) => void onPatch(s.id, { completedDate: e.target.value || null })}
+              disabled={pending}
+              className="w-full bg-transparent border border-transparent hover:border-rule focus:border-emerald focus:bg-bg-elevated rounded px-1.5 py-1 text-[12px] text-ink font-mono focus:outline-none disabled:opacity-60"
+            />
+          ) : (
+            <div className="px-1.5 py-1 text-ink-muted font-mono text-[11px]">
+              {s.completedDate ?? "—"}
+            </div>
+          )}
+        </td>
+      ) : (
+        <td className="px-2 py-1.5 w-[110px]">
+          {canEdit ? (
+            <InlineNumber value={s.cost} onSave={(v) => onPatch(s.id, { cost: v })} isCurrency />
+          ) : (
+            <div className="px-1.5 py-1 text-right tabnum text-ink-strong font-mono">
+              {s.cost != null ? fmtMoney(s.cost) : "—"}
+            </div>
+          )}
+        </td>
+      )}
 
       <td className="px-2 py-1.5 max-w-[200px]">
         {canEdit ? (
@@ -498,6 +519,7 @@ function SortableStoryRow({
     </tr>
   );
 }
+
 
 // ---------- Bulk action bar ----------
 
@@ -634,6 +656,7 @@ function FragmentGroup({
   engineers,
   onPatch,
   pending,
+  groupByMonth = false,
 }: {
   group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
   canEdit: boolean;
@@ -641,8 +664,9 @@ function FragmentGroup({
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] }) => Promise<void>;
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
   pending: boolean;
+  groupByMonth?: boolean;
 }) {
   return (
     <>
@@ -650,7 +674,8 @@ function FragmentGroup({
         <td colSpan={10} className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-ink-strong font-semibold">
           <span>{group.label}</span>
           <span className="ml-3 font-mono tabnum text-ink-muted normal-case tracking-normal">
-            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h · {fmtMoney(group.totalCost)}
+            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h
+            {groupByMonth ? "" : ` · ${fmtMoney(group.totalCost)}`}
           </span>
         </td>
       </tr>
@@ -665,11 +690,13 @@ function FragmentGroup({
           engineers={engineers}
           onPatch={onPatch}
           pending={pending}
+          groupByMonth={groupByMonth}
         />
       ))}
     </>
   );
 }
+
 
 // ---------- Main table ----------
 
@@ -717,8 +744,10 @@ export function QuoteStoriesTable({
   const ids = useMemo(() => localStories.map((s) => s.id), [localStories]);
 
   const monthKeyFor = (s: QuoteStoryRow): string => {
-    if (!s.createdTime) return "0000-00";
-    const d = new Date(s.createdTime);
+    const src = s.completedDate || s.createdTime;
+    if (!src) return "0000-00-unscheduled";
+    const d = new Date(src);
+    if (isNaN(d.getTime())) return "0000-00-unscheduled";
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   };
 
@@ -730,16 +759,27 @@ export function QuoteStoriesTable({
     >();
     for (const s of localStories) {
       const key = monthKeyFor(s);
-      const label = s.createdTime
-        ? new Date(s.createdTime).toLocaleDateString("en-US", { month: "long", year: "numeric" })
-        : "Undated";
-      const g = map.get(key) ?? { key, label, stories: [], totalCost: 0, totalHours: 0 };
+      const src = s.completedDate || s.createdTime;
+      const isUnscheduled = key === "0000-00-unscheduled" || !s.completedDate;
+      const label = isUnscheduled
+        ? "Unscheduled"
+        : src
+          ? new Date(src).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+          : "Unscheduled";
+      // Re-key unscheduled to a single bucket regardless of createdTime.
+      const bucketKey = isUnscheduled ? "0000-00-unscheduled" : key;
+      const g = map.get(bucketKey) ?? { key: bucketKey, label, stories: [], totalCost: 0, totalHours: 0 };
       g.stories.push(s);
       g.totalCost += s.cost ?? 0;
       g.totalHours += s.hours ?? 0;
-      map.set(key, g);
+      map.set(bucketKey, g);
     }
-    return [...map.values()].sort((a, b) => b.key.localeCompare(a.key));
+    // Sort: Unscheduled first, then newest month → oldest.
+    return [...map.values()].sort((a, b) => {
+      if (a.key === "0000-00-unscheduled") return -1;
+      if (b.key === "0000-00-unscheduled") return 1;
+      return b.key.localeCompare(a.key);
+    });
   }, [groupByMonth, localStories]);
 
   function commitReorder(next: QuoteStoryRow[]) {
@@ -767,7 +807,7 @@ export function QuoteStoriesTable({
 
   async function patchStory(
     id: string,
-    p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[] },
+    p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null },
   ) {
     // Optimistic local update
     setLocalStories((prev) =>
@@ -782,6 +822,7 @@ export function QuoteStoriesTable({
               ...(p.hours !== undefined ? { hours: p.hours } : {}),
               ...(p.cost !== undefined ? { cost: p.cost } : {}),
               ...(p.status !== undefined ? { status: p.status } : {}),
+              ...(p.completedDate !== undefined ? { completedDate: p.completedDate } : {}),
               ...(p.assigneeIds !== undefined
                 ? {
                     assignees: p.assigneeIds
@@ -804,11 +845,13 @@ export function QuoteStoriesTable({
     if (p.cost !== undefined) patch.invoice = p.cost;
     if (p.status !== undefined) patch.status = p.status;
     if (p.assigneeIds !== undefined) patch.assigneeIds = p.assigneeIds;
+    if (p.completedDate !== undefined) patch.completedDate = p.completedDate;
 
     if (Object.keys(patch).length > 0) {
       await updateStory(id, patch);
     }
   }
+
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -879,10 +922,21 @@ export function QuoteStoriesTable({
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{title}</div>
           <div className="mt-0.5 flex items-baseline gap-3">
-            <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">{fmtMoney(totalCost)}</div>
-            {totalHours != null && (
+            {groupByMonth ? (
+              <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">
+                {totalHours ?? 0}h
+              </div>
+            ) : (
+              <div className="text-[20px] font-semibold text-ink-strong tabnum leading-none">{fmtMoney(totalCost)}</div>
+            )}
+            {!groupByMonth && totalHours != null && (
               <div className="text-[11px] text-ink-muted font-mono tabnum">
                 {totalHours}h · {localStories.length} {localStories.length === 1 ? "story" : "stories"}
+              </div>
+            )}
+            {groupByMonth && (
+              <div className="text-[11px] text-ink-muted font-mono tabnum">
+                {localStories.length} {localStories.length === 1 ? "story" : "stories"}
               </div>
             )}
           </div>
@@ -897,6 +951,7 @@ export function QuoteStoriesTable({
           </button>
         )}
       </div>
+
 
       {canEdit && selected.size > 0 && (
         <div className="px-3 pt-2">
@@ -937,7 +992,11 @@ export function QuoteStoriesTable({
                   <th className="px-2 py-2 font-medium">Story Name</th>
                   <th className="px-2 py-2 font-medium">Description</th>
                   <th className="px-2 py-2 font-medium text-right tabnum">Hours</th>
-                  <th className="px-2 py-2 font-medium text-right tabnum">Cost</th>
+                  {groupByMonth ? (
+                    <th className="px-2 py-2 font-medium">Completed</th>
+                  ) : (
+                    <th className="px-2 py-2 font-medium text-right tabnum">Cost</th>
+                  )}
                   <th className="px-2 py-2 font-medium">Client Notes</th>
                   <th className="px-2 py-2 font-medium whitespace-nowrap">
                     Story Status<span className="ml-1 text-ink-faint normal-case tracking-normal">(internal)</span>
@@ -962,6 +1021,7 @@ export function QuoteStoriesTable({
                           engineers={engineerOptions}
                           onPatch={patchStory}
                           pending={pending}
+                          groupByMonth={groupByMonth}
                         />
                       ))
                     : localStories.map((s) => (

@@ -441,6 +441,7 @@ export const Tables = {
       // Airtable accepts the field NAME in place of fldXXX. Swap to real ID once available.
       "Change Order": { id: "Change Order", type: "checkbox" },
       "Quote Order": { id: "fldfeJqFh88bHKItW", type: "number" },
+      "Completed Date": { id: "Completed Date", type: "date" },
     },
   },
 

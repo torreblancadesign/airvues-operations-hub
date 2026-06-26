@@ -1,28 +1,59 @@
-## Retainer-aware projects
+## Retainer polish: stories, project page, and monthly grouping
 
-### 1. Projects list — show proposal type
-`components/pipeline/QuoteTable.tsx`
-- Add a compact "Type" pill in the project-name cell (or as a new narrow column) showing `Retainer` (sky) vs `Airtable Solutions` (violet), based on `q.proposalType`. Filter bar already supports proposal type.
+### 1. Schema — add the Completed Date field
+`lib/schema.ts` (Stories table)
+- Add `"Completed Date": { id: "Completed Date", type: "date" }` (using the field name as the write key until the real `fldXXX` ID is captured, same pattern used for `Change Order`).
 
-### 2. Project detail — hide irrelevant sections for retainers
-`components/pipeline/QuoteSheetEditor.tsx`
-- Read `quote.proposalType`. When it equals `"Retainer Agreement"`:
-  - Hide the **Client input for proposal** section (lines ~1118–1178).
-  - Hide the **AI-generated proposal content** section (lines ~1181 onward through its closing `</Section>`).
-- Keep Project details, Quote calculator, Change orders for both types.
+### 2. Story shape — surface completedDate
+`lib/quote-types.ts`
+- Add `completedDate: string | null` to `QuoteStoryRow`.
 
-### 3. Quote calculator — monthly grouping for retainers
+`lib/quotes.ts`
+- Fetch `Completed Date` for each linked Story; map to `completedDate`.
+
+### 3. Monthly bucket — prefer Completed Date, fall back to createdTime
 `components/pipeline/QuoteStoriesTable.tsx`
-- Accept a new prop `groupByMonth: boolean` (true when `proposalType === "Retainer Agreement"`).
-- When enabled, group rows by month derived from each story's `Created` date (format "MMMM YYYY", e.g. "June 2026"). Stories already expose a created timestamp via the schema (`fldy4b4PnNNGXkouC` autoNumber + Airtable `createdTime`); if not already fetched in `lib/quotes.ts`, add `createdTime` to the story fetch (uses Airtable's built-in record `createdTime`, no schema change).
-- Render a sticky month header row above each group, sorted newest month first; within a month keep the existing `Quote Order` drag-and-drop sort.
-- Add an "Add story to {Month YYYY}" button per group; new stories default to that month by setting their createdTime implicitly (Airtable does this automatically on create) and assigning a `Quote Order` at the end of that month's group.
-- Drag-and-drop reordering stays within a single month (cross-month drags disabled for v1).
-- For non-retainer quotes, behavior is unchanged (flat ordered list).
+- When `groupByMonth` is true, derive the month label from `completedDate` if present, else from `createdTime` (existing behavior). Stories without a completed date go into a leading "Unscheduled" group.
+
+### 4. New-story modal — retainer-aware
+`components/pipeline/NewQuoteStoryModal.tsx`
+- Accept a new prop `isRetainer: boolean`.
+- When `isRetainer`:
+  - Hide the **Cost** input (don't validate, don't send).
+  - Show a new **Completed Date** date input (optional; if set, sent on create so the story lands in the right month bucket).
+- Non-retainer behavior is unchanged (Cost stays required, no date field).
+
+`lib/mutations/quote.ts` → `createQuoteStory`
+- Accept optional `completedDate?: string` and optional `cost?: number` (currently required). For retainers we'll omit cost; Airtable currency field stays empty.
+- Write `Completed Date` when provided.
 
 `components/pipeline/QuoteSheetEditor.tsx`
-- Pass `groupByMonth={quote.proposalType === "Retainer Agreement"}` to `QuoteStoriesTable`.
+- Pass `isRetainer={quote.proposalType === "Retainer Agreement"}` to `NewQuoteStoryModal`.
 
-### Notes
-- No Airtable schema changes — month is derived from each story's Airtable `createdTime`.
-- The earlier `dist-check` failure no longer reproduces (`tsc --noEmit` passes); will re-verify after edits with build.
+### 5. Inline editing — retainer-aware columns
+`components/pipeline/QuoteStoriesTable.tsx`
+- When `groupByMonth` (i.e. retainer):
+  - Hide the **Cost** column entirely (header + cells + totals row Cost).
+  - Add a **Completed** date column (inline-editable; editing it moves the row to the corresponding month group on save).
+- Keep all other columns/behaviors identical for non-retainers.
+
+`lib/mutations/quote.ts` → `updateQuoteStory` (or the existing inline-edit action)
+- Accept `completedDate` patches and write `Completed Date`.
+
+### 6. Project detail — retainer cleanups
+`components/pipeline/QuoteSheetEditor.tsx`
+When `quote.proposalType === "Retainer Agreement"`:
+- Hide the **Change orders** section + the change-order stories block (already kept; remove for retainers).
+- Hide the **Delivery due date** field/chip in the header.
+- Hide the **Blueprint engagement** toggle.
+
+`app/(app)/pipeline/[id]/page.tsx`
+- Mirror the header changes: don't render the delivery-due-date chip for retainers (the Paid-status hide stays for all types).
+
+### 7. Verify
+- `npx tsc --noEmit` and `npm run build` (the project's required gates per `CLAUDE.md`).
+
+### Notes / assumptions
+- Field name "Completed Date" is used as the write key (matches the `Change Order` pattern in `schema.ts`). When you grab the real `fldXXX` ID later, swap the value in one place.
+- "Unscheduled" bucket for retainer stories with no completed date keeps newly-added stories visible until you set a date.
+- Non-retainer projects (Airtable Solutions) are untouched by all of these changes.

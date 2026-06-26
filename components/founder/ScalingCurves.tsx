@@ -103,15 +103,24 @@ export function ScalingCurves({ inputs }: { inputs: ScalingInputs }) {
             />
             Scale retainers proportionally
           </label>
+          <label className="flex items-center gap-2 text-[11px] text-ink-muted cursor-pointer pb-1">
+            <input
+              type="checkbox"
+              checked={autoHire}
+              onChange={(e) => setAutoHire(e.target.checked)}
+              className="accent-emerald"
+            />
+            Auto-hire as we scale
+          </label>
         </div>
       </div>
 
       <div className="mt-4 space-y-4">
         <ChartFrame
-          title="Margin %"
+          title={`Margin %${autoHire ? " (post auto-hire)" : ""}`}
           subtitle={`Target ${fmtPct1(target)}`}
           yFormat={(v) => `${Math.round(v * 100)}%`}
-          values={points.map((p) => p.marginPct)}
+          values={points.map((p) => (autoHire ? p.proposedMarginPct : p.marginPct))}
           xValues={points.map((p) => p.projectRevenue)}
           xFor={xFor}
           refLine={target}
@@ -124,13 +133,19 @@ export function ScalingCurves({ inputs }: { inputs: ScalingInputs }) {
 
         <ChartFrame
           title="Demand vs capacity (hrs/mo)"
-          subtitle={`Capacity ${Math.round(points[0]?.capacityHours ?? 0)} hrs`}
+          subtitle={
+            autoHire
+              ? `Capacity grows with proposed hires`
+              : `Capacity ${Math.round(points[0]?.capacityHours ?? 0)} hrs`
+          }
           yFormat={(v) => `${Math.round(v)}h`}
           values={points.map((p) => p.demandHours)}
+          secondaryValues={points.map((p) =>
+            autoHire ? p.proposedFteCapacity * DEFAULT_HOURS_PER_MONTH : p.capacityHours,
+          )}
+          secondaryTone="#10b981"
           xValues={points.map((p) => p.projectRevenue)}
           xFor={xFor}
-          refLine={points[0]?.capacityHours ?? 0}
-          refIsAbsolute
           tone={(v) =>
             v > (points[0]?.capacityHours ?? Infinity) ? "#ef4444" : "#0ea5e9"
           }
@@ -141,10 +156,48 @@ export function ScalingCurves({ inputs }: { inputs: ScalingInputs }) {
         />
 
         <ChartFrame
+          title="Retainer vs project hours (hrs/mo)"
+          subtitle="Violet = retainers · Sky = projects"
+          yFormat={(v) => `${Math.round(v)}h`}
+          values={points.map((p) => p.projectHours)}
+          secondaryValues={points.map((p) => p.retainerHours)}
+          secondaryTone="#8b5cf6"
+          xValues={points.map((p) => p.projectRevenue)}
+          xFor={xFor}
+          tone={() => "#0ea5e9"}
+          hoverIdx={hoverIdx}
+          onMove={handleMove}
+          onLeave={() => setHoverIdx(null)}
+          hireIdx={hireIdx}
+        />
+
+        <ChartFrame
+          title="Team size (FTEs · 160h = 1)"
+          subtitle={
+            autoHire ? "Sky = demand · Emerald = proposed capacity" : "Sky = demand · Emerald = capacity"
+          }
+          yFormat={(v) => v.toFixed(1)}
+          values={points.map((p) => p.fteDemand)}
+          secondaryValues={points.map((p) =>
+            autoHire ? p.proposedFteCapacity : p.fteCapacity,
+          )}
+          secondaryTone="#10b981"
+          xValues={points.map((p) => p.projectRevenue)}
+          xFor={xFor}
+          tone={() => "#0ea5e9"}
+          hoverIdx={hoverIdx}
+          onMove={handleMove}
+          onLeave={() => setHoverIdx(null)}
+          hireIdx={hireIdx}
+        />
+
+        <ChartFrame
           title="Founder net / mo"
           subtitle={monthlyGoal > 0 ? `Goal ${fmtCompact(monthlyGoal)}` : undefined}
           yFormat={(v) => fmtCompact(v)}
-          values={points.map((p) => p.founderNetMonthly)}
+          values={points.map((p) =>
+            autoHire ? p.proposedFounderNetMonthly : p.founderNetMonthly,
+          )}
           xValues={points.map((p) => p.projectRevenue)}
           xFor={xFor}
           refLine={monthlyGoal}
@@ -163,59 +216,56 @@ export function ScalingCurves({ inputs }: { inputs: ScalingInputs }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Readout label="Project rev" value={fmtUsd(hover.projectRevenue)} />
             <Readout label="Retainer rev" value={fmtUsd(hover.retainerRevenue)} />
+            <Readout label="Project hrs" value={`${Math.round(hover.projectHours)} h`} />
+            <Readout label="Retainer hrs" value={`${Math.round(hover.retainerHours)} h`} />
             <Readout
               label="Margin"
-              value={fmtPct1(hover.marginPct)}
+              value={fmtPct1(autoHire ? hover.proposedMarginPct : hover.marginPct)}
               tone={
-                hover.marginPct >= target
+                (autoHire ? hover.proposedMarginPct : hover.marginPct) >= target
                   ? "emerald"
-                  : hover.marginPct >= target - 0.05
+                  : (autoHire ? hover.proposedMarginPct : hover.marginPct) >= target - 0.05
                     ? "amber"
                     : "red"
               }
             />
             <Readout
-              label="Demand / capacity"
-              value={`${Math.round(hover.demandHours)} / ${Math.round(hover.capacityHours)} h`}
-              tone={hover.demandHours > hover.capacityHours ? "red" : "ink"}
+              label="FTEs (demand / cap)"
+              value={`${hover.fteDemand.toFixed(1)} / ${(autoHire ? hover.proposedFteCapacity : hover.fteCapacity).toFixed(1)}`}
+              tone={
+                hover.fteDemand > (autoHire ? hover.proposedFteCapacity : hover.fteCapacity)
+                  ? "red"
+                  : "ink"
+              }
             />
-            <Readout label="Founder net/mo" value={fmtUsd(hover.founderNetMonthly)} tone="emerald" />
             <Readout
-              label="Founder net/yr"
-              value={fmtUsd(hover.founderNetMonthly * 12)}
+              label="Founder net/mo"
+              value={fmtUsd(autoHire ? hover.proposedFounderNetMonthly : hover.founderNetMonthly)}
               tone="emerald"
             />
             <Readout
-              label="Hiring"
+              label="Hires proposed"
               value={
-                hover.hiring.kind === "hire"
-                  ? `Hire +${hover.hiring.salariedNeeded}`
-                  : hover.hiring.kind === "warn"
-                    ? "Hot"
-                    : "Healthy"
+                hover.proposal.addSalaried + hover.proposal.addCommission + hover.proposal.convertCommissionToSalaried > 0
+                  ? `${hover.proposal.addSalaried > 0 ? `+${hover.proposal.addSalaried}S ` : ""}${hover.proposal.addCommission > 0 ? `+${hover.proposal.addCommission}C ` : ""}${hover.proposal.convertCommissionToSalaried > 0 ? `↑${hover.proposal.convertCommissionToSalaried}` : ""}`.trim()
+                  : "—"
               }
               tone={
-                hover.hiring.kind === "hire"
-                  ? "red"
-                  : hover.hiring.kind === "warn"
-                    ? "amber"
-                    : "emerald"
+                hover.proposal.addSalaried + hover.proposal.addCommission + hover.proposal.convertCommissionToSalaried > 0
+                  ? "amber"
+                  : "ink"
               }
-            />
-            <Readout
-              label="Shortfall"
-              value={
-                hover.shortHours > 0
-                  ? `${Math.round(hover.shortHours)} h (~${Math.ceil(hover.shortHours / DEFAULT_HOURS_PER_MONTH)} hire)`
-                  : "0 h"
-              }
-              tone={hover.shortHours > 0 ? "red" : "ink"}
             />
           </div>
         ) : (
           <p className="text-ink-faint text-[11px]">Hover any chart to see the numbers at that revenue point.</p>
         )}
       </div>
+
+      {/* Hiring roadmap */}
+      {autoHire && (
+        <HiringRoadmap points={points} />
+      )}
 
       {hireIdx >= 0 && (
         <div className="mt-3 text-[11px] text-amber border border-amber/40 bg-amber/10 rounded px-3 py-2">
@@ -226,6 +276,45 @@ export function ScalingCurves({ inputs }: { inputs: ScalingInputs }) {
     </section>
   );
 }
+
+function HiringRoadmap({ points }: { points: import("@/lib/scaling-math").ScalingCurvePoint[] }) {
+  // Find revenue points where the proposal changes (cumulative growth in hires).
+  const rows: { revenue: number; detail: string[] }[] = [];
+  let prevS = 0, prevC = 0, prevConv = 0;
+  for (const p of points) {
+    const dS = p.proposal.addSalaried - prevS;
+    const dC = p.proposal.addCommission - prevC;
+    const dConv = p.proposal.convertCommissionToSalaried - prevConv;
+    if (dS > 0 || dC > 0 || dConv > 0) {
+      const parts: string[] = [];
+      if (dS > 0) parts.push(`+${dS} salaried`);
+      if (dC > 0) parts.push(`+${dC} commission`);
+      if (dConv > 0) parts.push(`convert ${dConv} commission → salaried`);
+      rows.push({ revenue: p.projectRevenue, detail: parts });
+      prevS = p.proposal.addSalaried;
+      prevC = p.proposal.addCommission;
+      prevConv = p.proposal.convertCommissionToSalaried;
+    }
+  }
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-3 border border-rule rounded-md p-3 bg-bg-elevated/30">
+      <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint mb-2">
+        Hiring roadmap
+      </div>
+      <ul className="space-y-1 text-[12px]">
+        {rows.map((r, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <span className="font-mono tabnum text-ink-strong">{fmtCompact(r.revenue)}/mo</span>
+            <span className="text-ink-muted">→</span>
+            <span className="text-ink-strong">{r.detail.join(" · ")}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 
 function ChartFrame({
   title,

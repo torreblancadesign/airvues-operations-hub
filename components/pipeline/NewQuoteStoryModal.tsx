@@ -32,7 +32,7 @@ export function NewQuoteStoryModal({
   const [hours, setHours] = useState("");
   const [cost, setCost] = useState("");
   const [completedDate, setCompletedDate] = useState("");
-  const [clientNotes, setClientNotes] = useState("");
+  // Client notes removed from creation; edit inline after the story exists.
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +43,7 @@ export function NewQuoteStoryModal({
     setHours("");
     setCost("");
     setCompletedDate("");
-    setClientNotes("");
+    
     setError(null);
   }, [open]);
 
@@ -76,7 +76,7 @@ export function NewQuoteStoryModal({
         description: description.trim() || undefined,
         hours: h,
         cost: c,
-        clientNotes: clientNotes.trim() || undefined,
+        
         isChangeOrder,
         completedDate: isRetainer ? completedDate || null : undefined,
       });
@@ -208,19 +208,6 @@ export function NewQuoteStoryModal({
               )}
             </div>
 
-            <div>
-              <label className={labelCls}>
-                Client Notes <span className="text-ink-faint normal-case tracking-normal">(client visible)</span>
-              </label>
-              <textarea
-                value={clientNotes}
-                onChange={(e) => setClientNotes(e.target.value)}
-                disabled={pending}
-                rows={2}
-                placeholder="What the client will see in the proposal…"
-                className={`${inputCls} resize-y min-h-[50px]`}
-              />
-            </div>
 
             {error && (
               <div className="bg-red/10 border border-red/30 rounded-md px-3 py-2 text-[12px] text-red">

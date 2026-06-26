@@ -515,18 +515,20 @@ function SortableStoryRow({
         )}
       </td>
 
-      <td className="px-2 py-1.5 w-[40px] text-right" onClick={stopBubble}>
+      <td className="px-2 py-1.5 w-[80px] text-right" onClick={stopBubble}>
         {onRowClick && (
           <button
             type="button"
             onClick={() => onRowClick(s.id)}
-            className="text-[11px] text-ink-faint hover:text-emerald"
-            title="Open story"
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-ink-muted hover:text-emerald border border-rule hover:border-emerald rounded transition-colors"
+            title="Open story details"
           >
-            ↗
+            <span>Open</span>
+            <ArrowUpRight className="w-3 h-3" />
           </button>
         )}
       </td>
+
     </tr>
   );
 }

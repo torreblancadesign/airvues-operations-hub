@@ -4,28 +4,46 @@
 export type FounderAssumptions = {
   monthlyGoal: number;
   founderOwnership: number; // 0..1
-  engineerCommission: number; // 0..1
-  shaniaCommission: number; // 0..1
+  // Commission model: each $ of project revenue is delivered by ONE engineer
+  // (salaried OR commission-only) — so engineer commissions don't stack across
+  // the roster. `salariedMixPct` is the share of project work handled by
+  // salaried engineers. Client Solutions adds on top of every new sale.
+  salariedEngineerRate: number; // 0..1, default 0.15
+  commissionOnlyRate: number; // 0..1, default 0.30
+  clientSolutionsRate: number; // 0..1, default 0.15
+  salariedMixPct: number; // 0..1, share of project rev done by salaried eng
   fixedTeamCost: number;
   overhead: number;
   employerPayrollTaxRate: number; // 0..1, employer-side FICA on founder comp
+  targetMarginPct: number; // 0..1, for healthy/tight/below tone
 };
 
 export const DEFAULT_ASSUMPTIONS: FounderAssumptions = {
   monthlyGoal: 115_000,
   founderOwnership: 0.6,
-  engineerCommission: 0.225,
-  shaniaCommission: 0.1,
+  salariedEngineerRate: 0.15,
+  commissionOnlyRate: 0.30,
+  clientSolutionsRate: 0.15,
+  salariedMixPct: 0.6,
   fixedTeamCost: 11_000,
   overhead: 1_000,
   employerPayrollTaxRate: 0.0765, // 6.2% SS + 1.45% Medicare
+  targetMarginPct: 0.4,
 };
+
+export function effectiveVariableRate(a: FounderAssumptions): number {
+  const engineerRate =
+    a.salariedMixPct * a.salariedEngineerRate +
+    (1 - a.salariedMixPct) * a.commissionOnlyRate;
+  return engineerRate + a.clientSolutionsRate;
+}
 
 export type FounderProjection = {
   revenue: number;
   variableRate: number;
   fixedMonthly: number;
   monthlyProfit: number;
+  marginPct: number; // monthlyProfit / revenue
   founderMonthly: number;
   founderAnnual: number;
   payrollTaxMonthly: number;
@@ -39,9 +57,10 @@ export function project(
   revenue: number,
   a: FounderAssumptions,
 ): FounderProjection {
-  const variableRate = a.engineerCommission + a.shaniaCommission;
+  const variableRate = effectiveVariableRate(a);
   const fixedMonthly = a.fixedTeamCost + a.overhead;
   const monthlyProfit = revenue * (1 - variableRate) - fixedMonthly;
+  const marginPct = revenue > 0 ? monthlyProfit / revenue : 0;
   const founderMonthly = monthlyProfit * a.founderOwnership;
   const founderAnnual = founderMonthly * 12;
   const payrollTaxMonthly = founderMonthly * a.employerPayrollTaxRate;
@@ -54,6 +73,7 @@ export function project(
     variableRate,
     fixedMonthly,
     monthlyProfit,
+    marginPct,
     founderMonthly,
     founderAnnual,
     payrollTaxMonthly,
@@ -66,18 +86,12 @@ export function project(
 
 // Back-solve: what monthly revenue is required to net `retirementAnnual`
 // take-home/year, given the current assumptions?
-//
-// Inverts project():
-//   founderNetMonthly = retirementAnnual / 12
-//   founderMonthly    = founderNetMonthly / (1 - payrollTaxRate)
-//   monthlyProfit     = founderMonthly / ownership
-//   revenue           = (monthlyProfit + fixedMonthly) / (1 - variableRate)
 export function requiredRevenueForNetAnnual(
   retirementAnnual: number,
   a: FounderAssumptions,
 ): number {
   if (!Number.isFinite(retirementAnnual) || retirementAnnual <= 0) return 0;
-  const variableRate = a.engineerCommission + a.shaniaCommission;
+  const variableRate = effectiveVariableRate(a);
   const fixedMonthly = a.fixedTeamCost + a.overhead;
   if (a.founderOwnership <= 0) return Infinity;
   if (1 - a.employerPayrollTaxRate <= 0) return Infinity;
@@ -99,15 +113,21 @@ export const fmtUsd = (n: number) =>
 
 export const fmtPct1 = (n: number) => `${(n * 100).toFixed(1)}%`;
 
+export type MarginVerdict = "healthy" | "tight" | "below";
+export function marginVerdict(margin: number, target: number): MarginVerdict {
+  if (margin >= target) return "healthy";
+  if (margin >= target - 0.05) return "tight";
+  return "below";
+}
+export function marginToneClass(v: MarginVerdict): string {
+  return v === "healthy" ? "text-emerald" : v === "tight" ? "text-amber" : "text-red";
+}
+
 export type MonthsToGoalPrediction =
   | { kind: "at-goal" }
   | { kind: "flat" }
   | { kind: "months"; value: number };
 
-// Predict how many months until current monthly revenue reaches the goal,
-// assuming the average month-over-month growth ($) continues. Returns a
-// discriminated union so the UI can render an explicit label for edge cases
-// (already at goal, flat / negative trend) instead of NaN/Infinity.
 export function predictMonthsToGoal(args: {
   currentMonthlyRevenue: number;
   monthlyGoal: number;
@@ -122,4 +142,3 @@ export function predictMonthsToGoal(args: {
   if (!Number.isFinite(months) || months <= 0) return { kind: "flat" };
   return { kind: "months", value: months };
 }
-

@@ -8,9 +8,16 @@ export const CLIENT_SOLUTIONS_COMMISSION = 0.15;
 
 export type CommissionBase = "projects" | "projects+retainers";
 
-export type RoleGroup = {
-  count: number;
+export type EngineerRole = {
+  count: number; // headcount — drives salary cost (salaried) / capacity only
   monthlySalary: number; // 0 for commission-only
+  commissionRate: number; // 0..1
+  appliesTo: CommissionBase;
+};
+
+export type SalesRole = {
+  count: number;
+  monthlySalary: number;
   commissionRate: number; // 0..1
   appliesTo: CommissionBase;
 };
@@ -21,9 +28,13 @@ export type ScalingInputs = {
   monthlyRetainerRevenue: number;
 
   // Team
-  salariedEngineers: RoleGroup;
-  commissionOnlyEngineers: RoleGroup;
-  clientSolutions: RoleGroup;
+  salariedEngineers: EngineerRole;
+  commissionOnlyEngineers: EngineerRole;
+  // Share of project revenue delivered by salaried engineers (0..1).
+  // Remainder is delivered by commission-only engineers. Each $ of project
+  // revenue is touched by exactly one engineer — commissions never stack.
+  salariedEngineerMix: number;
+  clientSolutions: SalesRole;
   otherFixed: { count: number; monthlySalary: number };
 
   // Cost & strategy
@@ -45,24 +56,19 @@ export type ScalingOutput = {
   };
   totalTeamCost: number; // salaries + commissions + overhead
   grossProfit: number;
-  netMarginPct: number; // grossProfit / totalRevenue
+  netMarginPct: number;
+  marginPct: number; // alias of netMarginPct
   founderDistributable: number;
   founderGrossMonthly: number;
   founderNetMonthly: number;
   founderNetAnnual: number;
-  gapToDesiredMonthly: number; // desired - actual (>=0)
-  headroomRevenue: number; // extra $/mo possible before margin drops below target with current team
+  gapToDesiredMonthly: number;
+  headroomRevenue: number;
   verdict: "healthy" | "tight" | "below";
 };
 
-function commissionBase(
-  group: RoleGroup,
-  projectRev: number,
-  retainerRev: number,
-): number {
-  return group.appliesTo === "projects+retainers"
-    ? projectRev + retainerRev
-    : projectRev;
+function base(group: { appliesTo: CommissionBase }, p: number, r: number): number {
+  return group.appliesTo === "projects+retainers" ? p + r : p;
 }
 
 export function computeScenario(inp: ScalingInputs): ScalingOutput {
@@ -73,27 +79,32 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     inp.clientSolutions.count * inp.clientSolutions.monthlySalary +
     inp.otherFixed.count * inp.otherFixed.monthlySalary;
 
+  // Engineer commission pool — split by mix, never stacked per head.
+  const mix = Math.max(0, Math.min(1, inp.salariedEngineerMix));
+  const salariedHasEngineers = inp.salariedEngineers.count > 0;
+  const commHasEngineers = inp.commissionOnlyEngineers.count > 0;
+
+  // If a side of the mix has no headcount, that share gets handled by the other.
+  const effSalariedShare = salariedHasEngineers ? (commHasEngineers ? mix : 1) : 0;
+  const effCommShare = commHasEngineers ? (salariedHasEngineers ? 1 - mix : 1) : 0;
+
   const cSalEng =
-    inp.salariedEngineers.count *
-    commissionBase(inp.salariedEngineers, inp.monthlyProjectRevenue, inp.monthlyRetainerRevenue) *
+    base(inp.salariedEngineers, inp.monthlyProjectRevenue, inp.monthlyRetainerRevenue) *
+    effSalariedShare *
     inp.salariedEngineers.commissionRate;
 
-  // Commission-only engineers split project work — model as rate applied once
-  // to the project revenue pool (not per head), since adding more comm-only
-  // engineers shouldn't multiply payouts on the same revenue.
   const cCommEng =
-    inp.commissionOnlyEngineers.count > 0
-      ? commissionBase(
-          inp.commissionOnlyEngineers,
-          inp.monthlyProjectRevenue,
-          inp.monthlyRetainerRevenue,
-        ) * inp.commissionOnlyEngineers.commissionRate
-      : 0;
+    base(inp.commissionOnlyEngineers, inp.monthlyProjectRevenue, inp.monthlyRetainerRevenue) *
+    effCommShare *
+    inp.commissionOnlyEngineers.commissionRate;
 
+  // Client Solutions: single role applied to all new sales. Headcount drives
+  // salary cost, not commission multiplier.
   const cClientSol =
-    inp.clientSolutions.count *
-    commissionBase(inp.clientSolutions, inp.monthlyProjectRevenue, inp.monthlyRetainerRevenue) *
-    inp.clientSolutions.commissionRate;
+    inp.clientSolutions.count > 0
+      ? base(inp.clientSolutions, inp.monthlyProjectRevenue, inp.monthlyRetainerRevenue) *
+        inp.clientSolutions.commissionRate
+      : 0;
 
   const commissionsTotal = cSalEng + cCommEng + cClientSol;
 
@@ -109,25 +120,18 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
 
   const gapToDesiredMonthly = Math.max(0, inp.desiredMonthlyNet - founderNetMonthly);
 
-  // Headroom: extra project revenue before margin drops below target.
-  // Approximation: hold commission rates constant on additional project revenue.
-  // Effective marginal rate on extra $1 of project revenue:
-  //   1 - (salariedEngs.count * salariedRate + commOnly>0 ? commOnlyRate : 0 + clientSol.count * clientSolRate)
-  const marginalCommissionRate =
-    inp.salariedEngineers.count * inp.salariedEngineers.commissionRate +
-    (inp.commissionOnlyEngineers.count > 0 ? inp.commissionOnlyEngineers.commissionRate : 0) +
-    inp.clientSolutions.count * inp.clientSolutions.commissionRate;
-  const marginalKeep = 1 - marginalCommissionRate;
-  // Solve: (grossProfit + x * marginalKeep) / (totalRevenue + x) >= target
-  // => grossProfit + x*marginalKeep >= target*(totalRevenue + x)
-  // => x*(marginalKeep - target) >= target*totalRevenue - grossProfit
+  // Marginal rate on extra $1 of project revenue (engineer mix + sales).
+  const marginalEngineerRate =
+    effSalariedShare * inp.salariedEngineers.commissionRate +
+    effCommShare * inp.commissionOnlyEngineers.commissionRate;
+  const marginalSalesRate = inp.clientSolutions.count > 0 ? inp.clientSolutions.commissionRate : 0;
+  const marginalKeep = 1 - marginalEngineerRate - marginalSalesRate;
+
   let headroomRevenue = 0;
   const denom = marginalKeep - inp.targetMarginPct;
   if (denom > 0) {
     const needed = inp.targetMarginPct * totalRevenue - grossProfit;
     headroomRevenue = needed <= 0 ? Infinity : needed / denom;
-  } else {
-    headroomRevenue = netMarginPct >= inp.targetMarginPct ? 0 : 0;
   }
 
   let verdict: ScalingOutput["verdict"];
@@ -147,6 +151,7 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     totalTeamCost,
     grossProfit,
     netMarginPct,
+    marginPct: netMarginPct,
     founderDistributable,
     founderGrossMonthly,
     founderNetMonthly,
@@ -178,6 +183,7 @@ export function defaultInputs(seed: {
       commissionRate: COMMISSION_ONLY_ENGINEER_COMMISSION,
       appliesTo: "projects",
     },
+    salariedEngineerMix: 0.6,
     clientSolutions: {
       count: 1,
       monthlySalary: 6000,

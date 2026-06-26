@@ -202,8 +202,13 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     inp.commissionOnlyEngineers.map((t) => [t.id, t.count * t.hoursPerMonth]),
   );
 
-  // Pass 1: retainers per-retainer (priority: salaried → commission).
-  // Track per-tier retainer hours and per-tier retainer revenue serviced.
+  // Eligibility-filtered tier lists (preserve user-defined order = priority).
+  const salRetainerEligible = inp.salariedEngineers.filter((t) => t.worksOnRetainers);
+  const comRetainerEligible = inp.commissionOnlyEngineers.filter((t) => t.worksOnRetainers);
+  const salProjectEligible = inp.salariedEngineers.filter((t) => t.worksOnProjects);
+  const comProjectEligible = inp.commissionOnlyEngineers.filter((t) => t.worksOnProjects);
+
+  // Pass 1: retainers per-retainer (priority: salaried → commission, eligible only).
   const tierRetainerHours = new Map<string, number>();
   const tierRetainerRevenue = new Map<string, number>();
   const tierRetainerCommBase = new Map<string, number>();
@@ -222,9 +227,9 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
       });
       continue;
     }
-    const salFill = fillTiers(inp.salariedEngineers, need, salRemaining);
+    const salFill = fillTiers(salRetainerEligible, need, salRemaining);
     const after = need - salFill.used;
-    const comFill = fillTiers(inp.commissionOnlyEngineers, after, comRemaining);
+    const comFill = fillTiers(comRetainerEligible, after, comRemaining);
     const covered = salFill.used + comFill.used;
     const short = Math.max(0, need - covered);
     unmetRetainerHours += short;
@@ -254,10 +259,10 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     accumulate(comFill.tierUse);
   }
 
-  // Pass 2: project work fills remaining capacity.
-  const salProj = fillTiers(inp.salariedEngineers, projectHoursNeeded, salRemaining);
+  // Pass 2: project work fills remaining capacity (eligible only).
+  const salProj = fillTiers(salProjectEligible, projectHoursNeeded, salRemaining);
   const remainingAfterSalaried = Math.max(0, projectHoursNeeded - salProj.used);
-  const comProj = fillTiers(inp.commissionOnlyEngineers, remainingAfterSalaried, comRemaining);
+  const comProj = fillTiers(comProjectEligible, remainingAfterSalaried, comRemaining);
 
   const projectSalHoursUsed = salProj.used;
   const projectComHoursUsed = comProj.used;

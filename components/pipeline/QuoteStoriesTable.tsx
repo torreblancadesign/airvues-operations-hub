@@ -771,7 +771,7 @@ export function QuoteStoriesTable({
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
-  const collapsedHydrated = useState(false);
+  
 
   // Hydrate persisted collapsed state (client-only) once.
   useEffect(() => {

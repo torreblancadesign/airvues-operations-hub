@@ -1017,7 +1017,7 @@ export function QuoteStoriesTable({
                   <th className="px-2 py-2 font-medium whitespace-nowrap">
                     Engineer Assigned<span className="ml-1 text-ink-faint normal-case tracking-normal">(internal)</span>
                   </th>
-                  <th className="px-2 py-2 font-medium w-[40px]"></th>
+                  <th className="px-2 py-2 font-medium w-[80px]"></th>
                 </tr>
               </thead>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>

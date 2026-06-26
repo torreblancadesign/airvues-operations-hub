@@ -902,19 +902,33 @@ export function QuoteStoriesTable({
               </thead>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                 <tbody className="row-zebra">
-                  {localStories.map((s) => (
-                    <SortableStoryRow
-                      key={s.id}
-                      story={s}
-                      canEdit={canEdit}
-                      onRowClick={onRowClick}
-                      selected={selected.has(s.id)}
-                      onToggleSelect={toggleSelect}
-                      engineers={engineerOptions}
-                      onPatch={patchStory}
-                      pending={pending}
-                    />
-                  ))}
+                  {monthGroups
+                    ? monthGroups.map((g) => (
+                        <FragmentGroup
+                          key={g.key}
+                          group={g}
+                          canEdit={canEdit}
+                          onRowClick={onRowClick}
+                          selected={selected}
+                          onToggleSelect={toggleSelect}
+                          engineers={engineerOptions}
+                          onPatch={patchStory}
+                          pending={pending}
+                        />
+                      ))
+                    : localStories.map((s) => (
+                        <SortableStoryRow
+                          key={s.id}
+                          story={s}
+                          canEdit={canEdit}
+                          onRowClick={onRowClick}
+                          selected={selected.has(s.id)}
+                          onToggleSelect={toggleSelect}
+                          engineers={engineerOptions}
+                          onPatch={patchStory}
+                          pending={pending}
+                        />
+                      ))}
                 </tbody>
               </SortableContext>
             </table>

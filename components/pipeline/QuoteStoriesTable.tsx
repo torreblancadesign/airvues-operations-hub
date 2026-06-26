@@ -42,6 +42,7 @@ type Props = {
   people: PersonOption[];
   onReordered?: (next: QuoteDetail) => void;
   onChanged?: (next: QuoteDetail) => void;
+  groupByMonth?: boolean;
 };
 
 const STORY_STATUSES = [

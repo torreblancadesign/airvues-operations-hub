@@ -238,7 +238,6 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     for (const t of tiers) {
       if (remaining <= 0) break;
       const manualLeft = remainingManualRet.get(t.id) ?? 0;
-      const capLeft = (t.kind ? null : null), _ = capLeft; // noop
       const isSal = inp.salariedEngineers.some((x) => x.id === t.id);
       const capMap = isSal ? salRemaining : comRemaining;
       const cap = capMap.get(t.id) ?? 0;

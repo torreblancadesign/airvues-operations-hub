@@ -347,13 +347,20 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
 
   const unmetHours = unmetRetainerHours + unmetProjectHours;
 
-  // Marginal rate for headroom: assume marginal $1 hits salaried first if room, else commission-only.
+  // Marginal rate for headroom: assume marginal $1 hits a project-eligible salaried tier first if room,
+  // else a project-eligible commission-only tier.
+  const salProjOpen = inp.salariedEngineers.filter(
+    (t) => t.worksOnProjects && (salRemaining.get(t.id) ?? 0) > 0,
+  );
+  const comProjOpen = inp.commissionOnlyEngineers.filter(
+    (t) => t.worksOnProjects && (comRemaining.get(t.id) ?? 0) > 0,
+  );
   const marginalEngineerRate =
-    salRemaining && Array.from(salRemaining.values()).some((v) => v > 0)
-      ? (inp.salariedEngineers.find((t) => (salRemaining.get(t.id) ?? 0) > 0)?.commissionRate ??
-        SALARIED_ENGINEER_COMMISSION)
-      : (inp.commissionOnlyEngineers.find((t) => (comRemaining.get(t.id) ?? 0) > 0)
-          ?.commissionRate ?? COMMISSION_ONLY_ENGINEER_COMMISSION);
+    salProjOpen.length > 0
+      ? salProjOpen[0].commissionRate
+      : comProjOpen.length > 0
+        ? comProjOpen[0].commissionRate
+        : COMMISSION_ONLY_ENGINEER_COMMISSION;
   const marginalSalesRate = inp.clientSolutions.count > 0 ? inp.clientSolutions.commissionRate : 0;
   const marginalKeep = 1 - marginalEngineerRate - marginalSalesRate;
 
@@ -370,12 +377,18 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
   else verdict = "below";
 
   // Hiring signal — retainers first.
+  const anyRetainerEligible =
+    inp.salariedEngineers.some((t) => t.worksOnRetainers) ||
+    inp.commissionOnlyEngineers.some((t) => t.worksOnRetainers);
   let hiring: HiringSignal;
   if (unmetRetainerHours > 0.5) {
     const need = Math.ceil(unmetRetainerHours / DEFAULT_HOURS_PER_MONTH);
+    const msg = !anyRetainerEligible
+      ? `No engineer tier is eligible for retainers — enable one or hire a dedicated retainer engineer (~${need}).`
+      : `Retainers under-served by ~${Math.round(unmetRetainerHours)} hrs/mo — hire a dedicated retainer/logistics engineer (~${need}).`;
     hiring = {
       kind: "hire",
-      message: `Retainers under-served by ~${Math.round(unmetRetainerHours)} hrs/mo — hire a dedicated retainer/logistics engineer (~${need}).`,
+      message: msg,
       salariedNeeded: need,
       commissionNeeded: need,
       unmetHours: unmetRetainerHours,
@@ -383,9 +396,15 @@ export function computeScenario(inp: ScalingInputs): ScalingOutput {
     };
   } else if (unmetProjectHours > 0.5) {
     const need = Math.ceil(unmetProjectHours / DEFAULT_HOURS_PER_MONTH);
+    const anyProjEligible =
+      inp.salariedEngineers.some((t) => t.worksOnProjects) ||
+      inp.commissionOnlyEngineers.some((t) => t.worksOnProjects);
+    const msg = !anyProjEligible
+      ? `No engineer tier is eligible for projects — enable one or hire ${need} engineer(s).`
+      : `Need ~${Math.round(unmetProjectHours)} more project hrs/mo — hire ${need} salaried or ${need} commission-only engineer(s).`;
     hiring = {
       kind: "hire",
-      message: `Need ~${Math.round(unmetProjectHours)} more project hrs/mo — hire ${need} salaried or ${need} commission-only engineer(s).`,
+      message: msg,
       salariedNeeded: need,
       commissionNeeded: need,
       unmetHours: unmetProjectHours,

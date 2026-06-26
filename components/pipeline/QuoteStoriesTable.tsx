@@ -770,6 +770,49 @@ export function QuoteStoriesTable({
   const [localStories, setLocalStories] = useState<QuoteStoryRow[]>(stories);
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const collapsedHydrated = useState(false);
+
+  // Hydrate persisted collapsed state (client-only) once.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(`qst:${quoteId}:collapsedMonths`);
+      if (raw) {
+        const arr = JSON.parse(raw) as string[];
+        if (Array.isArray(arr)) setCollapsedMonths(new Set(arr));
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteId]);
+
+  const currentMonthKey = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  function toggleCollapsedMonth(key: string) {
+    setCollapsedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            `qst:${quoteId}:collapsedMonths`,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      return next;
+    });
+  }
+  // Reference to silence unused-var lint for the placeholder hook.
+  void collapsedHydrated;
 
   useEffect(() => {
     setLocalStories(stories);

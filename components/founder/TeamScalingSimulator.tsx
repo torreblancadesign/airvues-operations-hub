@@ -652,17 +652,44 @@ function Card({
 function TierEditor({
   tier,
   showSalary,
+  index,
+  lastIndex,
+  onMove,
   onChange,
   onRemove,
 }: {
   tier: EngineerTier;
   showSalary?: boolean;
+  index: number;
+  lastIndex: number;
+  onMove: (dir: -1 | 1) => void;
   onChange: (patch: Partial<EngineerTier>) => void;
   onRemove: () => void;
 }) {
   return (
     <div className="py-2.5 border-b border-rule/40 last:border-0">
       <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-col">
+          <button
+            type="button"
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            className="text-[10px] leading-none text-ink-faint hover:text-ink-strong disabled:opacity-30"
+            title="Move up (higher priority)"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            onClick={() => onMove(1)}
+            disabled={index >= lastIndex}
+            className="text-[10px] leading-none text-ink-faint hover:text-ink-strong disabled:opacity-30 mt-0.5"
+            title="Move down (lower priority)"
+          >
+            ▼
+          </button>
+        </div>
+        <span className="text-[10px] font-mono tabnum text-ink-faint w-5 text-center">#{index + 1}</span>
         <input
           type="text"
           value={tier.label}
@@ -701,21 +728,48 @@ function TierEditor({
           onChange={(v) => onChange({ hoursPerMonth: v })}
         />
       </div>
-      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
+      <div className="mt-1.5 flex items-center justify-between gap-3 text-[10px] text-ink-faint flex-wrap">
         <span>
           Capacity: <span className="tabnum">{tier.count * tier.hoursPerMonth}</span> hrs/mo
         </span>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={tier.appliesTo === "projects+retainers"}
-            onChange={(e) =>
-              onChange({ appliesTo: e.target.checked ? "projects+retainers" : "projects" })
-            }
-            className="accent-emerald"
-          />
-          <span>Include retainers in commission base</span>
-        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tier.worksOnProjects}
+              onChange={(e) => onChange({ worksOnProjects: e.target.checked })}
+              className="accent-emerald"
+            />
+            <span>Projects</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={tier.worksOnRetainers}
+              onChange={(e) =>
+                onChange({
+                  worksOnRetainers: e.target.checked,
+                  ...(e.target.checked ? {} : { retainerCommission: false }),
+                })
+              }
+              className="accent-violet"
+            />
+            <span>Retainers</span>
+          </label>
+          <label
+            className={`flex items-center gap-1.5 ${tier.worksOnRetainers ? "cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+            title={tier.worksOnRetainers ? "" : "Enable Retainers to allow retainer commission"}
+          >
+            <input
+              type="checkbox"
+              disabled={!tier.worksOnRetainers}
+              checked={tier.retainerCommission}
+              onChange={(e) => onChange({ retainerCommission: e.target.checked })}
+              className="accent-emerald"
+            />
+            <span>Retainer commission</span>
+          </label>
+        </div>
       </div>
     </div>
   );

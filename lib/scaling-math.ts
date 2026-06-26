@@ -770,11 +770,19 @@ export function fteFromHours(hours: number, hoursPerMonth = DEFAULT_HOURS_PER_MO
   return hoursPerMonth > 0 ? hours / hoursPerMonth : 0;
 }
 
+export type TierHire = {
+  tierId: string;
+  kind: "salaried" | "commission";
+  delta: number; // +N hires, or -N for converted-out
+  reason: string;
+};
+
 export type HireProposal = {
   addSalaried: number;
   addCommission: number;
   convertCommissionToSalaried: number;
   detail: string[];
+  tierHires: TierHire[];
 };
 
 function bumpTier(
@@ -811,6 +819,13 @@ export function proposeRoster(inputs: ScalingInputs): {
     addCommission: 0,
     convertCommissionToSalaried: 0,
     detail: [],
+    tierHires: [],
+  };
+
+  const recordHire = (tierId: string, kind: "salaried" | "commission", delta: number, reason: string) => {
+    const existing = proposal.tierHires.find((h) => h.tierId === tierId && h.kind === kind);
+    if (existing) existing.delta += delta;
+    else proposal.tierHires.push({ tierId, kind, delta, reason });
   };
 
   // 1) Cover unmet demand.
@@ -829,6 +844,7 @@ export function proposeRoster(inputs: ScalingInputs): {
         out = trialOut;
         proposal.addSalaried += 1;
         proposal.detail.push(`+1 salaried (${salTier.label})`);
+        recordHire(salTier.id, "salaried", 1, `Covers ${needsRetainer ? "retainer" : "project"} shortfall; margin stays ≥ target.`);
         hired = true;
       }
     }
@@ -839,11 +855,13 @@ export function proposeRoster(inputs: ScalingInputs): {
         out = computeScenario(current);
         proposal.addCommission += 1;
         proposal.detail.push(`+1 commission (${comTier.label})`);
+        recordHire(comTier.id, "commission", 1, `Salaried hire would push margin below target; contractor keeps margin healthy.`);
       } else if (salTier) {
         current = bumpTier(current, salTier.id, "salaried", 1);
         out = computeScenario(current);
         proposal.addSalaried += 1;
         proposal.detail.push(`+1 salaried (${salTier.label}, margin tight)`);
+        recordHire(salTier.id, "salaried", 1, `No commission-only tier available; salaried hire needed despite tight margin.`);
       } else {
         break;
       }
@@ -868,6 +886,8 @@ export function proposeRoster(inputs: ScalingInputs): {
     out = trialOut;
     proposal.convertCommissionToSalaried += 1;
     proposal.detail.push(`convert 1 commission → salaried (${salTier.label})`);
+    recordHire(comTier.id, "commission", -1, `Margin ≥ target + 10%; convert to salaried to lock capacity at lower marginal cost.`);
+    recordHire(salTier.id, "salaried", 1, `Converted from ${comTier.label}.`);
   }
 
   return { inputs: current, proposal, output: out };
@@ -934,6 +954,7 @@ export function computeScalingCurve(
       addCommission: 0,
       convertCommissionToSalaried: 0,
       detail: [],
+      tierHires: [],
     };
     let post = base;
     if (autoHire) {

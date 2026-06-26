@@ -500,7 +500,6 @@ function CapacityPanel({ out }: { out: ScalingOutput }) {
 }
 
 function TierBar({ t }: { t: TierBreakdown }) {
-  const pct = Math.min(1.2, t.utilizationPct);
   const pctDisplay = Math.round(t.utilizationPct * 100);
   const tone =
     t.utilizationPct > 1

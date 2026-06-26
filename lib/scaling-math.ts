@@ -18,7 +18,11 @@ export type EngineerTier = {
   monthlySalary: number; // 0 for commission-only
   commissionRate: number; // 0..1
   hoursPerMonth: number; // capacity per head
-  appliesTo: CommissionBase;
+  worksOnProjects: boolean; // eligible to be assigned project hours
+  worksOnRetainers: boolean; // eligible to be assigned retainer hours
+  retainerCommission: boolean; // pay commission on retainer revenue serviced
+  // Legacy — kept optional for migration only.
+  appliesTo?: CommissionBase;
 };
 
 export type Retainer = {

@@ -621,6 +621,82 @@ function TierEditor({
   );
 }
 
+function RetainerEditor({
+  retainer,
+  coverage,
+  onChange,
+  onRemove,
+}: {
+  retainer: Retainer;
+  coverage?: RetainerCoverage;
+  onChange: (patch: Partial<Retainer>) => void;
+  onRemove: () => void;
+}) {
+  const short = coverage?.shortHours ?? 0;
+  const chip =
+    short > 0.5
+      ? { cls: "border-red/40 bg-red/10 text-red", label: `Short ${Math.round(short)} hrs` }
+      : { cls: "border-emerald/40 bg-emerald/10 text-emerald", label: "Covered" };
+  return (
+    <div className="py-2.5 border-b border-rule/40 last:border-0">
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="text"
+          value={retainer.label}
+          onChange={(e) => onChange({ label: e.target.value })}
+          className="flex-1 bg-bg-elevated border border-rule rounded px-2 py-1 text-[12px] text-ink-strong focus:outline-none focus:border-emerald"
+        />
+        <span
+          className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border ${chip.cls}`}
+        >
+          {chip.label}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-[11px] text-red hover:underline"
+          title="Remove retainer"
+        >
+          Remove
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Num
+          label="Revenue ($/mo)"
+          value={retainer.monthlyRevenue}
+          step={500}
+          onChange={(v) => onChange({ monthlyRevenue: v })}
+        />
+        <Num
+          label="Support hrs/mo"
+          value={retainer.supportHoursPerMonth}
+          step={5}
+          onChange={(v) => onChange({ supportHoursPerMonth: v })}
+        />
+      </div>
+      <div className="mt-1.5 flex items-center justify-between text-[10px] text-ink-faint">
+        <span>
+          Effective rate:{" "}
+          <span className="tabnum">
+            {retainer.supportHoursPerMonth > 0
+              ? `$${Math.round(retainer.monthlyRevenue / retainer.supportHoursPerMonth)}/hr`
+              : "—"}
+          </span>
+        </span>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={retainer.appliesToCommission}
+            onChange={(e) => onChange({ appliesToCommission: e.target.checked })}
+            className="accent-emerald"
+          />
+          <span>Pay engineer commission on this retainer</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 function Num({
   label,
   value,

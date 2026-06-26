@@ -764,7 +764,114 @@ export function migrateInputs(raw: unknown): ScalingInputs | null {
 
 // ===== Scaling curve =====
 // Sweep project revenue from current → current * maxMultiplier in `steps` points.
-// Optionally scale retainer revenue proportionally.
+// Optionally scale retainer revenue proportionally and auto-propose hires.
+
+export function fteFromHours(hours: number, hoursPerMonth = DEFAULT_HOURS_PER_MONTH): number {
+  return hoursPerMonth > 0 ? hours / hoursPerMonth : 0;
+}
+
+export type HireProposal = {
+  addSalaried: number;
+  addCommission: number;
+  convertCommissionToSalaried: number;
+  detail: string[];
+};
+
+function bumpTier(
+  inp: ScalingInputs,
+  tierId: string,
+  kind: "salaried" | "commission",
+  delta: number,
+): ScalingInputs {
+  if (kind === "salaried") {
+    return {
+      ...inp,
+      salariedEngineers: inp.salariedEngineers.map((t) =>
+        t.id === tierId ? { ...t, count: Math.max(0, t.count + delta) } : t,
+      ),
+    };
+  }
+  return {
+    ...inp,
+    commissionOnlyEngineers: inp.commissionOnlyEngineers.map((t) =>
+      t.id === tierId ? { ...t, count: Math.max(0, t.count + delta) } : t,
+    ),
+  };
+}
+
+export function proposeRoster(inputs: ScalingInputs): {
+  inputs: ScalingInputs;
+  proposal: HireProposal;
+  output: ScalingOutput;
+} {
+  let current = inputs;
+  let out = computeScenario(current);
+  const proposal: HireProposal = {
+    addSalaried: 0,
+    addCommission: 0,
+    convertCommissionToSalaried: 0,
+    detail: [],
+  };
+
+  // 1) Cover unmet demand.
+  for (let i = 0; i < 12 && out.unmetHours > 0.5; i++) {
+    const needsRetainer = out.unmetRetainerHours > 0.5;
+    const eligible = (t: EngineerTier) =>
+      needsRetainer ? t.worksOnRetainers : t.worksOnProjects;
+    const salTier = current.salariedEngineers.find(eligible);
+    let hired = false;
+
+    if (salTier) {
+      const trial = bumpTier(current, salTier.id, "salaried", 1);
+      const trialOut = computeScenario(trial);
+      if (trialOut.netMarginPct >= current.targetMarginPct) {
+        current = trial;
+        out = trialOut;
+        proposal.addSalaried += 1;
+        proposal.detail.push(`+1 salaried (${salTier.label})`);
+        hired = true;
+      }
+    }
+    if (!hired) {
+      const comTier = current.commissionOnlyEngineers.find(eligible);
+      if (comTier) {
+        current = bumpTier(current, comTier.id, "commission", 1);
+        out = computeScenario(current);
+        proposal.addCommission += 1;
+        proposal.detail.push(`+1 commission (${comTier.label})`);
+      } else if (salTier) {
+        current = bumpTier(current, salTier.id, "salaried", 1);
+        out = computeScenario(current);
+        proposal.addSalaried += 1;
+        proposal.detail.push(`+1 salaried (${salTier.label}, margin tight)`);
+      } else {
+        break;
+      }
+    }
+  }
+
+  // 2) Convert commission → salaried when we're well above target margin.
+  for (let i = 0; i < 6; i++) {
+    if (out.netMarginPct < current.targetMarginPct + 0.10) break;
+    const comTier = current.commissionOnlyEngineers.find((t) => t.count >= 1);
+    const salTier = current.salariedEngineers[0];
+    if (!comTier || !salTier) break;
+    const trial = bumpTier(
+      bumpTier(current, comTier.id, "commission", -1),
+      salTier.id,
+      "salaried",
+      1,
+    );
+    const trialOut = computeScenario(trial);
+    if (trialOut.netMarginPct < current.targetMarginPct) break;
+    current = trial;
+    out = trialOut;
+    proposal.convertCommissionToSalaried += 1;
+    proposal.detail.push(`convert 1 commission → salaried (${salTier.label})`);
+  }
+
+  return { inputs: current, proposal, output: out };
+}
 
 export type ScalingCurvePoint = {
   projectRevenue: number;
@@ -772,21 +879,35 @@ export type ScalingCurvePoint = {
   totalRevenue: number;
   marginPct: number;
   demandHours: number;
+  projectHours: number;
+  retainerHours: number;
   capacityHours: number;
   shortHours: number;
   founderNetMonthly: number;
   hiring: HiringSignal;
+  fteDemand: number;
+  fteCapacity: number;
+  proposal: HireProposal;
+  proposedFteCapacity: number;
+  proposedMarginPct: number;
+  proposedFounderNetMonthly: number;
+  proposedShortHours: number;
 };
 
 export function computeScalingCurve(
   inputs: ScalingInputs,
-  opts: { steps?: number; maxMultiplier?: number; scaleRetainers?: boolean } = {},
+  opts: {
+    steps?: number;
+    maxMultiplier?: number;
+    scaleRetainers?: boolean;
+    autoHire?: boolean;
+  } = {},
 ): ScalingCurvePoint[] {
   const steps = Math.max(2, opts.steps ?? 12);
   const maxMult = Math.max(1, opts.maxMultiplier ?? 3);
   const scaleRetainers = !!opts.scaleRetainers;
+  const autoHire = opts.autoHire !== false;
   const baseProject = Math.max(1, inputs.monthlyProjectRevenue);
-  const baseRetainerTotal = inputs.retainers.reduce((a, r) => a + r.monthlyRevenue, 0);
 
   const points: ScalingCurvePoint[] = [];
   for (let i = 0; i < steps; i++) {
@@ -794,24 +915,55 @@ export function computeScalingCurve(
     const projMult = 1 + t * (maxMult - 1);
     const newProject = baseProject * projMult;
     const retMult = scaleRetainers ? projMult : 1;
-    const newRetainers = inputs.retainers.map((r) => ({ ...r, monthlyRevenue: r.monthlyRevenue * retMult }));
-    const newInputs: ScalingInputs = {
+    const newRetainers = inputs.retainers.map((r) => ({
+      ...r,
+      monthlyRevenue: r.monthlyRevenue * retMult,
+      supportHoursPerMonth: r.supportHoursPerMonth * retMult,
+    }));
+    const stepInputs: ScalingInputs = {
       ...inputs,
       monthlyProjectRevenue: newProject,
       retainers: newRetainers,
     };
-    const out = computeScenario(newInputs);
+    const base = computeScenario(stepInputs);
+    const baseCap = base.salariedCapacityHours + base.commissionCapacityHours;
+    const demand = base.projectHoursNeeded + base.retainerHoursNeeded;
+
+    let proposal: HireProposal = {
+      addSalaried: 0,
+      addCommission: 0,
+      convertCommissionToSalaried: 0,
+      detail: [],
+    };
+    let post = base;
+    if (autoHire) {
+      const r = proposeRoster(stepInputs);
+      proposal = r.proposal;
+      post = r.output;
+    }
+    const postCap = post.salariedCapacityHours + post.commissionCapacityHours;
+
     points.push({
       projectRevenue: newProject,
-      retainerRevenue: out.monthlyRetainerRevenue,
-      totalRevenue: out.totalRevenue,
-      marginPct: out.netMarginPct,
-      demandHours: out.projectHoursNeeded + out.retainerHoursNeeded,
-      capacityHours: out.salariedCapacityHours + out.commissionCapacityHours,
-      shortHours: out.unmetHours,
-      founderNetMonthly: out.founderNetMonthly,
-      hiring: out.hiring,
+      retainerRevenue: base.monthlyRetainerRevenue,
+      totalRevenue: base.totalRevenue,
+      marginPct: base.netMarginPct,
+      demandHours: demand,
+      projectHours: base.projectHoursNeeded,
+      retainerHours: base.retainerHoursNeeded,
+      capacityHours: baseCap,
+      shortHours: base.unmetHours,
+      founderNetMonthly: base.founderNetMonthly,
+      hiring: base.hiring,
+      fteDemand: fteFromHours(demand),
+      fteCapacity: fteFromHours(baseCap),
+      proposal,
+      proposedFteCapacity: fteFromHours(postCap),
+      proposedMarginPct: post.netMarginPct,
+      proposedFounderNetMonthly: post.founderNetMonthly,
+      proposedShortHours: post.unmetHours,
     });
   }
   return points;
 }
+

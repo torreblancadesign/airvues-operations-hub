@@ -528,14 +528,20 @@ export function FounderDashboard({
               value={fmtPct1(a.founderOwnership)}
               source={ownershipSource === "airtable" ? "From Airtable Ownership %" : "Default — set Ownership % in Airtable"}
             />
-            <NumInput label="Engineer commission (%)" value={a.engineerCommission * 100} step={0.5}
-              onChange={(v) => setABase({ ...aBase, engineerCommission: v / 100 })} />
-            <NumInput label="Shania commission (%)" value={a.shaniaCommission * 100} step={0.5}
-              onChange={(v) => setABase({ ...aBase, shaniaCommission: v / 100 })} />
+            <NumInput label="Salaried engineer mix (%)" value={a.salariedMixPct * 100} step={5}
+              onChange={(v) => setABase({ ...aBase, salariedMixPct: Math.max(0, Math.min(1, v / 100)) })} />
+            <NumInput label="Salaried engineer rate (%)" value={a.salariedEngineerRate * 100} step={0.5}
+              onChange={(v) => setABase({ ...aBase, salariedEngineerRate: v / 100 })} />
+            <NumInput label="Commission-only rate (%)" value={a.commissionOnlyRate * 100} step={0.5}
+              onChange={(v) => setABase({ ...aBase, commissionOnlyRate: v / 100 })} />
+            <NumInput label="Client Solutions rate (%)" value={a.clientSolutionsRate * 100} step={0.5}
+              onChange={(v) => setABase({ ...aBase, clientSolutionsRate: v / 100 })} />
             <NumInput label="Fixed team cost ($/mo)" value={a.fixedTeamCost} step={500}
               onChange={(v) => setABase({ ...aBase, fixedTeamCost: v })} />
             <NumInput label="Software / overhead ($/mo)" value={a.overhead} step={100}
               onChange={(v) => setABase({ ...aBase, overhead: v })} />
+            <NumInput label="Target margin (%)" value={a.targetMarginPct * 100} step={1}
+              onChange={(v) => setABase({ ...aBase, targetMarginPct: v / 100 })} />
             <NumInput label="Employer payroll tax (%)" value={a.employerPayrollTaxRate * 100} step={0.05}
               onChange={(v) => setABase({ ...aBase, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">

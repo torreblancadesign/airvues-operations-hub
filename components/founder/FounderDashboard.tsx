@@ -11,6 +11,8 @@ import {
   FounderAssumptions,
   fmtPct1,
   fmtUsd,
+  marginToneClass,
+  marginVerdict,
   predictMonthsToGoal,
   project,
   requiredRevenueForNetAnnual,
@@ -236,6 +238,25 @@ export function FounderDashboard({
             />
           </div>
 
+          {/* Margin chip */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">Current margin</span>
+            <span
+              className={`text-[12px] font-mono tabnum px-2 py-0.5 rounded-full border ${
+                marginVerdict(current.marginPct, a.targetMarginPct) === "healthy"
+                  ? "border-emerald/40 bg-emerald/10 text-emerald"
+                  : marginVerdict(current.marginPct, a.targetMarginPct) === "tight"
+                    ? "border-amber/40 bg-amber/10 text-amber"
+                    : "border-red/40 bg-red/10 text-red"
+              }`}
+            >
+              {fmtPct1(current.marginPct)} · target {fmtPct1(a.targetMarginPct)}
+            </span>
+            <span className="text-[10px] font-mono text-ink-faint uppercase tracking-wider">
+              · variable rate {fmtPct1(current.variableRate)} ({Math.round(a.salariedMixPct * 100)}% salaried mix)
+            </span>
+          </div>
+
           {/* Footer row — quieter edit affordances */}
           <div className="mt-5 pt-4 border-t border-rule/60 flex items-end gap-4 flex-wrap">
             <label className="block">
@@ -338,6 +359,8 @@ export function FounderDashboard({
           eyebrow="At today's run-rate"
           revenue={current.revenue}
           monthlyProfit={current.monthlyProfit}
+          marginPct={current.marginPct}
+          targetMarginPct={a.targetMarginPct}
           founderMonthly={current.founderMonthly}
           founderAnnual={current.founderAnnual}
           payrollTaxMonthly={current.payrollTaxMonthly}
@@ -352,6 +375,8 @@ export function FounderDashboard({
           eyebrow={goalReachable ? `At ${fmtUsd(a.monthlyGoal)}/mo · your retirement #` : "Unreachable at current assumptions"}
           revenue={goal.revenue}
           monthlyProfit={goal.monthlyProfit}
+          marginPct={goal.marginPct}
+          targetMarginPct={a.targetMarginPct}
           founderMonthly={goal.founderMonthly}
           founderAnnual={goal.founderAnnual}
           payrollTaxMonthly={goal.payrollTaxMonthly}
@@ -371,7 +396,7 @@ export function FounderDashboard({
         <h3 className="text-[16px] font-semibold text-ink-strong mb-4">
           Gap to Replacement Income
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Tile label="Current annualized (net)" value={fmtUsd(current.founderNetAnnual)} />
           <Tile label="Goal annualized (net)" value={fmtUsd(goal.founderNetAnnual)} tone="emerald" />
           <Tile label="Annual gap (net)" value={fmtUsd(gapAnnual)} tone={gapAnnual === 0 ? "emerald" : "amber"} />
@@ -379,6 +404,17 @@ export function FounderDashboard({
             label="Additional revenue / mo needed"
             value={fmtUsd(additionalMonthlyRevenue)}
             tone={additionalMonthlyRevenue === 0 ? "emerald" : "ink"}
+          />
+          <Tile
+            label={`Current margin (target ${fmtPct1(a.targetMarginPct)})`}
+            value={fmtPct1(current.marginPct)}
+            tone={
+              marginVerdict(current.marginPct, a.targetMarginPct) === "healthy"
+                ? "emerald"
+                : marginVerdict(current.marginPct, a.targetMarginPct) === "tight"
+                  ? "amber"
+                  : "ink"
+            }
           />
         </div>
         <p className="mt-3 text-[11px] text-ink-muted leading-snug">
@@ -399,6 +435,7 @@ export function FounderDashboard({
               <tr className="text-left text-[11px] font-mono text-ink-faint uppercase tracking-wider border-b border-rule">
                 <th className="py-2 px-5 sm:px-6">Monthly Revenue</th>
                 <th className="py-2 px-3 text-right">Monthly Profit</th>
+                <th className="py-2 px-3 text-right">Margin</th>
                 <th className="py-2 px-3 text-right">Founder Monthly (gross)</th>
                 <th className="py-2 px-3 text-right">Founder Annual (gross)</th>
                 <th className="py-2 px-3 text-right">Founder Net Annual</th>
@@ -410,6 +447,7 @@ export function FounderDashboard({
               {SCENARIO_ROWS.map((r) => {
                 const p = project(r, a);
                 const highlight = r === closestScenario;
+                const v = marginVerdict(p.marginPct, a.targetMarginPct);
                 return (
                   <tr
                     key={r}
@@ -427,6 +465,9 @@ export function FounderDashboard({
                     </td>
                     <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.monthlyProfit)}
+                    </td>
+                    <td className={`py-2.5 px-3 text-right tabnum font-mono ${marginToneClass(v)}`}>
+                      {fmtPct1(p.marginPct)}
                     </td>
                     <td className="py-2.5 px-3 text-right tabnum font-mono text-ink-muted">
                       {fmtUsd(p.founderMonthly)}
@@ -487,14 +528,20 @@ export function FounderDashboard({
               value={fmtPct1(a.founderOwnership)}
               source={ownershipSource === "airtable" ? "From Airtable Ownership %" : "Default — set Ownership % in Airtable"}
             />
-            <NumInput label="Engineer commission (%)" value={a.engineerCommission * 100} step={0.5}
-              onChange={(v) => setABase({ ...aBase, engineerCommission: v / 100 })} />
-            <NumInput label="Shania commission (%)" value={a.shaniaCommission * 100} step={0.5}
-              onChange={(v) => setABase({ ...aBase, shaniaCommission: v / 100 })} />
+            <NumInput label="Salaried engineer mix (%)" value={a.salariedMixPct * 100} step={5}
+              onChange={(v) => setABase({ ...aBase, salariedMixPct: Math.max(0, Math.min(1, v / 100)) })} />
+            <NumInput label="Salaried engineer rate (%)" value={a.salariedEngineerRate * 100} step={0.5}
+              onChange={(v) => setABase({ ...aBase, salariedEngineerRate: v / 100 })} />
+            <NumInput label="Commission-only rate (%)" value={a.commissionOnlyRate * 100} step={0.5}
+              onChange={(v) => setABase({ ...aBase, commissionOnlyRate: v / 100 })} />
+            <NumInput label="Client Solutions rate (%)" value={a.clientSolutionsRate * 100} step={0.5}
+              onChange={(v) => setABase({ ...aBase, clientSolutionsRate: v / 100 })} />
             <NumInput label="Fixed team cost ($/mo)" value={a.fixedTeamCost} step={500}
               onChange={(v) => setABase({ ...aBase, fixedTeamCost: v })} />
             <NumInput label="Software / overhead ($/mo)" value={a.overhead} step={100}
               onChange={(v) => setABase({ ...aBase, overhead: v })} />
+            <NumInput label="Target margin (%)" value={a.targetMarginPct * 100} step={1}
+              onChange={(v) => setABase({ ...aBase, targetMarginPct: v / 100 })} />
             <NumInput label="Employer payroll tax (%)" value={a.employerPayrollTaxRate * 100} step={0.05}
               onChange={(v) => setABase({ ...aBase, employerPayrollTaxRate: v / 100 })} />
             <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between pt-2 border-t border-rule">
@@ -585,6 +632,8 @@ function ProjectionCard({
   eyebrow,
   revenue,
   monthlyProfit,
+  marginPct,
+  targetMarginPct,
   founderMonthly,
   founderAnnual,
   payrollTaxMonthly,
@@ -599,6 +648,8 @@ function ProjectionCard({
   eyebrow: string;
   revenue: number;
   monthlyProfit: number;
+  marginPct: number;
+  targetMarginPct: number;
   founderMonthly: number;
   founderAnnual: number;
   payrollTaxMonthly: number;
@@ -609,6 +660,8 @@ function ProjectionCard({
   footnote: string;
   accent?: boolean;
 }) {
+  const v = marginVerdict(marginPct, targetMarginPct);
+  const marginTone = v === "healthy" ? "emerald" : v === "tight" ? "amber" : "red";
   return (
     <section
       className={`bg-surface border rounded-card p-5 sm:p-6 ${
@@ -620,6 +673,7 @@ function ProjectionCard({
       <dl className="space-y-2 text-[13px]">
         <Row label="Monthly revenue" value={fmtUsd(revenue)} />
         <Row label="Estimated monthly profit" value={fmtUsd(monthlyProfit)} />
+        <Row label={`Margin (target ${fmtPct1(targetMarginPct)})`} value={fmtPct1(marginPct)} tone={marginTone} />
         <Row label="Founder ownership" value={fmtPct1(ownership)} />
         <Row label="Founder monthly (gross)" value={fmtUsd(founderMonthly)} />
         <Row label="Founder annualized (gross)" value={fmtUsd(founderAnnual)} />
@@ -641,25 +695,38 @@ function ProjectionCard({
   );
 }
 
+
 function Row({
   label,
   value,
   strong,
   accent,
   muted,
+  tone,
 }: {
   label: string;
   value: string;
   strong?: boolean;
   accent?: boolean;
   muted?: boolean;
+  tone?: "emerald" | "amber" | "red";
 }) {
+  const toneClass =
+    tone === "emerald" ? "text-emerald" : tone === "amber" ? "text-amber" : tone === "red" ? "text-red" : null;
   return (
     <div className="flex items-center justify-between gap-3 py-1">
       <dt className={muted ? "text-ink-faint" : "text-ink-muted"}>{label}</dt>
       <dd
         className={`tabnum font-mono ${
-          accent ? "text-emerald text-[18px] font-semibold" : strong ? "text-ink-strong font-semibold" : muted ? "text-ink-muted" : "text-ink-strong"
+          toneClass
+            ? `${toneClass} font-semibold`
+            : accent
+              ? "text-emerald text-[18px] font-semibold"
+              : strong
+                ? "text-ink-strong font-semibold"
+                : muted
+                  ? "text-ink-muted"
+                  : "text-ink-strong"
         }`}
       >
         {value}
@@ -667,6 +734,7 @@ function Row({
     </div>
   );
 }
+
 
 function NumInput({
   label,

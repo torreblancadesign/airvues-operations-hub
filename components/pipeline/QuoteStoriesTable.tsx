@@ -670,6 +670,9 @@ function FragmentGroup({
   onPatch,
   pending,
   groupByMonth = false,
+  collapsed = false,
+  onToggleCollapsed,
+  isCurrent = false,
 }: {
   group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
   canEdit: boolean;
@@ -680,35 +683,70 @@ function FragmentGroup({
   onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
   pending: boolean;
   groupByMonth?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: (key: string) => void;
+  isCurrent?: boolean;
 }) {
   return (
     <>
-      <tr className="bg-bg-elevated/70 border-y border-rule sticky">
-        <td colSpan={10} className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-ink-strong font-semibold">
-          <span>{group.label}</span>
-          <span className="ml-3 font-mono tabnum text-ink-muted normal-case tracking-normal">
-            {group.stories.length} {group.stories.length === 1 ? "story" : "stories"} · {group.totalHours}h
-            {groupByMonth ? "" : ` · ${fmtMoney(group.totalCost)}`}
-          </span>
+      <tr className="bg-bg-elevated border-y border-rule">
+        <td colSpan={10} className="px-3 py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => onToggleCollapsed?.(group.key)}
+              className="flex items-center gap-2 text-left group"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? `Expand ${group.label}` : `Collapse ${group.label}`}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-4 h-4 text-ink-muted group-hover:text-ink-strong transition-colors" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-ink-muted group-hover:text-ink-strong transition-colors" />
+              )}
+              {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-emerald" aria-hidden />}
+              <span className="text-[14px] font-semibold text-ink-strong group-hover:text-emerald transition-colors">
+                {group.label}
+              </span>
+              {isCurrent && (
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald">Current</span>
+              )}
+            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="px-2 py-0.5 rounded border border-rule bg-bg/60 text-[11px] font-mono tabnum text-ink">
+                {group.stories.length} {group.stories.length === 1 ? "story" : "stories"}
+              </span>
+              <span className="px-2 py-0.5 rounded border border-rule bg-bg/60 text-[11px] font-mono tabnum text-ink-strong">
+                {group.totalHours}h
+              </span>
+              {!groupByMonth && (
+                <span className="px-2 py-0.5 rounded border border-rule bg-bg/60 text-[11px] font-mono tabnum text-ink-strong">
+                  {fmtMoney(group.totalCost)}
+                </span>
+              )}
+            </div>
+          </div>
         </td>
       </tr>
-      {group.stories.map((s) => (
-        <SortableStoryRow
-          key={s.id}
-          story={s}
-          canEdit={canEdit}
-          onRowClick={onRowClick}
-          selected={selected.has(s.id)}
-          onToggleSelect={onToggleSelect}
-          engineers={engineers}
-          onPatch={onPatch}
-          pending={pending}
-          groupByMonth={groupByMonth}
-        />
-      ))}
+      {!collapsed &&
+        group.stories.map((s) => (
+          <SortableStoryRow
+            key={s.id}
+            story={s}
+            canEdit={canEdit}
+            onRowClick={onRowClick}
+            selected={selected.has(s.id)}
+            onToggleSelect={onToggleSelect}
+            engineers={engineers}
+            onPatch={onPatch}
+            pending={pending}
+            groupByMonth={groupByMonth}
+          />
+        ))}
     </>
   );
 }
+
 
 
 // ---------- Main table ----------

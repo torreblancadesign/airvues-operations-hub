@@ -359,6 +359,8 @@ export function FounderDashboard({
           eyebrow="At today's run-rate"
           revenue={current.revenue}
           monthlyProfit={current.monthlyProfit}
+          marginPct={current.marginPct}
+          targetMarginPct={a.targetMarginPct}
           founderMonthly={current.founderMonthly}
           founderAnnual={current.founderAnnual}
           payrollTaxMonthly={current.payrollTaxMonthly}
@@ -373,6 +375,8 @@ export function FounderDashboard({
           eyebrow={goalReachable ? `At ${fmtUsd(a.monthlyGoal)}/mo · your retirement #` : "Unreachable at current assumptions"}
           revenue={goal.revenue}
           monthlyProfit={goal.monthlyProfit}
+          marginPct={goal.marginPct}
+          targetMarginPct={a.targetMarginPct}
           founderMonthly={goal.founderMonthly}
           founderAnnual={goal.founderAnnual}
           payrollTaxMonthly={goal.payrollTaxMonthly}
@@ -392,7 +396,7 @@ export function FounderDashboard({
         <h3 className="text-[16px] font-semibold text-ink-strong mb-4">
           Gap to Replacement Income
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Tile label="Current annualized (net)" value={fmtUsd(current.founderNetAnnual)} />
           <Tile label="Goal annualized (net)" value={fmtUsd(goal.founderNetAnnual)} tone="emerald" />
           <Tile label="Annual gap (net)" value={fmtUsd(gapAnnual)} tone={gapAnnual === 0 ? "emerald" : "amber"} />
@@ -400,6 +404,17 @@ export function FounderDashboard({
             label="Additional revenue / mo needed"
             value={fmtUsd(additionalMonthlyRevenue)}
             tone={additionalMonthlyRevenue === 0 ? "emerald" : "ink"}
+          />
+          <Tile
+            label={`Current margin (target ${fmtPct1(a.targetMarginPct)})`}
+            value={fmtPct1(current.marginPct)}
+            tone={
+              marginVerdict(current.marginPct, a.targetMarginPct) === "healthy"
+                ? "emerald"
+                : marginVerdict(current.marginPct, a.targetMarginPct) === "tight"
+                  ? "amber"
+                  : "ink"
+            }
           />
         </div>
         <p className="mt-3 text-[11px] text-ink-muted leading-snug">

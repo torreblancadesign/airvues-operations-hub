@@ -11,6 +11,8 @@ import {
   FounderAssumptions,
   fmtPct1,
   fmtUsd,
+  marginToneClass,
+  marginVerdict,
   predictMonthsToGoal,
   project,
   requiredRevenueForNetAnnual,

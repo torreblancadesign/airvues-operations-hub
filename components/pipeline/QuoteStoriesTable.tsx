@@ -639,6 +639,7 @@ export function QuoteStoriesTable({
   people,
   onReordered,
   onChanged,
+  groupByMonth = false,
 }: Props) {
   const [localStories, setLocalStories] = useState<QuoteStoryRow[]>(stories);
   const [pending, startTransition] = useTransition();
@@ -667,6 +668,32 @@ export function QuoteStoriesTable({
 
   const ids = useMemo(() => localStories.map((s) => s.id), [localStories]);
 
+  const monthKeyFor = (s: QuoteStoryRow): string => {
+    if (!s.createdTime) return "0000-00";
+    const d = new Date(s.createdTime);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  };
+
+  const monthGroups = useMemo(() => {
+    if (!groupByMonth) return null;
+    const map = new Map<
+      string,
+      { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number }
+    >();
+    for (const s of localStories) {
+      const key = monthKeyFor(s);
+      const label = s.createdTime
+        ? new Date(s.createdTime).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+        : "Undated";
+      const g = map.get(key) ?? { key, label, stories: [], totalCost: 0, totalHours: 0 };
+      g.stories.push(s);
+      g.totalCost += s.cost ?? 0;
+      g.totalHours += s.hours ?? 0;
+      map.set(key, g);
+    }
+    return [...map.values()].sort((a, b) => b.key.localeCompare(a.key));
+  }, [groupByMonth, localStories]);
+
   function commitReorder(next: QuoteStoryRow[]) {
     const updates = next.map((s, i) => ({ id: s.id, order: (i + 1) * 10 }));
     setLocalStories(next.map((s, i) => ({ ...s, order: (i + 1) * 10 })));
@@ -682,6 +709,11 @@ export function QuoteStoriesTable({
     const oldIndex = localStories.findIndex((s) => s.id === active.id);
     const newIndex = localStories.findIndex((s) => s.id === over.id);
     if (oldIndex < 0 || newIndex < 0) return;
+    if (groupByMonth) {
+      const a = localStories[oldIndex];
+      const b = localStories[newIndex];
+      if (monthKeyFor(a) !== monthKeyFor(b)) return;
+    }
     commitReorder(arrayMove(localStories, oldIndex, newIndex));
   }
 

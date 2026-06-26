@@ -93,6 +93,16 @@ export function TeamScalingSimulator({
   const updateClientSolutions = (patch: Partial<ScalingInputs["clientSolutions"]>) =>
     setInputs((s) => ({ ...s, clientSolutions: { ...s.clientSolutions, ...patch } }));
 
+  const updateRetainer = (id: string, patch: Partial<Retainer>) =>
+    setInputs((s) => ({
+      ...s,
+      retainers: s.retainers.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    }));
+  const addRetainer = () =>
+    setInputs((s) => ({ ...s, retainers: [...s.retainers, makeRetainer()] }));
+  const removeRetainer = (id: string) =>
+    setInputs((s) => ({ ...s, retainers: s.retainers.filter((r) => r.id !== id) }));
+
   const saveScenario = () => {
     const name = scenarioName.trim() || `Scenario ${scenarios.length + 1}`;
     const id = `${Date.now()}`;

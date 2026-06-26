@@ -573,8 +573,10 @@ export function migrateInputs(raw: unknown): ScalingInputs | null {
               }),
             ]
           : [],
-      salariedEngineers: r.salariedEngineers as EngineerTier[],
-      commissionOnlyEngineers: r.commissionOnlyEngineers as EngineerTier[],
+      salariedEngineers: (r.salariedEngineers as unknown[]).map((t) => normalizeTier(t, "salaried")),
+      commissionOnlyEngineers: (r.commissionOnlyEngineers as unknown[]).map((t) =>
+        normalizeTier(t, "commission"),
+      ),
       clientSolutions: r.clientSolutions as SalesRole,
       otherFixed: (r.otherFixed as ScalingInputs["otherFixed"]) ?? { count: 0, monthlySalary: 0 },
       overhead: Number(r.overhead) || 0,

@@ -171,6 +171,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
           })),
           isChangeOrder: sf["Change Order"] === true,
           order: typeof sf["Quote Order"] === "number" ? (sf["Quote Order"] as number) : null,
+          createdTime: r.createdTime ?? null,
         };
       })
       .sort((a, b) => {

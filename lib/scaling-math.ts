@@ -770,11 +770,19 @@ export function fteFromHours(hours: number, hoursPerMonth = DEFAULT_HOURS_PER_MO
   return hoursPerMonth > 0 ? hours / hoursPerMonth : 0;
 }
 
+export type TierHire = {
+  tierId: string;
+  kind: "salaried" | "commission";
+  delta: number; // +N hires, or -N for converted-out
+  reason: string;
+};
+
 export type HireProposal = {
   addSalaried: number;
   addCommission: number;
   convertCommissionToSalaried: number;
   detail: string[];
+  tierHires: TierHire[];
 };
 
 function bumpTier(

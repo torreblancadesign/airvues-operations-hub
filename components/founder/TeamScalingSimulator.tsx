@@ -787,6 +787,23 @@ function TierEditor({
           </label>
         </div>
       </div>
+      <div
+        className="mt-2 grid grid-cols-2 gap-2"
+        title="Force a fixed number of hours to this tier each month regardless of priority order. Useful when a senior tier has specific technical skills needed."
+      >
+        <Num
+          label="Reserve project hrs/mo"
+          value={tier.manualProjectHours}
+          step={5}
+          onChange={(v) => onChange({ manualProjectHours: Math.max(0, v) })}
+        />
+        <Num
+          label="Reserve retainer hrs/mo"
+          value={tier.manualRetainerHours}
+          step={5}
+          onChange={(v) => onChange({ manualRetainerHours: Math.max(0, v) })}
+        />
+      </div>
     </div>
   );
 }

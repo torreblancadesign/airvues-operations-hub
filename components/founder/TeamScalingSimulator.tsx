@@ -373,22 +373,35 @@ export function TeamScalingSimulator({
             <div className="eyebrow">Compare</div>
             <h4 className="text-[14px] font-semibold text-ink-strong">Saved scenarios</h4>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input
               type="text"
-              placeholder="Scenario name"
+              placeholder={activeScenario ? "Rename or keep current name" : "Scenario name"}
               value={scenarioName}
               onChange={(e) => setScenarioName(e.target.value)}
               className="bg-bg-elevated border border-rule rounded px-2 py-1.5 text-[12px] text-ink-strong w-[180px] focus:outline-none focus:border-emerald"
             />
+            {activeScenario && (
+              <button
+                type="button"
+                onClick={updateActiveScenario}
+                className="px-3 py-1.5 text-[12px] font-medium bg-sky text-bg rounded hover:opacity-90 flex items-center gap-1.5"
+                title={`Overwrite "${activeScenario.name}"`}
+              >
+                Update “{activeScenario.name}”
+                {isModified && (
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber" title="Unsaved changes" />
+                )}
+              </button>
+            )}
             <button
               type="button"
-              onClick={saveScenario}
+              onClick={saveAsNew}
               disabled={scenarios.length >= MAX_SCENARIOS}
               className="px-3 py-1.5 text-[12px] font-medium bg-emerald text-bg rounded hover:opacity-90 disabled:opacity-40"
               title={scenarios.length >= MAX_SCENARIOS ? `Max ${MAX_SCENARIOS} scenarios` : ""}
             >
-              Save current
+              {activeScenario ? "Save as new" : "Save current"}
             </button>
           </div>
         </div>

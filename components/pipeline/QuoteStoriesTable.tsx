@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
 
 import {
   DndContext,
@@ -417,10 +418,20 @@ function SortableStoryRow({
       <td className="px-2 py-1.5 max-w-[180px]">
         {canEdit ? (
           <InlineText value={s.name} onSave={(v) => onPatch(s.id, { name: v })} />
+        ) : onRowClick ? (
+          <button
+            type="button"
+            onClick={() => onRowClick(s.id)}
+            className="px-1.5 py-1 text-ink-strong font-medium truncate text-left hover:text-emerald hover:underline underline-offset-2 w-full"
+            title={`Open ${s.name}`}
+          >
+            {s.name}
+          </button>
         ) : (
           <div className="px-1.5 py-1 text-ink font-medium truncate" title={s.name}>{s.name}</div>
         )}
       </td>
+
 
       <td className="px-2 py-1.5 max-w-[240px]">
         {canEdit ? (

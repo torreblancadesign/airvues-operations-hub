@@ -1114,7 +1114,8 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         </div>
       </Section>
 
-      {/* SECTION 2: Client input — collapsible, internal-only */}
+      {/* SECTION 2: Client input — collapsible, internal-only. Hidden for retainers. */}
+      {quote.proposalType !== "Retainer Agreement" && (
       <Section
         title="Client input for proposal"
         chip={<InternalChip />}

@@ -10,6 +10,8 @@ type Props = {
   onClose: () => void;
   onCreated: (next: QuoteDetail) => void;
   isChangeOrder?: boolean;
+  /** When true: hide Cost, show optional Completed Date (drives monthly bucket). */
+  isRetainer?: boolean;
 };
 
 const inputCls =
@@ -17,11 +19,19 @@ const inputCls =
 const labelCls =
   "block text-[10px] font-semibold uppercase tracking-wider text-ink-muted mb-1.5";
 
-export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChangeOrder = false }: Props) {
+export function NewQuoteStoryModal({
+  open,
+  quoteId,
+  onClose,
+  onCreated,
+  isChangeOrder = false,
+  isRetainer = false,
+}: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [hours, setHours] = useState("");
   const [cost, setCost] = useState("");
+  const [completedDate, setCompletedDate] = useState("");
   const [clientNotes, setClientNotes] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +42,7 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
     setDescription("");
     setHours("");
     setCost("");
+    setCompletedDate("");
     setClientNotes("");
     setError(null);
   }, [open]);
@@ -49,10 +60,14 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
     e?.preventDefault();
     setError(null);
     const h = Number(hours);
-    const c = Number(cost);
     if (!name.trim()) return setError("Story Name is required");
     if (!isFinite(h) || h <= 0) return setError("Hours must be positive");
-    if (!isFinite(c) || c < 0) return setError("Cost must be 0 or greater");
+
+    let c: number | undefined;
+    if (!isRetainer) {
+      c = Number(cost);
+      if (!isFinite(c) || c < 0) return setError("Cost must be 0 or greater");
+    }
 
     startTransition(async () => {
       const res = await createQuoteStory({
@@ -63,6 +78,7 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
         cost: c,
         clientNotes: clientNotes.trim() || undefined,
         isChangeOrder,
+        completedDate: isRetainer ? completedDate || null : undefined,
       });
       if (!("ok" in res)) {
         setError(res.error);
@@ -74,6 +90,9 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
   }
 
   if (!open) return null;
+
+  const submitDisabled =
+    pending || !name.trim() || !hours || (!isRetainer && !cost);
 
   return (
     <>
@@ -92,7 +111,7 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
           <div className="flex items-center justify-between border-b border-rule px-5 py-4">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-ink-faint flex items-center gap-2">
-                Quote Calculator
+                {isRetainer ? "Retainer delivery" : "Quote Calculator"}
                 {isChangeOrder && (
                   <span className="px-1.5 py-0.5 rounded bg-amber/15 text-amber text-[9px] font-semibold tracking-wider">
                     CHANGE ORDER
@@ -100,7 +119,11 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
                 )}
               </div>
               <h2 className="text-[16px] font-semibold text-ink-strong">
-                {isChangeOrder ? "Add a change order story" : "Add a story"}
+                {isChangeOrder
+                  ? "Add a change order story"
+                  : isRetainer
+                    ? "Add a retainer story"
+                    : "Add a story"}
               </h2>
             </div>
             <button
@@ -154,19 +177,35 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
                   className={inputCls}
                 />
               </div>
-              <div>
-                <label className={labelCls}>Cost ($)</label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={cost}
-                  onChange={(e) => setCost(e.target.value)}
-                  disabled={pending}
-                  placeholder="e.g. 800"
-                  className={inputCls}
-                />
-              </div>
+              {isRetainer ? (
+                <div>
+                  <label className={labelCls}>
+                    Completed Date{" "}
+                    <span className="text-ink-faint normal-case tracking-normal">(optional · sets monthly bucket)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={completedDate}
+                    onChange={(e) => setCompletedDate(e.target.value)}
+                    disabled={pending}
+                    className={`${inputCls} font-mono`}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className={labelCls}>Cost ($)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                    disabled={pending}
+                    placeholder="e.g. 800"
+                    className={inputCls}
+                  />
+                </div>
+              )}
             </div>
 
             <div>
@@ -201,7 +240,7 @@ export function NewQuoteStoryModal({ open, quoteId, onClose, onCreated, isChange
             </button>
             <button
               type="submit"
-              disabled={pending || !name.trim() || !hours || !cost}
+              disabled={submitDisabled}
               className="px-4 py-1.5 text-[12px] bg-emerald text-bg font-semibold rounded hover:bg-emerald/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {pending ? "Creating…" : "Add Story"}

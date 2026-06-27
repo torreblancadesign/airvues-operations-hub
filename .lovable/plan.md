@@ -1,42 +1,56 @@
-## Goals
+## Goal
+Surface the new Stories field **"Status (from 🔵 Team Task Payments)"** on the engineer scorecard so each person can see which of their completed stories have actually been paid and which are still queued.
 
-Three small polishes to the Retainer (and standard) Quote Stories experience, plus confirm the prior async build error is stale.
+## Where the value comes from
+This is a lookup field on `Stories` rolling up the payment status from the linked Team Task Payments row(s). Values mirror `Team Task Payments.Status` (`Paid`, `Needs Payment`, possibly blank). A single story can have multiple payments, so we treat it as `string[]` and define:
+- **Paid** → every non-empty value is `"Paid"`
+- **Awaiting** → at least one `"Needs Payment"`
+- **Unbilled** → array is empty (no payment record created yet)
 
-### 1. NewQuoteStoryModal — remove Client Notes when adding a story
+## Changes
 
-- In `components/pipeline/NewQuoteStoryModal.tsx`, drop the Client Notes textarea and its `clientNotes` state entirely (it's currently always shown). Client notes can still be edited inline from the table/drawer after creation.
+### 1. `lib/engineering.ts`
+Load the new lookup on stories alongside the existing `Pay Status (from Quote)`:
+- Add `"Status (from 🔵 Team Task Payments)"` to both `fields` arrays (the two story fetches at lines ~225 and the secondary one).
+- Map to a new `taskPayStatus: string[]` on each story (read by name; no `schema.ts` regen needed for a lookup).
 
-### 2. QuoteStoriesTable — make "Open story" much more discoverable
+### 2. `lib/engineering-types.ts`
+Add `taskPayStatus: string[]` to the `Story` type.
 
-In `components/pipeline/QuoteStoriesTable.tsx`:
-- Replace the tiny `↗` glyph in the right-side `w-[40px]` cell with a proper button: a lucide `ArrowUpRight` (or `Maximize2`) icon inside a bordered pill that says "Open", visible on every row (not hover-only), right-aligned, with `title="Open story details"`.
-- Additionally, make the **Story Name cell itself clickable** — wrap the name text in a button styled as a subtle link (underline-on-hover, ink-strong color) that also calls `onRowClick(s.id)`. This gives two obvious affordances: click the name OR the "Open" pill.
-- Keep `stopBubble` behavior on all inline-edit cells so editing fields never accidentally opens the drawer.
+### 3. `lib/scorecard-types.ts`
+Extend `ShippedBuckets` and add a payout breakdown:
+```ts
+type PayoutBreakdown = {
+  paidCount: number;   paidCost: number;
+  awaitingCount: number; awaitingCost: number;
+  unbilledCount: number; unbilledCost: number;
+};
+```
+Add `payout: PayoutBreakdown` to `Scorecard` (computed over `byStatus.done`).
 
-### 3. Month group headers — collapsible + bigger, clearer totals
+### 4. `lib/scorecard.ts`
+While iterating `byStatus.done` for the shipped buckets, also classify each story by `taskPayStatus` and tally counts + `cost`. Expose on the returned scorecard.
 
-In `QuoteStoriesTable.tsx` (`FragmentGroup` + parent):
-- Lift collapsed-state up to the table: `const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())` keyed by `group.key`, persisted to `localStorage` under `qst:${quoteId}:collapsedMonths` so it survives reloads.
-- Redesign the month header row: replace the small uppercase 10px label with a taller (py-2.5) row containing:
-  - A chevron button on the left (`ChevronDown` when open, `ChevronRight` when collapsed) that toggles the group.
-  - Month label at `text-[14px] font-semibold text-ink-strong` (e.g. "June 2026"), with a colored dot if it's the current month.
-  - Right side: two compact stat pills — `{n} stories` and `{totalHours}h` — at `text-[12px]` with tabnum, bg-bg-elevated/80, border-rule, rounded.
-  - Only show the row's stories when not collapsed (skip rendering `SortableStoryRow`s for collapsed groups).
-- Default state: current + most recent month expanded, older months collapsed.
-- Apply only when `groupByMonth` is true; non-retainer rendering stays unchanged.
+### 5. `components/me/PersonScorecard.tsx` (Stories model only)
+Under the existing **Stories Shipped** section, add a 3-card row:
+- **Paid out** (emerald) — `paidCount` shipped · `fmtMoney(paidCost × commissionPct)` commission realized
+- **Awaiting payment** (amber) — `awaitingCount` shipped · `fmtMoney(awaitingCost × commissionPct)` queued
+- **Unbilled** (neutral) — `unbilledCount` shipped · `fmtMoney(unbilledCost × commissionPct)` not yet on a payment row
 
-### 4. Stale build error
+Also reframe the existing **Earned commission** card sub-copy to clarify it's the *projection* from completed stories, distinct from the *actually paid* number above.
 
-The "dist-check failed" message is leftover from the prior async build; a fresh local typecheck now passes clean. No additional fix needed — the next build after these edits will clear it.
+### 6. `components/engineering/StoryCard.tsx`
+The existing pill currently reflects quote-level pay status. Add a tiny second pill (or replace when on `/me`) showing the story-level payout state:
+- `Paid` → emerald
+- `Awaiting` → amber
+- (omit when unbilled / not completed to avoid noise)
+
+This makes the All-Your-Stories grid scannable for "which of my shipped work am I still owed on."
 
 ## Out of scope
+- No changes to the Sales-commission view (`commissionModel === "sales"`).
+- No new mutations — read-only lookup.
+- No change to the existing Earnings (real money from Team Task Payments) section — that already shows the cash-in side.
 
-- No schema or mutation changes.
-- No changes to non-retainer (standard quote) stories table layout besides the new "Open" button affordance (which is a global UX win).
-- No drag-and-drop changes.
-
-## Technical notes
-
-- `lucide-react` already used elsewhere in the project — import `ArrowUpRight`, `ChevronDown`, `ChevronRight` from it.
-- Persisted collapsed state uses a JSON-serialized array of keys, hydrated in a `useEffect` to avoid SSR hydration mismatch.
-- Stats per group already computed in `monthGroups` memo (`totalHours`, `stories.length`) — just re-style.
+## Verification
+`npx tsc --noEmit` + `npm run build`, then open `/me` for an engineer with a mix of paid/unpaid completed stories and confirm the three new cards sum to the lifetime-shipped count.

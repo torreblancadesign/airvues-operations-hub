@@ -149,6 +149,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     sprintEnds,
     completedDate: asStr(f["Completed Date"]) || null,
     payStatus: asStringArray(f["Pay Status (from Quote)"]),
+    taskPayStatus: asStringArray(f["Status (from 🔵 Team Task Payments)"]),
     description: asStr(f["Description"]),
     comments: asStr(f["Comments"]),
     airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${rec.id}`,
@@ -227,6 +228,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           // New fields — schema.ts not yet regenerated; pass by name.
           "Completed Date",
           "Pay Status (from Quote)",
+          "Status (from 🔵 Team Task Payments)",
           "Comments",
         ],
       },
@@ -357,6 +359,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       sprintEnds,
       completedDate: asStr(f["Completed Date"]) || null,
       payStatus: asStringArray(f["Pay Status (from Quote)"]),
+      taskPayStatus: asStringArray(f["Status (from 🔵 Team Task Payments)"]),
       description: asStr(f["Description"]),
       comments: asStr(f["Comments"]),
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${sTbl.id}/${r.id}`,

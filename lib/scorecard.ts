@@ -8,7 +8,7 @@ import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { getEngineeringBoard } from "./engineering";
 import { COMMISSION_RATE } from "./engineering-types";
-import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, ScorecardPayment, SalesCommission, SalesQuoteRow } from "./scorecard-types";
+import { Scorecard, ScorecardPayload, EarningsBuckets, ShippedBuckets, ScorecardPayment, SalesCommission, SalesQuoteRow, PayoutBreakdown } from "./scorecard-types";
 
 const ACTIVE_STATUSES = ["Todo", "In progress", "QA Review", "Analysis Required"];
 const BLUEPRINT_BONUS = 0.05;
@@ -256,9 +256,33 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
   // Prefer the real Completed Date field; fall back to latest sprint end
   // for legacy completions that pre-date the field.
   const shipped: ShippedBuckets = { lifetime: 0, ytd: 0, mtd: 0 };
+  const payout: PayoutBreakdown = {
+    paidCount: 0, paidCost: 0,
+    awaitingCount: 0, awaitingCost: 0,
+    unbilledCount: 0, unbilledCost: 0,
+  };
   let anyApproximate = false;
   for (const s of byStatus.done) {
     shipped.lifetime++;
+
+    // Classify payout state from story-level Team Task Payments lookup.
+    const tps = s.taskPayStatus ?? [];
+    const cost = s.cost ?? 0;
+    if (tps.length === 0) {
+      payout.unbilledCount++;
+      payout.unbilledCost += cost;
+    } else if (tps.some((v) => v === "Needs Payment")) {
+      payout.awaitingCount++;
+      payout.awaitingCost += cost;
+    } else if (tps.every((v) => v === "Paid")) {
+      payout.paidCount++;
+      payout.paidCost += cost;
+    } else {
+      // Mixed / other statuses — count as awaiting so the engineer notices.
+      payout.awaitingCount++;
+      payout.awaitingCost += cost;
+    }
+
     let completed: Date | null = null;
     if (s.completedDate) {
       const d = new Date(s.completedDate);
@@ -370,6 +394,7 @@ export async function getScorecard(engineerId: string | null): Promise<Scorecard
     payments: paymentsDetail,
     shipped,
     goal: { annualEarnings: annualEarningsGoal },
+    payout,
     shippedIsApproximate: anyApproximate,
     commissionPct,
     commissionPctSource,

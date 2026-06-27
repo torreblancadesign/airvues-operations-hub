@@ -22,6 +22,15 @@ export type ShippedBuckets = {
   mtd: number;
 };
 
+export type PayoutBreakdown = {
+  paidCount: number;
+  paidCost: number;
+  awaitingCount: number;
+  awaitingCost: number;
+  unbilledCount: number;
+  unbilledCost: number;
+};
+
 export type ScorecardPayment = {
   id: string;
   amount: number;
@@ -93,6 +102,11 @@ export type Scorecard = {
   goal: {
     annualEarnings: number | null;
   };
+  /**
+   * Payout breakdown across Completed stories, derived from the story-level
+   * "Status (from 🔵 Team Task Payments)" lookup.
+   */
+  payout: PayoutBreakdown;
   /**
    * True when story YTD/MTD buckets are approximated from Sprint End
    * (no real Completed Date field on Stories yet).

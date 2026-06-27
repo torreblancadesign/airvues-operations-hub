@@ -101,14 +101,34 @@ export function StoryCard({ story, onClick, selected = false }: Props) {
         </div>
       )}
 
-      {story.payStatus[0] && (
-        <div className="mb-1.5">
-          <span
-            className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(story.payStatus[0])}`}
-            title={story.payStatus.join(", ")}
-          >
-            Pay · {story.payStatus[0]}
-          </span>
+      {(story.payStatus[0] || story.taskPayStatus.length > 0) && (
+        <div className="mb-1.5 flex items-center gap-1 flex-wrap">
+          {story.payStatus[0] && (
+            <span
+              className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${payStatusTone(story.payStatus[0])}`}
+              title={story.payStatus.join(", ")}
+            >
+              Pay · {story.payStatus[0]}
+            </span>
+          )}
+          {story.taskPayStatus.length > 0 && (() => {
+            const allPaid = story.taskPayStatus.every((v) => v === "Paid");
+            const anyNeeds = story.taskPayStatus.some((v) => v === "Needs Payment");
+            const label = allPaid ? "Paid" : anyNeeds ? "Awaiting" : story.taskPayStatus[0];
+            const tone = allPaid
+              ? "bg-emerald/15 text-emerald border-emerald/30"
+              : anyNeeds
+                ? "bg-amber/15 text-amber border-amber/30"
+                : "bg-bg-elevated text-ink-muted border-rule";
+            return (
+              <span
+                className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border ${tone}`}
+                title={`Payout · ${story.taskPayStatus.join(", ")}`}
+              >
+                Payout · {label}
+              </span>
+            );
+          })()}
         </div>
       )}
 

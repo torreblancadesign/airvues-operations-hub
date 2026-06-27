@@ -41,7 +41,7 @@ type QuoteFields = {
   "Epic Owner"?: string[];
   "Change Order Details"?: string;
   "Change Order Input Details"?: string;
-  "Change Order Estimate Cost"?: string;
+  "Change Order Estimate Cost"?: unknown;
 };
 
 type StoryFields = {

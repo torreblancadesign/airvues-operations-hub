@@ -33,7 +33,7 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false, canEditGoal = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, shippedIsApproximate, commissionPct, commissionPctSource, commissionModel, salesCommission } = scorecard;
+  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, payout, shippedIsApproximate, commissionPct, commissionPctSource, commissionModel, salesCommission } = scorecard;
   const isSales = commissionModel === "sales";
 
   const totalPotentialCost = totals.openCost + totals.earnedCost;
@@ -302,6 +302,32 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
               label="Active in flight"
               value={totals.activeCount.toLocaleString()}
               sub={`${totals.inProgressCount} in progress · ${totals.todoCount} todo · ${totals.qaCount} QA`}
+            />
+          </div>
+
+          {/* Payout breakdown — which shipped stories are actually paid */}
+          <SectionTitle
+            title="Payout Status"
+            aside="From story-level Team Task Payments · commission shown at your rate"
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-8">
+            <StatCard
+              label="Paid out"
+              tone="emerald"
+              value={payout.paidCount.toLocaleString()}
+              sub={`${fmtMoney(payout.paidCost * commissionPct)} commission realized · ${fmtMoney(payout.paidCost)} scope`}
+            />
+            <StatCard
+              label="Awaiting payment"
+              tone={payout.awaitingCount > 0 ? "amber" : "neutral"}
+              value={payout.awaitingCount.toLocaleString()}
+              sub={`${fmtMoney(payout.awaitingCost * commissionPct)} queued · ${fmtMoney(payout.awaitingCost)} scope`}
+            />
+            <StatCard
+              label="Unbilled"
+              tone={payout.unbilledCount > 0 ? "sky" : "neutral"}
+              value={payout.unbilledCount.toLocaleString()}
+              sub={`${fmtMoney(payout.unbilledCost * commissionPct)} pending payment row · ${fmtMoney(payout.unbilledCost)} scope`}
             />
           </div>
 

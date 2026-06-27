@@ -1327,21 +1327,12 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
           />
         </FieldRow>
 
-        <FieldRow
-          label="Change Order Estimate Cost"
-          hint="Estimated cost (or range) for the change orders on this quote."
-          chip={<PortalChip />}
-          state={stateFor("changeOrderEstimateCost")}
-        >
-          <TextField
-            initialValue={quote.changeOrderEstimateCost}
-            disabled={!canEdit}
-            placeholder="e.g. $5,000 – $8,000"
-            onSave={(v) =>
-              patchAndRefresh("changeOrderEstimateCost", { changeOrderEstimateCost: v })
-            }
-          />
+        <FieldRow label="Change Order Estimate Cost" chip={<PortalChip />} state="idle">
+          <div className="px-2 py-1.5 text-[13px] text-ink whitespace-pre-wrap">
+            {asStr(quote.changeOrderEstimateCost).trim() || "—"}
+          </div>
         </FieldRow>
+
 
         <div className="px-5 pb-4">
           <QuoteStoriesTable

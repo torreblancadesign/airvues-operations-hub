@@ -41,7 +41,7 @@ type QuoteFields = {
   "Epic Owner"?: string[];
   "Change Order Details"?: string;
   "Change Order Input Details"?: string;
-  "Change Order Estimate Cost"?: string;
+  "Change Order Estimate Cost"?: unknown;
 };
 
 type StoryFields = {
@@ -240,7 +240,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
     epicOwnerName: null,
     changeOrderDetails: asStr(f["Change Order Details"]),
     changeOrderInputDetails: asStr(f["Change Order Input Details"]),
-    changeOrderEstimateCost: asStr(f["Change Order Estimate Cost"]),
+    changeOrderEstimateCost: formatRollupCost(f["Change Order Estimate Cost"]),
     stories,
     totalCost: typeof f["Total Cost"] === "number" ? (f["Total Cost"] as number) : 0,
     totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,

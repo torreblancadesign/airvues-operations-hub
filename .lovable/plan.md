@@ -1,56 +1,39 @@
 ## Goal
-Surface the new Stories field **"Status (from 🔵 Team Task Payments)"** on the engineer scorecard so each person can see which of their completed stories have actually been paid and which are still queued.
 
-## Where the value comes from
-This is a lookup field on `Stories` rolling up the payment status from the linked Team Task Payments row(s). Values mirror `Team Task Payments.Status` (`Paid`, `Needs Payment`, possibly blank). A single story can have multiple payments, so we treat it as `string[]` and define:
-- **Paid** → every non-empty value is `"Paid"`
-- **Awaiting** → at least one `"Needs Payment"`
-- **Unbilled** → array is empty (no payment record created yet)
+On the Firm Pulse hero revenue tile, the YTD view currently shows a cumulative emerald line/area. Add a layer of **per-month revenue bars** sitting behind that line so we can see how each individual month performed, with hover tooltips showing the exact dollar figure for that month. MTD stays as-is (it's already daily granularity, and bars there would be noisy).
 
-## Changes
+## What changes
 
-### 1. `lib/engineering.ts`
-Load the new lookup on stories alongside the existing `Pay Status (from Quote)`:
-- Add `"Status (from 🔵 Team Task Payments)"` to both `fields` arrays (the two story fetches at lines ~225 and the secondary one).
-- Map to a new `taskPayStatus: string[]` on each story (read by name; no `schema.ts` regen needed for a lookup).
+### 1. `lib/firm-pulse.ts` — expose per-month values
 
-### 2. `lib/engineering-types.ts`
-Add `taskPayStatus: string[]` to the `Story` type.
+Today `buildRevenueSeries()` returns a `TrendPoint[]` where `value` is cumulative. Extend `TrendPoint` (or add a sibling field) so each YTD point also carries that month's standalone revenue:
 
-### 3. `lib/scorecard-types.ts`
-Extend `ShippedBuckets` and add a payout breakdown:
 ```ts
-type PayoutBreakdown = {
-  paidCount: number;   paidCost: number;
-  awaitingCount: number; awaitingCost: number;
-  unbilledCount: number; unbilledCost: number;
-};
+export type TrendPoint = { label: string; value: number; monthly?: number };
 ```
-Add `payout: PayoutBreakdown` to `Scorecard` (computed over `byStatus.done`).
 
-### 4. `lib/scorecard.ts`
-While iterating `byStatus.done` for the shipped buckets, also classify each story by `taskPayStatus` and tally counts + `cost`. Expose on the returned scorecard.
+In the YTD loop, set `monthly: monthTotals[m]` alongside the existing cumulative `value`. MTD points leave `monthly` undefined.
 
-### 5. `components/me/PersonScorecard.tsx` (Stories model only)
-Under the existing **Stories Shipped** section, add a 3-card row:
-- **Paid out** (emerald) — `paidCount` shipped · `fmtMoney(paidCost × commissionPct)` commission realized
-- **Awaiting payment** (amber) — `awaitingCount` shipped · `fmtMoney(awaitingCost × commissionPct)` queued
-- **Unbilled** (neutral) — `unbilledCount` shipped · `fmtMoney(unbilledCost × commissionPct)` not yet on a payment row
+### 2. `components/home/RevenueTrend.tsx` — render bars (YTD only)
 
-Also reframe the existing **Earned commission** card sub-copy to clarify it's the *projection* from completed stories, distinct from the *actually paid* number above.
+When `windowName === "ytd"` and any point has `monthly` set:
+- Compute a separate y-scale for the bars based on `max(monthly)` so they aren't squashed under the cumulative ceiling. Bars max out at ~55% of inner chart height so the cumulative line still reads as the dominant element.
+- Render one slim bar per month, centered on each point's `x`, using a muted emerald (`rgba(34,211,168,0.18)` fill, `0.35` on hover). Bars sit behind the area/line layers in SVG draw order.
+- Hover behavior: the existing `handleMove` already snaps to the nearest point. Update the hover chip to show both lines when monthly is present:
+  - `Jun · $42,000 this month`
+  - `$187,500 YTD`
+- Keep the existing endpoint dot, pace baseline, target tick label, and axis labels unchanged.
 
-### 6. `components/engineering/StoryCard.tsx`
-The existing pill currently reflects quote-level pay status. Add a tiny second pill (or replace when on `/me`) showing the story-level payout state:
-- `Paid` → emerald
-- `Awaiting` → amber
-- (omit when unbilled / not completed to avoid noise)
+### 3. No changes needed elsewhere
 
-This makes the All-Your-Stories grid scannable for "which of my shipped work am I still owed on."
+`FirmPulse.tsx` already passes `r.series` and `windowName` into `RevenueTrend`. MTD continues to render the line-only view it does today.
+
+## Visual outcome
+
+YTD chart reads as: faint emerald monthly bars (one per Jan–current month) → emerald cumulative line + area sweeping up across them → dashed pace baseline → endpoint dot. Hovering any month surfaces both "this month" and "YTD through this month" figures in the chip.
 
 ## Out of scope
-- No changes to the Sales-commission view (`commissionModel === "sales"`).
-- No new mutations — read-only lookup.
-- No change to the existing Earnings (real money from Team Task Payments) section — that already shows the cash-in side.
 
-## Verification
-`npx tsc --noEmit` + `npm run build`, then open `/me` for an engineer with a mix of paid/unpaid completed stories and confirm the three new cards sum to the lifetime-shipped count.
+- No changes to MTD view.
+- No changes to the headline number, progress bar, verdict, or targets.
+- No new data fetches — we already aggregate `monthTotals` in `buildRevenueSeries`; we just stop discarding it.

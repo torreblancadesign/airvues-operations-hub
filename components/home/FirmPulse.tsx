@@ -277,7 +277,7 @@ export function FirmPulse({ pulse }: { pulse: FirmPulse }) {
                   {elapsedLabel} {elapsedPct}% elapsed
                 </div>
               </div>
-              <div className="hidden lg:block mt-6">
+              <div className="mt-6">
                 <RevenueTrend series={r.series} target={r.target} windowName={win} />
               </div>
             </div>

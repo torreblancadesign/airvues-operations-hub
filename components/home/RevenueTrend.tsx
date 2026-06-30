@@ -157,6 +157,23 @@ export function RevenueTrend({
           </clipPath>
         </defs>
 
+        {/* Monthly revenue bars (YTD only) — sit behind line/area */}
+        {bars.map((b, i) => {
+          const active = hoverIdx === i;
+          return (
+            <rect
+              key={`bar-${i}`}
+              x={b.x}
+              y={b.y}
+              width={b.w}
+              height={b.h}
+              rx={1.5}
+              fill="#22D3A8"
+              opacity={active ? 0.45 : 0.18}
+            />
+          );
+        })}
+
         {/* Pace baseline (linear progress toward target) */}
         <line
           x1={PAD_L}

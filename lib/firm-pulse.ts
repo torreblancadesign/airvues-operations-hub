@@ -25,7 +25,7 @@ const daysSince = (iso: string | null): number => {
 const fmt = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
 
-export type TrendPoint = { label: string; value: number };
+export type TrendPoint = { label: string; value: number; monthly?: number };
 
 export type RevenueWindow = {
   value: number;
@@ -179,7 +179,7 @@ async function buildRevenueSeries(): Promise<{ ytd: TrendPoint[]; mtd: TrendPoin
   let runY = 0;
   for (let m = 0; m <= currentMonth; m++) {
     runY += monthTotals[m];
-    ytd.push({ label: MONTH_LABELS[m], value: runY });
+    ytd.push({ label: MONTH_LABELS[m], value: runY, monthly: monthTotals[m] });
   }
 
   const mtd: TrendPoint[] = [];

@@ -288,8 +288,18 @@ export function RevenueTrend({
             marginTop: -6,
           }}
         >
-          <span className="text-ink-faint mr-1.5">{hover.label}</span>
-          {fmtUsd(hover.value)}
+          <div>
+            <span className="text-ink-faint mr-1.5">{hover.label}</span>
+            {hover.monthly != null ? fmtUsd(hover.monthly) : fmtUsd(hover.value)}
+            {hover.monthly != null && (
+              <span className="text-ink-faint ml-1">this month</span>
+            )}
+          </div>
+          {hover.monthly != null && (
+            <div className="text-ink-muted mt-0.5">
+              {fmtUsd(hover.value)} <span className="text-ink-faint">YTD</span>
+            </div>
+          )}
         </div>
       )}
 

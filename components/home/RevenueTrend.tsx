@@ -42,7 +42,7 @@ export function RevenueTrend({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
-  const { points, areaPath, linePath, paceY, innerW, innerH } = useMemo(() => {
+  const { points, bars, areaPath, linePath, paceY, innerW, innerH } = useMemo(() => {
     const innerW = W - PAD_L - PAD_R;
     const innerH = H - PAD_T - PAD_B;
     const maxVal = Math.max(target, ...series.map((p) => p.value), 1);
@@ -61,9 +61,31 @@ export function RevenueTrend({
 
     const points = series.map((p, i) => ({ ...p, x: xFor(i), y: yFor(p.value) }));
 
+    // Monthly bars (YTD only). Independent y-scale capped at ~55% of inner
+    // height so the cumulative line stays visually dominant.
+    const monthlyMax = Math.max(0, ...series.map((p) => p.monthly ?? 0));
+    const barMaxH = innerH * 0.55;
+    const barStep = slots > 1 ? innerW / (slots - 1) : innerW;
+    const barW = Math.max(6, Math.min(28, barStep * 0.55));
+    const bars =
+      windowName === "ytd" && monthlyMax > 0
+        ? points.map((pt) => {
+            const m = pt.monthly ?? 0;
+            const h = monthlyMax > 0 ? (m / monthlyMax) * barMaxH : 0;
+            return {
+              x: pt.x - barW / 2,
+              y: PAD_T + innerH - h,
+              w: barW,
+              h,
+              monthly: m,
+            };
+          })
+        : [];
+
     if (points.length === 0) {
       return {
         points,
+        bars,
         areaPath: "",
         linePath: "",
         paceY: yFor(target),
@@ -80,7 +102,7 @@ export function RevenueTrend({
     const areaD = `${lineD} L${last.x.toFixed(2)} ${(PAD_T + innerH).toFixed(2)} L${first.x.toFixed(2)} ${(PAD_T + innerH).toFixed(2)} Z`;
     const paceY = yFor(target);
 
-    return { points, areaPath: areaD, linePath: lineD, paceY, innerW, innerH };
+    return { points, bars, areaPath: areaD, linePath: lineD, paceY, innerW, innerH };
   }, [series, target, windowName]);
 
   if (series.length === 0) {

@@ -929,6 +929,15 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
     };
   }, [quoteId]);
 
+  const originalStories = useMemo(
+    () => (quote?.stories ?? []).filter((s) => !s.isChangeOrder),
+    [quote?.stories],
+  );
+  const changeOrderStories = useMemo(
+    () => (quote?.stories ?? []).filter((s) => s.isChangeOrder),
+    [quote?.stories],
+  );
+
   if (loading && !quote) {
     return <div className="px-5 py-8 text-[12px] text-ink-faint">Loading quote details…</div>;
   }

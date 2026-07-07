@@ -589,6 +589,17 @@ function SortableStoryRow({
         </td>
       )}
 
+      {groupByMonth && (
+        <td className="px-2 py-1.5 min-w-[160px] max-w-[220px]">
+          <TagChipEditor
+            tags={s.tags}
+            suggestions={tagSuggestions}
+            onSave={(next) => onPatch(s.id, { tags: next })}
+            disabled={!canEdit}
+          />
+        </td>
+      )}
+
       <td className="px-2 py-1.5 max-w-[200px]">
         {canEdit ? (
           <InlineText value={s.clientNotes} multiline onSave={(v) => onPatch(s.id, { clientNotes: v })} placeholder="—" />

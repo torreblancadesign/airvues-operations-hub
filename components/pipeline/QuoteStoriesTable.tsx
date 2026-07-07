@@ -794,24 +794,38 @@ function FragmentGroup({
   collapsed = false,
   onToggleCollapsed,
   isCurrent = false,
+  tagSuggestions = [],
+  collapsedTagKeys,
+  onToggleCollapsedTag,
 }: {
-  group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
+  group: {
+    key: string;
+    label: string;
+    stories: QuoteStoryRow[];
+    totalCost: number;
+    totalHours: number;
+    tagGroups?: { tag: string; stories: QuoteStoryRow[]; totalHours: number; totalCost: number }[];
+  };
   canEdit: boolean;
   onRowClick?: (id: string) => void;
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] }) => Promise<void>;
   pending: boolean;
   groupByMonth?: boolean;
   collapsed?: boolean;
   onToggleCollapsed?: (key: string) => void;
   isCurrent?: boolean;
+  tagSuggestions?: string[];
+  collapsedTagKeys?: Set<string>;
+  onToggleCollapsedTag?: (compoundKey: string) => void;
 }) {
+  const colSpan = groupByMonth ? 11 : 10;
   return (
     <>
       <tr className="bg-bg-elevated border-y border-rule">
-        <td colSpan={10} className="px-3 py-2.5">
+        <td colSpan={colSpan} className="px-3 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -849,10 +863,130 @@ function FragmentGroup({
           </div>
         </td>
       </tr>
+      {!collapsed && groupByMonth && group.tagGroups
+        ? group.tagGroups.map((tg) => {
+            const compoundKey = `${group.key}::${tg.tag}`;
+            const tagCollapsed = collapsedTagKeys?.has(compoundKey) ?? false;
+            const isUntagged = tg.tag === "Untagged";
+            return (
+              <FragmentTagSubGroup
+                key={compoundKey}
+                compoundKey={compoundKey}
+                tag={tg.tag}
+                stories={tg.stories}
+                totalHours={tg.totalHours}
+                collapsed={tagCollapsed}
+                onToggleCollapsed={onToggleCollapsedTag}
+                isUntagged={isUntagged}
+                colSpan={colSpan}
+                canEdit={canEdit}
+                onRowClick={onRowClick}
+                selected={selected}
+                onToggleSelect={onToggleSelect}
+                engineers={engineers}
+                onPatch={onPatch}
+                pending={pending}
+                groupByMonth={groupByMonth}
+                tagSuggestions={tagSuggestions}
+              />
+            );
+          })
+        : !collapsed &&
+          group.stories.map((s) => (
+            <SortableStoryRow
+              key={s.id}
+              story={s}
+              canEdit={canEdit}
+              onRowClick={onRowClick}
+              selected={selected.has(s.id)}
+              onToggleSelect={onToggleSelect}
+              engineers={engineers}
+              onPatch={onPatch}
+              pending={pending}
+              groupByMonth={groupByMonth}
+              tagSuggestions={tagSuggestions}
+            />
+          ))}
+    </>
+  );
+}
+
+function FragmentTagSubGroup({
+  compoundKey,
+  tag,
+  stories,
+  totalHours,
+  collapsed,
+  onToggleCollapsed,
+  isUntagged,
+  colSpan,
+  canEdit,
+  onRowClick,
+  selected,
+  onToggleSelect,
+  engineers,
+  onPatch,
+  pending,
+  groupByMonth,
+  tagSuggestions,
+}: {
+  compoundKey: string;
+  tag: string;
+  stories: QuoteStoryRow[];
+  totalHours: number;
+  collapsed: boolean;
+  onToggleCollapsed?: (compoundKey: string) => void;
+  isUntagged: boolean;
+  colSpan: number;
+  canEdit: boolean;
+  onRowClick?: (id: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  engineers: PersonOption[];
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] }) => Promise<void>;
+  pending: boolean;
+  groupByMonth: boolean;
+  tagSuggestions: string[];
+}) {
+  return (
+    <>
+      <tr className="bg-bg/40 border-b border-rule-soft">
+        <td colSpan={colSpan} className="pl-8 pr-3 py-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => onToggleCollapsed?.(compoundKey)}
+              className="flex items-center gap-2 text-left group"
+              aria-expanded={!collapsed}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-ink-muted transition-colors" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-ink-faint group-hover:text-ink-muted transition-colors" />
+              )}
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  isUntagged ? "bg-bg-elevated text-ink-faint" : "bg-sky/15 text-sky"
+                }`}
+              >
+                {tag}
+              </span>
+            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded border border-rule bg-bg/60 text-[10px] font-mono tabnum text-ink-muted">
+                {stories.length} {stories.length === 1 ? "story" : "stories"}
+              </span>
+              <span className="px-1.5 py-0.5 rounded border border-rule bg-bg/60 text-[10px] font-mono tabnum text-ink">
+                {totalHours}h
+              </span>
+            </div>
+          </div>
+        </td>
+      </tr>
       {!collapsed &&
-        group.stories.map((s) => (
+        stories.map((s) => (
           <SortableStoryRow
-            key={s.id}
+            key={`${compoundKey}-${s.id}`}
             story={s}
             canEdit={canEdit}
             onRowClick={onRowClick}
@@ -862,11 +996,13 @@ function FragmentGroup({
             onPatch={onPatch}
             pending={pending}
             groupByMonth={groupByMonth}
+            tagSuggestions={tagSuggestions}
           />
         ))}
     </>
   );
 }
+
 
 
 

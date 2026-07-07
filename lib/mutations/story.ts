@@ -23,6 +23,7 @@ export type StoryPatch = {
   comments?: string;
   clientNotes?: string;
   completedDate?: string | null;
+  tags?: string[];
 };
 
 export type MutationResult = { ok: true } | { error: string };
@@ -49,6 +50,7 @@ function buildStoryFields(patch: StoryPatch): Record<string, unknown> {
   if (patch.comments !== undefined) fields["Comments"] = patch.comments;
   if (patch.clientNotes !== undefined) fields["Client Notes"] = patch.clientNotes;
   if (patch.completedDate !== undefined) fields["Completed Date"] = patch.completedDate;
+  if (patch.tags !== undefined) fields["Tags"] = patch.tags.join(", ");
   return fields;
 }
 

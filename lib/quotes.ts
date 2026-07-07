@@ -57,6 +57,7 @@ type StoryFields = {
   "Change Order"?: boolean;
   "Quote Order"?: number;
   "Completed Date"?: string;
+  "Tags"?: string;
 };
 
 // Airtable rich-text / formula / rollup fields occasionally return non-string
@@ -138,6 +139,7 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
           sT.fields["Change Order"].id,
           sT.fields["Quote Order"].id,
           sT.fields["Completed Date"].id,
+          sT.fields["Tags"].id,
         ],
       },
       [`quote:${quoteId}:stories`],
@@ -174,6 +176,10 @@ export async function getQuoteDetail(quoteId: string): Promise<QuoteDetail> {
           order: typeof sf["Quote Order"] === "number" ? (sf["Quote Order"] as number) : null,
           createdTime: r.createdTime ?? null,
           completedDate: asStr(sf["Completed Date"]) || null,
+          tags: asStr(sf["Tags"])
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
         };
       })
       .sort((a, b) => {

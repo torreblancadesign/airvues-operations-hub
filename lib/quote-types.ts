@@ -13,6 +13,7 @@ export type QuoteStoryRow = {
   order: number | null;
   createdTime: string | null;
   completedDate: string | null;
+  tags: string[];
 };
 
 

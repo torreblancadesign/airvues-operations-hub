@@ -342,6 +342,114 @@ function InlineAssignees({
   );
 }
 
+// ---------- Tags chip editor ----------
+
+function TagChipEditor({
+  tags,
+  suggestions,
+  onSave,
+  disabled,
+}: {
+  tags: string[];
+  suggestions: string[];
+  onSave: (next: string[]) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState(false);
+  const listId = useMemo(() => `tags-suggest-${Math.random().toString(36).slice(2, 8)}`, []);
+
+  async function commitList(next: string[]) {
+    const cleaned = Array.from(new Set(next.map((t) => t.trim()).filter(Boolean)));
+    if (cleaned.length === tags.length && cleaned.every((t, i) => t === tags[i])) return;
+    setPending(true);
+    try {
+      await onSave(cleaned);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function addFromDraft() {
+    const parts = draft
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) {
+      setDraft("");
+      return;
+    }
+    setDraft("");
+    await commitList([...tags, ...parts]);
+  }
+
+  async function removeAt(i: number) {
+    const next = tags.slice();
+    next.splice(i, 1);
+    await commitList(next);
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1 px-1 py-0.5 min-h-[28px]"
+      onClick={stopBubble}
+    >
+      {tags.map((t, i) => (
+        <span
+          key={`${t}-${i}`}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky/15 text-sky text-[10px] font-medium"
+        >
+          {t}
+          {!disabled && (
+            <button
+              type="button"
+              onClick={() => void removeAt(i)}
+              className="text-sky/70 hover:text-sky leading-none"
+              aria-label={`Remove tag ${t}`}
+              disabled={pending}
+            >
+              ×
+            </button>
+          )}
+        </span>
+      ))}
+      {!disabled && (
+        <>
+          <input
+            type="text"
+            list={listId}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                void addFromDraft();
+              } else if (e.key === "Backspace" && draft === "" && tags.length > 0) {
+                e.preventDefault();
+                void removeAt(tags.length - 1);
+              } else if (e.key === "Escape") {
+                setDraft("");
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            onBlur={() => void addFromDraft()}
+            placeholder={tags.length === 0 ? "+ tag" : ""}
+            disabled={pending}
+            className="flex-1 min-w-[60px] bg-transparent border border-transparent hover:border-rule focus:border-emerald focus:bg-bg-elevated rounded px-1 py-0.5 text-[11px] text-ink focus:outline-none disabled:opacity-60"
+          />
+          <datalist id={listId}>
+            {suggestions
+              .filter((s) => !tags.includes(s))
+              .map((s) => (
+                <option key={s} value={s} />
+              ))}
+          </datalist>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---------- Sortable row ----------
 
 type SortableStoryRowProps = {
@@ -351,10 +459,11 @@ type SortableStoryRowProps = {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
+  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] }) => Promise<void>;
   pending: boolean;
-  /** Retainer mode: hide Cost column, show Completed Date column. */
+  /** Retainer mode: hide Cost column, show Completed Date + Tags columns. */
   groupByMonth?: boolean;
+  tagSuggestions?: string[];
 };
 
 function SortableStoryRow({
@@ -367,6 +476,7 @@ function SortableStoryRow({
   onPatch,
   pending,
   groupByMonth = false,
+  tagSuggestions = [],
 }: SortableStoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: s.id,
@@ -476,6 +586,17 @@ function SortableStoryRow({
               {s.cost != null ? fmtMoney(s.cost) : "—"}
             </div>
           )}
+        </td>
+      )}
+
+      {groupByMonth && (
+        <td className="px-2 py-1.5 min-w-[160px] max-w-[220px]">
+          <TagChipEditor
+            tags={s.tags}
+            suggestions={tagSuggestions}
+            onSave={(next) => onPatch(s.id, { tags: next })}
+            disabled={!canEdit}
+          />
         </td>
       )}
 
@@ -673,24 +794,38 @@ function FragmentGroup({
   collapsed = false,
   onToggleCollapsed,
   isCurrent = false,
+  tagSuggestions = [],
+  collapsedTagKeys,
+  onToggleCollapsedTag,
 }: {
-  group: { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number };
+  group: {
+    key: string;
+    label: string;
+    stories: QuoteStoryRow[];
+    totalCost: number;
+    totalHours: number;
+    tagGroups?: { tag: string; stories: QuoteStoryRow[]; totalHours: number; totalCost: number }[];
+  };
   canEdit: boolean;
   onRowClick?: (id: string) => void;
   selected: Set<string>;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] }) => Promise<void>;
   pending: boolean;
   groupByMonth?: boolean;
   collapsed?: boolean;
   onToggleCollapsed?: (key: string) => void;
   isCurrent?: boolean;
+  tagSuggestions?: string[];
+  collapsedTagKeys?: Set<string>;
+  onToggleCollapsedTag?: (compoundKey: string) => void;
 }) {
+  const colSpan = groupByMonth ? 11 : 10;
   return (
     <>
       <tr className="bg-bg-elevated border-y border-rule">
-        <td colSpan={10} className="px-3 py-2.5">
+        <td colSpan={colSpan} className="px-3 py-2.5">
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -728,10 +863,130 @@ function FragmentGroup({
           </div>
         </td>
       </tr>
+      {!collapsed && groupByMonth && group.tagGroups
+        ? group.tagGroups.map((tg) => {
+            const compoundKey = `${group.key}::${tg.tag}`;
+            const tagCollapsed = collapsedTagKeys?.has(compoundKey) ?? false;
+            const isUntagged = tg.tag === "Untagged";
+            return (
+              <FragmentTagSubGroup
+                key={compoundKey}
+                compoundKey={compoundKey}
+                tag={tg.tag}
+                stories={tg.stories}
+                totalHours={tg.totalHours}
+                collapsed={tagCollapsed}
+                onToggleCollapsed={onToggleCollapsedTag}
+                isUntagged={isUntagged}
+                colSpan={colSpan}
+                canEdit={canEdit}
+                onRowClick={onRowClick}
+                selected={selected}
+                onToggleSelect={onToggleSelect}
+                engineers={engineers}
+                onPatch={onPatch}
+                pending={pending}
+                groupByMonth={groupByMonth}
+                tagSuggestions={tagSuggestions}
+              />
+            );
+          })
+        : !collapsed &&
+          group.stories.map((s) => (
+            <SortableStoryRow
+              key={s.id}
+              story={s}
+              canEdit={canEdit}
+              onRowClick={onRowClick}
+              selected={selected.has(s.id)}
+              onToggleSelect={onToggleSelect}
+              engineers={engineers}
+              onPatch={onPatch}
+              pending={pending}
+              groupByMonth={groupByMonth}
+              tagSuggestions={tagSuggestions}
+            />
+          ))}
+    </>
+  );
+}
+
+function FragmentTagSubGroup({
+  compoundKey,
+  tag,
+  stories,
+  totalHours,
+  collapsed,
+  onToggleCollapsed,
+  isUntagged,
+  colSpan,
+  canEdit,
+  onRowClick,
+  selected,
+  onToggleSelect,
+  engineers,
+  onPatch,
+  pending,
+  groupByMonth,
+  tagSuggestions,
+}: {
+  compoundKey: string;
+  tag: string;
+  stories: QuoteStoryRow[];
+  totalHours: number;
+  collapsed: boolean;
+  onToggleCollapsed?: (compoundKey: string) => void;
+  isUntagged: boolean;
+  colSpan: number;
+  canEdit: boolean;
+  onRowClick?: (id: string) => void;
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  engineers: PersonOption[];
+  onPatch: (id: string, p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] }) => Promise<void>;
+  pending: boolean;
+  groupByMonth: boolean;
+  tagSuggestions: string[];
+}) {
+  return (
+    <>
+      <tr className="bg-bg/40 border-b border-rule-soft">
+        <td colSpan={colSpan} className="pl-8 pr-3 py-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => onToggleCollapsed?.(compoundKey)}
+              className="flex items-center gap-2 text-left group"
+              aria-expanded={!collapsed}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-ink-muted transition-colors" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-ink-faint group-hover:text-ink-muted transition-colors" />
+              )}
+              <span
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  isUntagged ? "bg-bg-elevated text-ink-faint" : "bg-sky/15 text-sky"
+                }`}
+              >
+                {tag}
+              </span>
+            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="px-1.5 py-0.5 rounded border border-rule bg-bg/60 text-[10px] font-mono tabnum text-ink-muted">
+                {stories.length} {stories.length === 1 ? "story" : "stories"}
+              </span>
+              <span className="px-1.5 py-0.5 rounded border border-rule bg-bg/60 text-[10px] font-mono tabnum text-ink">
+                {totalHours}h
+              </span>
+            </div>
+          </div>
+        </td>
+      </tr>
       {!collapsed &&
-        group.stories.map((s) => (
+        stories.map((s) => (
           <SortableStoryRow
-            key={s.id}
+            key={`${compoundKey}-${s.id}`}
             story={s}
             canEdit={canEdit}
             onRowClick={onRowClick}
@@ -741,11 +996,13 @@ function FragmentGroup({
             onPatch={onPatch}
             pending={pending}
             groupByMonth={groupByMonth}
+            tagSuggestions={tagSuggestions}
           />
         ))}
     </>
   );
 }
+
 
 
 
@@ -771,6 +1028,8 @@ export function QuoteStoriesTable({
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const [collapsedTagKeys, setCollapsedTagKeys] = useState<Set<string>>(new Set());
+
   
 
   // Hydrate persisted collapsed state (client-only) once.
@@ -781,6 +1040,15 @@ export function QuoteStoriesTable({
       if (raw) {
         const arr = JSON.parse(raw) as string[];
         if (Array.isArray(arr)) setCollapsedMonths(new Set(arr));
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const rawTags = window.localStorage.getItem(`qst:${quoteId}:collapsedTagGroups`);
+      if (rawTags) {
+        const arr = JSON.parse(rawTags) as string[];
+        if (Array.isArray(arr)) setCollapsedTagKeys(new Set(arr));
       }
     } catch {
       /* ignore */
@@ -811,6 +1079,27 @@ export function QuoteStoriesTable({
       return next;
     });
   }
+
+  function toggleCollapsedTag(compoundKey: string) {
+    setCollapsedTagKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(compoundKey)) next.delete(compoundKey);
+      else next.add(compoundKey);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            `qst:${quoteId}:collapsedTagGroups`,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      return next;
+    });
+  }
+
+
 
 
   useEffect(() => {
@@ -844,12 +1133,25 @@ export function QuoteStoriesTable({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   };
 
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of localStories) for (const t of s.tags) set.add(t);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [localStories]);
+
   const monthGroups = useMemo(() => {
     if (!groupByMonth) return null;
-    const map = new Map<
-      string,
-      { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number }
-    >();
+    type TagBucket = { tag: string; stories: QuoteStoryRow[]; totalHours: number; totalCost: number };
+    type MonthBucket = {
+      key: string;
+      label: string;
+      stories: QuoteStoryRow[];
+      totalCost: number;
+      totalHours: number;
+      tagMap: Map<string, TagBucket>;
+      tagGroups?: TagBucket[];
+    };
+    const map = new Map<string, MonthBucket>();
     for (const s of localStories) {
       const key = monthKeyFor(s);
       const src = s.completedDate || s.createdTime;
@@ -859,16 +1161,41 @@ export function QuoteStoriesTable({
         : src
           ? new Date(src).toLocaleDateString("en-US", { month: "long", year: "numeric" })
           : "Unscheduled";
-      // Re-key unscheduled to a single bucket regardless of createdTime.
       const bucketKey = isUnscheduled ? "0000-00-unscheduled" : key;
-      const g = map.get(bucketKey) ?? { key: bucketKey, label, stories: [], totalCost: 0, totalHours: 0 };
+      const g =
+        map.get(bucketKey) ??
+        ({
+          key: bucketKey,
+          label,
+          stories: [],
+          totalCost: 0,
+          totalHours: 0,
+          tagMap: new Map<string, TagBucket>(),
+        } as MonthBucket);
       g.stories.push(s);
       g.totalCost += s.cost ?? 0;
       g.totalHours += s.hours ?? 0;
+      // Sub-group by tag (multi-tag → appears under each tag).
+      const tagKeys = s.tags.length > 0 ? s.tags : ["Untagged"];
+      for (const tag of tagKeys) {
+        const tb = g.tagMap.get(tag) ?? { tag, stories: [], totalHours: 0, totalCost: 0 };
+        tb.stories.push(s);
+        tb.totalHours += s.hours ?? 0;
+        tb.totalCost += s.cost ?? 0;
+        g.tagMap.set(tag, tb);
+      }
       map.set(bucketKey, g);
     }
+    const groups = [...map.values()].map((g) => {
+      const tagGroups = [...g.tagMap.values()].sort((a, b) => {
+        if (a.tag === "Untagged") return 1;
+        if (b.tag === "Untagged") return -1;
+        return a.tag.localeCompare(b.tag);
+      });
+      return { ...g, tagGroups };
+    });
     // Sort: Unscheduled first, then newest month → oldest.
-    return [...map.values()].sort((a, b) => {
+    return groups.sort((a, b) => {
       if (a.key === "0000-00-unscheduled") return -1;
       if (b.key === "0000-00-unscheduled") return 1;
       return b.key.localeCompare(a.key);
@@ -900,7 +1227,7 @@ export function QuoteStoriesTable({
 
   async function patchStory(
     id: string,
-    p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null },
+    p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] },
   ) {
     // Optimistic local update
     setLocalStories((prev) =>
@@ -916,6 +1243,7 @@ export function QuoteStoriesTable({
               ...(p.cost !== undefined ? { cost: p.cost } : {}),
               ...(p.status !== undefined ? { status: p.status } : {}),
               ...(p.completedDate !== undefined ? { completedDate: p.completedDate } : {}),
+              ...(p.tags !== undefined ? { tags: p.tags } : {}),
               ...(p.assigneeIds !== undefined
                 ? {
                     assignees: p.assigneeIds
@@ -939,6 +1267,7 @@ export function QuoteStoriesTable({
     if (p.status !== undefined) patch.status = p.status;
     if (p.assigneeIds !== undefined) patch.assigneeIds = p.assigneeIds;
     if (p.completedDate !== undefined) patch.completedDate = p.completedDate;
+    if (p.tags !== undefined) patch.tags = p.tags;
 
     if (Object.keys(patch).length > 0) {
       await updateStory(id, patch);
@@ -1090,6 +1419,7 @@ export function QuoteStoriesTable({
                   ) : (
                     <th className="px-2 py-2 font-medium text-right tabnum">Cost</th>
                   )}
+                  {groupByMonth && <th className="px-2 py-2 font-medium">Tags</th>}
                   <th className="px-2 py-2 font-medium">Client Notes</th>
                   <th className="px-2 py-2 font-medium whitespace-nowrap">
                     Story Status<span className="ml-1 text-ink-faint normal-case tracking-normal">(internal)</span>
@@ -1118,6 +1448,9 @@ export function QuoteStoriesTable({
                           collapsed={collapsedMonths.has(g.key)}
                           onToggleCollapsed={toggleCollapsedMonth}
                           isCurrent={g.key === currentMonthKey}
+                          tagSuggestions={allTags}
+                          collapsedTagKeys={collapsedTagKeys}
+                          onToggleCollapsedTag={toggleCollapsedTag}
                         />
 
                       ))

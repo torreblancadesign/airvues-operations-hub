@@ -941,9 +941,6 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
   }
   if (!quote) return null;
 
-  const originalStories = quote.stories.filter((s) => !s.isChangeOrder);
-  const changeOrderStories = quote.stories.filter((s) => s.isChangeOrder);
-
   const patchAndRefresh = (
     fieldKey: string,
     patch: QuoteFieldPatch,

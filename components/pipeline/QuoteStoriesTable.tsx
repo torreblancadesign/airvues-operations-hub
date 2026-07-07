@@ -459,10 +459,11 @@ type SortableStoryRowProps = {
   selected: boolean;
   onToggleSelect: (id: string) => void;
   engineers: PersonOption[];
-  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null }) => Promise<void>;
+  onPatch: (id: string, patch: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] }) => Promise<void>;
   pending: boolean;
-  /** Retainer mode: hide Cost column, show Completed Date column. */
+  /** Retainer mode: hide Cost column, show Completed Date + Tags columns. */
   groupByMonth?: boolean;
+  tagSuggestions?: string[];
 };
 
 function SortableStoryRow({
@@ -475,6 +476,7 @@ function SortableStoryRow({
   onPatch,
   pending,
   groupByMonth = false,
+  tagSuggestions = [],
 }: SortableStoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: s.id,

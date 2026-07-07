@@ -1,37 +1,41 @@
+## Fix: inline story edits revert after ~1s
 
-## Add Tags to Retainer Stories
+### Root cause
 
-Adds a text-based `Tags` field to stories shown in retainer quotes, with autocomplete from existing tags, and sub-groups the month buckets by tag with per-tag story/hour totals.
+The revert is a client-side state clobber, not an Airtable read issue.
 
-### Data model
+1. `QuoteStoriesTable` keeps `localStories` and updates it optimistically inside `patchStory` (line 1233).
+2. It also has a sync effect (line 1105) that resets `localStories = stories` whenever the `stories` prop changes.
+3. The parent `QuoteSheetEditor` renders `<QuoteStoriesTable stories={quote.stories.filter(s => !s.isChangeOrder)} />` — the `.filter(...)` produces a **new array reference every render**.
+4. Every server action (`updateStory` calls `revalidateTag("airtable")`) triggers Next.js's automatic RSC refresh, which causes `QuoteSheetEditor` to re-render. `quote` in local state hasn't changed, but the filtered array is a new reference → child effect fires → `localStories` gets reset to the pre-edit `quote.stories` → user sees the value snap back. A hard refresh reads fresh Airtable data and shows the persisted change.
 
-Tags stored as comma-separated text in Airtable's `Tags` field on `🟢 Stories` (matches your choice of text-not-single-select so new tags can be added freely). On read, split on `,` and trim; on write, join `["a","b"]` → `"a, b"`. Empty string → no tags → bucketed as "Untagged".
+`patchStory` also never propagates the edit up to the parent's `quote` state, so the parent's copy stays stale until `closeStory` / drawer reload runs.
 
-### Files touched
+### Fix
 
-1. **`lib/schema.ts`** — add `"Tags": { id: "Tags", type: "singleLineText" }` under `Stories.fields`. Using the field name as the ID is the same escape hatch already used for `"Change Order"` and `"Completed Date"` in this table; swap in `fldXXX` once Airtable Meta API exposes it.
+Two small changes, presentation-only:
 
-2. **`lib/quote-types.ts`** — add `tags: string[]` to `QuoteStoryRow`.
+1. **`components/pipeline/QuoteSheetEditor.tsx`** — memoize the two filtered arrays passed into `QuoteStoriesTable` so their references are stable across renders:
+   ```ts
+   const originalStories = useMemo(
+     () => quote?.stories.filter(s => !s.isChangeOrder) ?? [],
+     [quote?.stories],
+   );
+   const changeOrderStories = useMemo(
+     () => quote?.stories.filter(s => s.isChangeOrder) ?? [],
+     [quote?.stories],
+   );
+   ```
+   Use these at lines 1253 and 1339. Now the `stories` prop reference only changes when `quote.stories` itself changes.
 
-3. **`lib/quotes.ts`** — request the Tags field, map `sf["Tags"]` → `tags: string.split(",").map(trim).filter(Boolean)`.
+2. **`components/pipeline/QuoteStoriesTable.tsx`** — make the sync effect content-aware instead of reference-aware, as a belt-and-suspenders guard. Replace the current `useEffect(() => { setLocalStories(stories); ... }, [stories])` at line 1105 with a signature-based check (join of ids + a hash of the mutable fields), so an incoming prop that is deep-equal to `localStories` doesn't overwrite optimistic state. The selection-pruning block stays.
 
-4. **`lib/mutations/story.ts`** — extend `StoryPatch` with `tags?: string[]`; in `buildStoryFields`, write `fields["Tags"] = patch.tags.join(", ")`.
+Optionally (nice-to-have, keeps parent totals fresh without a refetch): after `updateStory` succeeds in `patchStory`, call the existing `onChanged?` prop with a locally patched `QuoteDetail` so header totals and the parent's `quote.stories` stay aligned with what the user sees. Not required to fix the revert — the two changes above are sufficient.
 
-5. **`components/pipeline/QuoteStoriesTable.tsx`** — the retainer-only work:
-   - Add a **Tags column** (visible only when `groupByMonth` is true, i.e. retainer mode — matches how Completed date is toggled today) between Hours and Completed. Renders each tag as a small pill. Inline editor is a chip input:
-     - existing tags render as removable pills
-     - a text input adds a new tag on Enter / comma / blur
-     - a datalist (built from `allTagsInQuote` computed via `useMemo` over `localStories`) provides suggestions from tags already used in this quote
-     - on change, calls `onPatch(id, { tags: [...] })` → `updateStory({ tags })`
-   - **Sub-grouping inside months:** when `groupByMonth` is true, split each month group's stories by tag. A story with multiple tags appears under each of its tags (multi-tag membership); stories with no tags go to an "Untagged" sub-bucket. `monthGroups` becomes `{ key, label, stories, totalHours, tagGroups: { tag, stories, totalHours, totalCost }[] }`.
-   - Sub-group header row (rendered inside `FragmentGroup`): tag name pill + `N stories` + `Xh` pill, indented under the month header. Sub-groups collapsible with the same `localStorage`-persisted pattern used for months (key: `qst:${quoteId}:collapsedTagGroups`, entries stored as `${monthKey}::${tag}`).
-   - Optimistic patch: extend `patchStory` to accept `tags` and merge into `localStories`.
-   - Table header adds a `Tags` `<th>` (only when `groupByMonth`), and `colSpan` on the month header row bumps from 10 → 11.
-   - DnD: keep the existing rule (only reorder within same month); we do **not** additionally restrict by tag (tags are a view, not the sort key).
+### Verification
 
-### Out of scope
-
-- Filtering by tag / tag chip in the filter bar
-- Bulk-tag action in `BulkBar`
-- Applying tags to non-retainer stories (column is hidden outside retainer mode; the field still works if edited elsewhere)
-- Renaming a tag across every story (would need a bulk rename utility)
+- Edit hours, status, tags, completed date, name on a retainer story → value stays put, no snap-back.
+- Refresh page → same value persists (already working).
+- Drag-reorder still works (uses `commitReorder`, unaffected).
+- Change-order table on same quote still reflects edits identically.
+- `npx tsc --noEmit` clean.

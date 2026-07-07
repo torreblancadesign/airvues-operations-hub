@@ -6,6 +6,7 @@ import { incrementLoopViewCount } from "@/lib/mutations/loop";
 import { AuroraBackdrop } from "@/components/login/AuroraBackdrop";
 import { LiveClock } from "@/components/login/LiveClock";
 import { AiSummaryPanel } from "@/components/loops/AiSummaryPanel";
+import { LoopPlayer } from "@/components/loops/LoopPlayer";
 
 export const revalidate = 0;
 
@@ -79,12 +80,12 @@ export default async function PublicLoopPage({
               }}
               aria-hidden="true"
             />
-            <video
+            <LoopPlayer
               src={loop.videoUrl}
               poster={loop.posterUrl ?? undefined}
-              controls
               autoPlay
               className="w-full bg-black aspect-video block"
+              storageKey="loops:playbackRate:public"
             />
           </div>
 

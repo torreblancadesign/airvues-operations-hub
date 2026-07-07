@@ -1259,7 +1259,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
       <Section title={quote.proposalType === "Retainer Agreement" ? "Retainer delivery — monthly stories" : "Quote calculator"} tone="amber" collapsible storageKey={`qs:${quoteId}:calc`} defaultOpen>
         <div className="px-5 pb-4">
           <QuoteStoriesTable
-            stories={quote.stories.filter((s) => !s.isChangeOrder)}
+            stories={originalStories}
             totalCost={quote.originalTotalCost}
             totalHours={quote.originalTotalHours}
             canEdit={canEdit}
@@ -1345,7 +1345,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
 
         <div className="px-5 pb-4">
           <QuoteStoriesTable
-            stories={quote.stories.filter((s) => s.isChangeOrder)}
+            stories={changeOrderStories}
             totalCost={quote.changeOrderTotalCost}
             totalHours={quote.changeOrderTotalHours}
             canEdit={canEdit}

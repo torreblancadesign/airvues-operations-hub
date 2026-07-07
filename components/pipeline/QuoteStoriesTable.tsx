@@ -1080,6 +1080,27 @@ export function QuoteStoriesTable({
     });
   }
 
+  function toggleCollapsedTag(compoundKey: string) {
+    setCollapsedTagKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(compoundKey)) next.delete(compoundKey);
+      else next.add(compoundKey);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            `qst:${quoteId}:collapsedTagGroups`,
+            JSON.stringify([...next]),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      return next;
+    });
+  }
+
+
+
 
   useEffect(() => {
     setLocalStories(stories);

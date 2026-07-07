@@ -342,6 +342,114 @@ function InlineAssignees({
   );
 }
 
+// ---------- Tags chip editor ----------
+
+function TagChipEditor({
+  tags,
+  suggestions,
+  onSave,
+  disabled,
+}: {
+  tags: string[];
+  suggestions: string[];
+  onSave: (next: string[]) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const [draft, setDraft] = useState("");
+  const [pending, setPending] = useState(false);
+  const listId = useMemo(() => `tags-suggest-${Math.random().toString(36).slice(2, 8)}`, []);
+
+  async function commitList(next: string[]) {
+    const cleaned = Array.from(new Set(next.map((t) => t.trim()).filter(Boolean)));
+    if (cleaned.length === tags.length && cleaned.every((t, i) => t === tags[i])) return;
+    setPending(true);
+    try {
+      await onSave(cleaned);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function addFromDraft() {
+    const parts = draft
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length === 0) {
+      setDraft("");
+      return;
+    }
+    setDraft("");
+    await commitList([...tags, ...parts]);
+  }
+
+  async function removeAt(i: number) {
+    const next = tags.slice();
+    next.splice(i, 1);
+    await commitList(next);
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1 px-1 py-0.5 min-h-[28px]"
+      onClick={stopBubble}
+    >
+      {tags.map((t, i) => (
+        <span
+          key={`${t}-${i}`}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky/15 text-sky text-[10px] font-medium"
+        >
+          {t}
+          {!disabled && (
+            <button
+              type="button"
+              onClick={() => void removeAt(i)}
+              className="text-sky/70 hover:text-sky leading-none"
+              aria-label={`Remove tag ${t}`}
+              disabled={pending}
+            >
+              ×
+            </button>
+          )}
+        </span>
+      ))}
+      {!disabled && (
+        <>
+          <input
+            type="text"
+            list={listId}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                void addFromDraft();
+              } else if (e.key === "Backspace" && draft === "" && tags.length > 0) {
+                e.preventDefault();
+                void removeAt(tags.length - 1);
+              } else if (e.key === "Escape") {
+                setDraft("");
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            onBlur={() => void addFromDraft()}
+            placeholder={tags.length === 0 ? "+ tag" : ""}
+            disabled={pending}
+            className="flex-1 min-w-[60px] bg-transparent border border-transparent hover:border-rule focus:border-emerald focus:bg-bg-elevated rounded px-1 py-0.5 text-[11px] text-ink focus:outline-none disabled:opacity-60"
+          />
+          <datalist id={listId}>
+            {suggestions
+              .filter((s) => !tags.includes(s))
+              .map((s) => (
+                <option key={s} value={s} />
+              ))}
+          </datalist>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ---------- Sortable row ----------
 
 type SortableStoryRowProps = {

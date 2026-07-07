@@ -7,6 +7,7 @@ import { CopyShareLink } from "@/components/loops/CopyShareLink";
 import { DeleteLoopButton } from "@/components/loops/DeleteLoopButton";
 import { LoopTagsEditor } from "@/components/loops/LoopTagsEditor";
 import { AiSummaryPanel } from "@/components/loops/AiSummaryPanel";
+import { LoopPlayer } from "@/components/loops/LoopPlayer";
 import { RegenerateAnalysisButton } from "@/components/loops/RegenerateAnalysisButton";
 import { getLoopById } from "@/lib/loops";
 import { canMutate } from "@/lib/authz";
@@ -65,11 +66,10 @@ export default async function LoopDetailPage({
       />
 
       <div className="space-y-4">
-        <video
+        <LoopPlayer
           src={loop.videoUrl}
           poster={loop.posterUrl ?? undefined}
-          controls
-          className="w-full rounded-card border border-rule bg-black aspect-video"
+          storageKey="loops:playbackRate:internal"
         />
 
         <div className="bg-surface border border-rule rounded-card p-4 space-y-3">

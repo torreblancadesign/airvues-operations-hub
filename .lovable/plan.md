@@ -1,20 +1,35 @@
-## Show RevenueTrend chart on mobile
+## Goal
 
-The Firm Pulse revenue card hides the trend chart on screens below the `lg` breakpoint (`hidden lg:block` at `components/home/FirmPulse.tsx:280`). On mobile the card collapses to just the YTD/MTD total and pace bar — the bars/area chart never renders.
+Add a playback speed selector to Loop videos so viewers can slow down (or speed up) recordings — useful for reviewing detailed walkthroughs.
 
-### Change
+## Where it appears
 
-In `components/home/FirmPulse.tsx`, drop the `hidden lg:` gate so the chart renders at every breakpoint:
+Two surfaces render the loop `<video>`:
 
-```
-- <div className="hidden lg:block mt-6">
-+ <div className="mt-6">
-    <RevenueTrend series={r.series} target={r.target} windowName={win} />
-  </div>
-```
+1. **Internal detail page** — `app/(app)/loops/[id]/page.tsx`
+2. **Public share page** — `app/r/[token]/page.tsx`
 
-### Mobile fit check
+Both currently use a plain `<video controls>`. Native browser controls do include a speed menu on Chrome/Edge/Firefox desktop, but it's hidden behind a right-click / kebab menu and is missing entirely on Safari's default controls and on most mobile browsers. So we add an explicit, always-visible control.
 
-`RevenueTrend` already uses a responsive `viewBox` SVG (`w-full`, fixed aspect ratio) and reads its container width, so it scales down cleanly inside the card's existing `p-6 sm:p-7` padding. The hover tooltip is positioned with `left/top` percentages and clamps inside the SVG, so it works on touch (tap-to-show) without extra changes.
+## Design
 
-No other files need to change.
+New small client component `components/loops/LoopPlayer.tsx` that wraps the existing `<video>` and adds a speed pill above the top-right corner (or bottom-right, floating over the video). Keeps current styling — same `aspect-video`, `bg-black`, poster, `controls`, autoplay flag as a prop.
+
+Speed options: `0.5×, 0.75×, 1×, 1.25×, 1.5×, 2×`. Default `1×`. Persist last choice per surface in `localStorage` via existing `useLocalStorageJSON` from `lib/use-local-storage.ts` (keys: `loops:playbackRate:internal` and `loops:playbackRate:public`), so a user who slows things down stays slowed down across loops.
+
+Interaction: click the pill → dropdown of options → sets `videoRef.current.playbackRate` and updates state. Also reapply on `loadedmetadata` (browsers reset rate when the source loads).
+
+Styling matches existing Airvues chips (font-mono, uppercase micro-label, `bg-surface/85 border border-rule rounded`, emerald hover), consistent with the surrounding aesthetic on both pages.
+
+## Files
+
+- **New:** `components/loops/LoopPlayer.tsx` — `"use client"`, props `{ src, poster, autoPlay?, className?, storageKey }`. Renders `<video ref controls>` plus the speed selector overlay.
+- **Edit:** `app/(app)/loops/[id]/page.tsx` — replace the raw `<video>` (lines around the current player) with `<LoopPlayer src={loop.videoUrl} poster={loop.posterUrl ?? undefined} storageKey="loops:playbackRate:internal" />`.
+- **Edit:** `app/r/[token]/page.tsx` — replace the raw `<video autoPlay>` with `<LoopPlayer ... autoPlay storageKey="loops:playbackRate:public" />`. Keep the surrounding branded frame (aurora border, aspect-video wrapper) untouched.
+
+No changes to data layer, mutations, or types.
+
+## Out of scope
+
+- Keyboard shortcuts (`<` / `>`) — can follow later if useful.
+- Applying the same control to Meetings recordings — separate feature; ask first if desired.

@@ -1133,12 +1133,25 @@ export function QuoteStoriesTable({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   };
 
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of localStories) for (const t of s.tags) set.add(t);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [localStories]);
+
   const monthGroups = useMemo(() => {
     if (!groupByMonth) return null;
-    const map = new Map<
-      string,
-      { key: string; label: string; stories: QuoteStoryRow[]; totalCost: number; totalHours: number }
-    >();
+    type TagBucket = { tag: string; stories: QuoteStoryRow[]; totalHours: number; totalCost: number };
+    type MonthBucket = {
+      key: string;
+      label: string;
+      stories: QuoteStoryRow[];
+      totalCost: number;
+      totalHours: number;
+      tagMap: Map<string, TagBucket>;
+      tagGroups?: TagBucket[];
+    };
+    const map = new Map<string, MonthBucket>();
     for (const s of localStories) {
       const key = monthKeyFor(s);
       const src = s.completedDate || s.createdTime;
@@ -1148,16 +1161,41 @@ export function QuoteStoriesTable({
         : src
           ? new Date(src).toLocaleDateString("en-US", { month: "long", year: "numeric" })
           : "Unscheduled";
-      // Re-key unscheduled to a single bucket regardless of createdTime.
       const bucketKey = isUnscheduled ? "0000-00-unscheduled" : key;
-      const g = map.get(bucketKey) ?? { key: bucketKey, label, stories: [], totalCost: 0, totalHours: 0 };
+      const g =
+        map.get(bucketKey) ??
+        ({
+          key: bucketKey,
+          label,
+          stories: [],
+          totalCost: 0,
+          totalHours: 0,
+          tagMap: new Map<string, TagBucket>(),
+        } as MonthBucket);
       g.stories.push(s);
       g.totalCost += s.cost ?? 0;
       g.totalHours += s.hours ?? 0;
+      // Sub-group by tag (multi-tag → appears under each tag).
+      const tagKeys = s.tags.length > 0 ? s.tags : ["Untagged"];
+      for (const tag of tagKeys) {
+        const tb = g.tagMap.get(tag) ?? { tag, stories: [], totalHours: 0, totalCost: 0 };
+        tb.stories.push(s);
+        tb.totalHours += s.hours ?? 0;
+        tb.totalCost += s.cost ?? 0;
+        g.tagMap.set(tag, tb);
+      }
       map.set(bucketKey, g);
     }
+    const groups = [...map.values()].map((g) => {
+      const tagGroups = [...g.tagMap.values()].sort((a, b) => {
+        if (a.tag === "Untagged") return 1;
+        if (b.tag === "Untagged") return -1;
+        return a.tag.localeCompare(b.tag);
+      });
+      return { ...g, tagGroups };
+    });
     // Sort: Unscheduled first, then newest month → oldest.
-    return [...map.values()].sort((a, b) => {
+    return groups.sort((a, b) => {
       if (a.key === "0000-00-unscheduled") return -1;
       if (b.key === "0000-00-unscheduled") return 1;
       return b.key.localeCompare(a.key);

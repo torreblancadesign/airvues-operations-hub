@@ -57,6 +57,7 @@ type StoryFields = {
   "Change Order"?: boolean;
   "Quote Order"?: number;
   "Completed Date"?: string;
+  "Tags"?: string;
 };
 
 // Airtable rich-text / formula / rollup fields occasionally return non-string

@@ -120,6 +120,15 @@ export const NAV_ITEMS: NavItem[] = [
     showInSidebar: true,
     showOnHome: true,
   },
+  {
+    href: "/engineering/retainer-timesheets",
+    label: "Retainer Timesheets",
+    desc: "Log stories against any active retainer · monthly grouping · tag totals",
+    group: "engineering",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+
 
   // Earnings
   {

@@ -68,7 +68,7 @@ function invalidateStoryCaches() {
 async function gate(): Promise<{ error: string } | null> {
   try {
     // "editor" is the legacy synonym for "lead" (see lib/auth.ts AppRole comment).
-    await requireRole("admin", "lead", "editor");
+    await requireRole("admin", "lead", "editor", "engineer");
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

@@ -442,6 +442,7 @@ export const Tables = {
       "Change Order": { id: "Change Order", type: "checkbox" },
       "Quote Order": { id: "fldfeJqFh88bHKItW", type: "number" },
       "Completed Date": { id: "Completed Date", type: "date" },
+      "Tags": { id: "Tags", type: "singleLineText" },
     },
   },
 

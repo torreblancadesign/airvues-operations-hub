@@ -1419,6 +1419,7 @@ export function QuoteStoriesTable({
                   ) : (
                     <th className="px-2 py-2 font-medium text-right tabnum">Cost</th>
                   )}
+                  {groupByMonth && <th className="px-2 py-2 font-medium">Tags</th>}
                   <th className="px-2 py-2 font-medium">Client Notes</th>
                   <th className="px-2 py-2 font-medium whitespace-nowrap">
                     Story Status<span className="ml-1 text-ink-faint normal-case tracking-normal">(internal)</span>
@@ -1447,6 +1448,9 @@ export function QuoteStoriesTable({
                           collapsed={collapsedMonths.has(g.key)}
                           onToggleCollapsed={toggleCollapsedMonth}
                           isCurrent={g.key === currentMonthKey}
+                          tagSuggestions={allTags}
+                          collapsedTagKeys={collapsedTagKeys}
+                          onToggleCollapsedTag={toggleCollapsedTag}
                         />
 
                       ))

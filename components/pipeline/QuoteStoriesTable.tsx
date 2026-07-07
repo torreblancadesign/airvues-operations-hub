@@ -1028,6 +1028,8 @@ export function QuoteStoriesTable({
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
+  const [collapsedTagKeys, setCollapsedTagKeys] = useState<Set<string>>(new Set());
+
   
 
   // Hydrate persisted collapsed state (client-only) once.
@@ -1038,6 +1040,15 @@ export function QuoteStoriesTable({
       if (raw) {
         const arr = JSON.parse(raw) as string[];
         if (Array.isArray(arr)) setCollapsedMonths(new Set(arr));
+      }
+    } catch {
+      /* ignore */
+    }
+    try {
+      const rawTags = window.localStorage.getItem(`qst:${quoteId}:collapsedTagGroups`);
+      if (rawTags) {
+        const arr = JSON.parse(rawTags) as string[];
+        if (Array.isArray(arr)) setCollapsedTagKeys(new Set(arr));
       }
     } catch {
       /* ignore */

@@ -1102,6 +1102,16 @@ export function QuoteStoriesTable({
 
 
 
+  const storiesSignature = useMemo(
+    () =>
+      stories
+        .map(
+          (s) =>
+            `${s.id}|${s.name}|${s.description}|${s.clientNotes}|${s.hours ?? ""}|${s.cost ?? ""}|${s.status ?? ""}|${s.completedDate ?? ""}|${s.order ?? ""}|${(s.tags ?? []).join(",")}|${s.assignees.map((a) => a.id).join(",")}`,
+        )
+        .join("~"),
+    [stories],
+  );
   useEffect(() => {
     setLocalStories(stories);
     // Drop selection for stories that disappeared.
@@ -1111,7 +1121,10 @@ export function QuoteStoriesTable({
       for (const id of prev) if (ids.has(id)) next.add(id);
       return next;
     });
-  }, [stories]);
+    // Intentional: only re-sync when the actual story content changes,
+    // not on every parent re-render (which would clobber optimistic edits).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storiesSignature]);
 
   const engineerOptions = useMemo(
     () => people.filter((p) => p.isInternal && p.isActive),

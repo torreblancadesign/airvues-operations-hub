@@ -1227,7 +1227,7 @@ export function QuoteStoriesTable({
 
   async function patchStory(
     id: string,
-    p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null },
+    p: { name?: string; description?: string; clientNotes?: string; hours?: number | null; cost?: number | null; status?: string; assigneeIds?: string[]; completedDate?: string | null; tags?: string[] },
   ) {
     // Optimistic local update
     setLocalStories((prev) =>
@@ -1243,6 +1243,7 @@ export function QuoteStoriesTable({
               ...(p.cost !== undefined ? { cost: p.cost } : {}),
               ...(p.status !== undefined ? { status: p.status } : {}),
               ...(p.completedDate !== undefined ? { completedDate: p.completedDate } : {}),
+              ...(p.tags !== undefined ? { tags: p.tags } : {}),
               ...(p.assigneeIds !== undefined
                 ? {
                     assignees: p.assigneeIds
@@ -1266,6 +1267,7 @@ export function QuoteStoriesTable({
     if (p.status !== undefined) patch.status = p.status;
     if (p.assigneeIds !== undefined) patch.assigneeIds = p.assigneeIds;
     if (p.completedDate !== undefined) patch.completedDate = p.completedDate;
+    if (p.tags !== undefined) patch.tags = p.tags;
 
     if (Object.keys(patch).length > 0) {
       await updateStory(id, patch);

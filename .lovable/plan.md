@@ -1,50 +1,27 @@
-## Retainer Timesheets page
+Two small fixes.
 
-New page at `/engineering/retainer-timesheets` (sits under the Engineering nav group) that gives engineers a fast surface to log stories against any active retainer, reusing the retainer-stories editor already built into the Projects drawer.
+### 1. Only show approved-and-signed retainers
 
-### UX
+`lib/retainer-timesheets.ts` — change `listRetainers()` to only return quotes whose Airtable `Status` is `"Approved and Signed"`. Do this at the query level via `filterByFormula` (`AND({Proposal Type}='Retainer Agreement', {Status}='Approved and Signed')`) so we don't ship inactive rows to the client. The "Active only" checkbox in the UI becomes redundant and gets removed.
 
-- Route added to `lib/nav.ts` under the **Engineering** group, right after Backlog/Sprints. Sidebar + MobileNav pick it up automatically.
-- Page layout:
-  1. `PageHeader` — "Retainer Timesheets", subtitle explaining "Log stories against any active retainer."
-  2. **Retainer picker strip** — one card per Retainer Agreement quote, showing client name, retainer project name, current month's total hours + story count. Search box + toggle for "Active only" (hide Lost/Paid-out).
-  3. **Selected retainer panel** — when a card is clicked, the same monthly-grouped stories table used inside the Projects drawer appears inline, scoped to that retainer. Full inline edit, add-story, tag sub-grouping, month totals — identical behavior to what already ships in `QuoteSheetEditor`.
-- Deep link support: `?retainer=<quoteId>` selects a retainer on load and updates on click. Refresh-safe, shareable.
-- Empty state when no retainers exist.
+Note: this hides retainers in later stages like `Project In Progress` or `Paid`. If those should also count as "active" I'll adjust the formula. Current understanding is "approved and signed" = the exact stage.
 
-### Data
+### 2. Sidebar + MobileNav icon
 
-- New server module `lib/retainer-timesheets.ts`:
-  - `listRetainers()` — cached read (`retainer-timesheets:list` tag + `airtable` umbrella). Filters Quotes where `Proposal Type = "Retainer Agreement"` and status is not `Lost`. Returns lightweight rows (id, projectName, clientName, statusChip, currentMonthHours, currentMonthStoryCount).
-  - Reuses existing `getQuoteDetail(id)` from `lib/quotes.ts` for the selected retainer.
-- No new mutations. Existing `updateStory`, `createQuoteStory`, `bulkUpdateQuoteStoriesFields`, `reorderQuoteStories` are used through the shared table.
+Add a matching icon for `/engineering/retainer-timesheets` in both nav components, using the same inline-SVG style already used for the other engineering entries:
 
-### Permissions
+- `components/Sidebar.tsx`: add `IconClock` (clock face — reads as "timesheet") and map `"/engineering/retainer-timesheets": <IconClock />` in the `ICONS` record.
+- `components/MobileNav.tsx`: add the same clock icon to its icon map at `"/engineering/retainer-timesheets"`.
 
-- `assertCanAccess("/engineering/retainer-timesheets")` — grant to **admin, lead, engineer** in `lib/permissions.ts`.
-- Story mutation gate in `lib/mutations/story.ts` currently rejects `engineer`. To let engineers log their own retainer stories, `createQuoteStory` and `updateStory` (only the fields the timesheet exposes: name, description, hours, tags, assignees, completedDate, status) will accept `engineer` as well. Admin/lead retain full field access.
-- `canEdit` on the page is true for any user who passes the page guard.
+### Build error
 
-### Components
-
-- New `components/engineering/RetainerTimesheetsPage.tsx` (client component) — retainer picker + selected-panel state + URL sync.
-- New `components/engineering/RetainerCard.tsx` — one retainer summary card.
-- `QuoteStoriesTable` is imported and rendered as-is with `groupByMonth={true}` and the existing tag sub-grouping. No fork.
+`npm run build` currently succeeds end-to-end and the new route is in the output (`/engineering/retainer-timesheets  2.37 kB  123 kB`). Typecheck is clean. The `dist-check` failure looks stale from the previous turn's async run — I'll re-run the build after the edits above to confirm.
 
 ### Files touched
 
 ```text
-app/(app)/engineering/retainer-timesheets/page.tsx   NEW (server)
-components/engineering/RetainerTimesheetsPage.tsx    NEW (client)
-components/engineering/RetainerCard.tsx              NEW (client)
-lib/retainer-timesheets.ts                           NEW (server)
-lib/nav.ts                                           add nav entry
-lib/permissions.ts                                   grant route + roles
-lib/mutations/story.ts                               widen gate to include engineer for the retainer-safe fields
+lib/retainer-timesheets.ts        filter to Approved and Signed
+components/engineering/RetainerTimesheetsPage.tsx  drop the "Active only" toggle
+components/Sidebar.tsx            add clock icon + map for the new route
+components/MobileNav.tsx          same icon in the mobile map
 ```
-
-### Verification
-
-- `npx tsc --noEmit` + `npm run build` clean.
-- Sign in as an engineer: page loads, retainer list shows, selecting one shows current-month stories, add-story + inline edit + tag edit all persist to Airtable and stick on-screen (relies on the recent optimistic-state fix in `QuoteStoriesTable`).
-- Sign in as admin: unchanged Projects drawer behavior confirmed on `/pipeline/[id]`.

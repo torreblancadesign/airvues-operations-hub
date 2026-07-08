@@ -155,6 +155,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "/engineering": <IconCode />,
   "/backlog": <IconList />,
   "/sprints": <IconCalendar />,
+  "/engineering/retainer-timesheets": <IconClock />,
   "/clients": <IconBriefcase />,
   "/team": <IconUsers />,
   "/stack": <IconLayers />,

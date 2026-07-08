@@ -32,10 +32,17 @@ export function SidebarNav({ icons, permissions, role }: Props) {
               </div>
               <ul className="space-y-1">
                 {groupItems.map((item) => {
+                  const hasMoreSpecific = items.some(
+                    (other) =>
+                      other.href !== item.href &&
+                      other.href.startsWith(item.href + "/") &&
+                      (pathname === other.href || pathname.startsWith(other.href + "/"))
+                  );
                   const isActive =
                     item.href === "/"
                       ? pathname === "/"
-                      : pathname === item.href || pathname.startsWith(item.href + "/");
+                      : !hasMoreSpecific &&
+                        (pathname === item.href || pathname.startsWith(item.href + "/"));
                   return (
                     <li key={item.href}>
                       <Link

@@ -209,7 +209,7 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
       quoteLastAccess: (f["Quote Last Access"] as string) ?? null,
       created: (f["Created"] as string) ?? null,
       storiesCount: Array.isArray(f["Stories"]) ? (f["Stories"] as string[]).length : 0,
-      webQuoteUrl: `https://airvues-quote.vercel.app/?quoteId=${r.id}`,
+      webQuoteUrl: `/api/quote-sso?quoteId=${r.id}`,
       airtableUrl: `https://airtable.com/${process.env.AIRTABLE_BASE_ID}/${t.id}/${r.id}`,
       primaryEmail: first(f["Primary Email (from Prepared for)"] as string[] | undefined),
       company: resolvedCompanyName,

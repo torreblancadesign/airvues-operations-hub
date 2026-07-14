@@ -33,8 +33,8 @@ export type QuoteDetail = {
   preparedByName: string | null;
   preparedDate: string | null;
   deliveryDueDate: string | null;
-  preparedForId: string | null;
-  preparedForName: string | null;
+  preparedForIds: string[];
+  preparedForNames: string[];
   projectStatus: string | null;
   proposalType: string | null;
   status: string | null;
@@ -98,7 +98,7 @@ export type QuoteFieldPatch = Partial<{
   preparedById: string | null;
   preparedDate: string | null;
   deliveryDueDate: string | null;
-  preparedForId: string | null;
+  preparedForIds: string[];
   projectStatus: string | null;
   proposalType: string | null;
   customProblemStatement: string;

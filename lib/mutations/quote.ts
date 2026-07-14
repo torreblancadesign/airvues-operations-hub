@@ -50,8 +50,8 @@ function buildQuoteFields(patch: QuoteFieldPatch): Record<string, unknown> {
   if (patch.deliveryDueDate !== undefined) {
     fields["Client Delivery Due Date"] = patch.deliveryDueDate || null;
   }
-  if (patch.preparedForId !== undefined) {
-    fields["Prepared for"] = patch.preparedForId ? [patch.preparedForId] : [];
+  if (patch.preparedForIds !== undefined) {
+    fields["Prepared for"] = patch.preparedForIds;
   }
   if (patch.projectStatus !== undefined) {
     fields["Project Status"] = patch.projectStatus || null;
@@ -222,7 +222,7 @@ export async function updateQuoteFields(
     const quote = await getQuoteDetail(quoteId);
 
     // Project log: project-status transitions + proposal-type changes.
-    const accountId = quote.preparedForId ?? null;
+    const accountId = quote.preparedForIds[0] ?? null;
     if (patch.projectStatus !== undefined && before && before.projectStatus !== patch.projectStatus) {
       const ev =
         patch.projectStatus === "Proposal Signed"
@@ -371,7 +371,7 @@ export async function createQuoteStory(
     invalidateQuote(quoteId);
     const quote = await getQuoteDetail(quoteId);
     await logEventInternal({
-      accountId: quote.preparedForId ?? null,
+      accountId: quote.preparedForIds[0] ?? null,
       projectId: quoteId,
       eventType: "Story created",
       detail: `${input.name.trim()}${input.isChangeOrder ? " (change order)" : ""} · ${input.hours}h${input.cost !== undefined ? ` · $${input.cost}` : ""}`,

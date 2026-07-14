@@ -158,7 +158,7 @@ export function RetainerTimesheetsPage({
                 Retainer delivery — monthly stories
               </div>
               <div className="text-[14px] font-semibold text-ink-strong mt-0.5">
-                {quote.preparedForName ?? "—"} · {quote.projectName}
+                {quote.preparedForNames.join(", ") || "—"} · {quote.projectName}
               </div>
             </div>
             <Link

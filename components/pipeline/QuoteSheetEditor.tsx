@@ -31,6 +31,7 @@ import {
   sanitizeUploadFilename,
 } from "@/lib/uploads";
 import { PersonPicker } from "./PersonPicker";
+import { MultiPersonPicker } from "./MultiPersonPicker";
 import { QuoteStoriesTable } from "./QuoteStoriesTable";
 import { NewQuoteStoryModal } from "./NewQuoteStoryModal";
 import { Section as SharedSection } from "@/components/ui/Section";
@@ -1034,13 +1035,13 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         </FieldRow>
         )}
 
-        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForId")} variant="cell">
-          <PersonPicker
-            value={quote.preparedForId}
+        <FieldRow label="Prepared for" chip={<PortalChip />} state={stateFor("preparedForIds")} variant="cell">
+          <MultiPersonPicker
+            values={quote.preparedForIds}
             options={people}
             disabled={!canEdit}
-            placeholder="Pick the client contact"
-            onChange={(id) => void patchAndRefresh("preparedForId", { preparedForId: id })}
+            placeholder="Pick client contact(s)"
+            onChange={(ids) => void patchAndRefresh("preparedForIds", { preparedForIds: ids })}
           />
         </FieldRow>
 

@@ -1,40 +1,46 @@
 ## Goal
-Allow the "Prepared for" field on the project/quote page to hold multiple client contacts instead of just one.
+
+Stop using `ALLOWED_USERS` role assignments to gate edit rights. Every signed-in user gets write access; page-level access continues to be controlled by Airtable People.Permissions.
 
 ## Changes
 
-### 1. UI — `components/pipeline/QuoteSheetEditor.tsx`
-Replace the single `PersonPicker` with a new multi-select picker on the "Prepared for" row. Selected people render as removable chips; a search-and-add dropdown below (same visual language as `PersonPicker`).
+### 1. `lib/authz.ts` — `canMutate()` returns true for any signed-in user
+- Remove the `MUTATE_ROLES` allowlist check.
+- New behavior: `canMutate()` returns `true` whenever there is a session, regardless of role.
+- Keep `requireRole(...)` intact as a primitive (still used by a few upload routes), but stop using it to enforce write vs read.
 
-### 2. New component — `components/pipeline/MultiPersonPicker.tsx`
-Small wrapper reusing the search/filter logic from `PersonPicker`. Props:
-- `values: string[]`
-- `options: PersonOption[]`
-- `onChange: (ids: string[]) => void`
-- `disabled`, `placeholder`
+### 2. `lib/mutations/*` — loosen `requireRole` calls
+Every mutation currently calls `requireRole("admin", "lead", "editor")`. Replace those with a new helper `requireSignedIn()` (added to `lib/authz.ts`) that only checks a session exists. Files touched:
+- `lib/mutations/client.ts`
+- `lib/mutations/company.ts`
+- `lib/mutations/founder.ts`
+- `lib/mutations/invoice.ts`
+- `lib/mutations/lead.ts`
+- `lib/mutations/loop.ts`
+- `lib/mutations/meeting.ts`
+- `lib/mutations/person.ts`
+- `lib/mutations/project-log.ts`
+- `lib/mutations/quote.ts`
+- `lib/mutations/sprint-capacity.ts`
+- `lib/mutations/sprint.ts`
+- `lib/mutations/story.ts`
 
-`PersonPicker` stays untouched (used elsewhere for single-select fields like Prepared by, Epic Owner).
+### 3. Upload routes — allow any signed-in user
+- `app/api/quotes/upload/route.ts`: change `requireRole("admin","lead","editor")` → `requireSignedIn()`.
+- `app/api/loops/upload/route.ts`: already includes `engineer`; switch to `requireSignedIn()` for consistency.
+- `app/api/leads/upload/route.ts` and `app/api/meetings/upload/route.ts`: same treatment.
 
-### 3. Types — `lib/quote-types.ts`
-- `QuoteDetail.preparedForId: string | null` → `preparedForIds: string[]`
-- `QuoteFieldPatch.preparedForId?: string | null` → `preparedForIds?: string[]`
+### 4. Sign-in gate — keep, but note behavior
+- `lib/auth.ts` `signIn` callback still uses `findRole()` to gate who can sign in. **Not changing this now** — removing it would let any Google account in. The `ALLOWED_USERS` JSON continues to serve as the "who is allowed to sign in at all" list, but it no longer controls what they can do once in.
+- If you'd rather have Airtable People also be the sign-in gate (deny sign-in when no People row matches the email), that's a separate follow-up — say the word and I'll add it.
 
-### 4. Loader — `lib/quotes.ts`
-Return `preparedForIds: asStringArray(f["Prepared for"])` instead of `firstId(...)`.
+## Result
 
-### 5. Mutation — `lib/mutations/quote.ts`
-- `buildQuoteFields`: `fields["Prepared for"] = patch.preparedForIds ?? []`
-- Any other write path setting `Prepared for` (createQuote branch around line 529) updated to accept `preparedForIds: string[]`.
-
-### 6. Ancillary read-side (no behavior change)
-- `lib/pipeline.ts` already exposes `preparedForIds: string[]` — untouched.
-- `/api/quote-sso` currently signs a token for `quote.primaryEmail` (the first email lookup returns from Airtable). With multiple Prepared for contacts, the "Web Quote ↗" button will SSO-authenticate as the **first** listed contact. This matches today's behavior when only one exists and is the least surprising default. Not changing SSO logic in this task.
+- Every signed-in user can edit everything the UI exposes to them.
+- What each user *sees* (sidebar entries, page access) remains driven by Airtable `People.Permissions` via `lib/permissions.ts` + `lib/page-guard.ts`.
+- Engineer on the retainer timesheets page will now see the "+ Add story" button and be able to save.
 
 ## Verification
-- `npx tsc --noEmit` clean
-- `npm run build` clean
-- Open a quote, add a second Prepared for, save, reload → both chips present; remove one → persists; Airtable record shows both linked People.
 
-## Out of scope
-- SSO-link picker to choose which contact the "Web Quote" link authenticates as (can add later if needed).
-- Changing how `Client Name` / `primaryEmail` rollups display (Airtable-side, already array-aware).
+- `npx tsc --noEmit` + `npm run build`.
+- Sign in as an engineer-role user in preview, open `/engineering/retainer-timesheets`, confirm the add-story button renders and a story can be created.

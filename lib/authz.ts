@@ -38,10 +38,20 @@ export async function getCurrentRole(): Promise<AppRole | null> {
   return session?.user.role ?? null;
 }
 
-// Roles that can write to Airtable. "editor" is a legacy synonym for "lead".
-const MUTATE_ROLES: AppRole[] = ["admin", "lead", "editor"];
-
+// Edit rights are no longer gated by role. Any signed-in user can mutate;
+// what each user can see/reach is controlled by Airtable People.Permissions
+// (see lib/permissions.ts + lib/page-guard.ts).
 export async function canMutate(): Promise<boolean> {
-  const role = await getCurrentRole();
-  return role !== null && MUTATE_ROLES.includes(role);
+  const session = await getAppSession();
+  return !!session?.user;
+}
+
+// Server-Action / route-handler gate: throws AuthzError if there is no session.
+// Use this at the top of every mutation instead of requireRole(...).
+export async function requireSignedIn(): Promise<NonNullable<AppSession>> {
+  const session = await getAppSession();
+  if (!session?.user) {
+    throw new AuthzError("unauthenticated", "Not signed in");
+  }
+  return session;
 }

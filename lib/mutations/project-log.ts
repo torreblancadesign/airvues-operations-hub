@@ -6,7 +6,7 @@
 import { revalidateTag } from "next/cache";
 import { createRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import type { ProjectLogEventType } from "../project-log-types";
 
 export type LogEventArgs = {
@@ -18,7 +18,7 @@ export type LogEventArgs = {
 };
 
 // Internal helper — no auth gate; only called from inside other server actions
-// that have already run requireRole. Safe because it never accepts client input
+// that have already run requireSignedIn. Safe because it never accepts client input
 // directly without the wrapping action.
 export async function logEventInternal(args: LogEventArgs): Promise<void> {
   const fields: Record<string, unknown> = {
@@ -44,7 +44,7 @@ export async function logEvent(
   args: LogEventArgs,
 ): Promise<{ ok: true } | { error: string }> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };
     return { error: (e as Error).message };

@@ -4,7 +4,7 @@
 import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 
 export type CreateSprintInput = {
   number: number;
@@ -20,7 +20,7 @@ export type CreateSprintResult =
 
 async function gate(): Promise<{ error: string } | null> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

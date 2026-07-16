@@ -4,7 +4,7 @@
 import { revalidateTag } from "next/cache";
 import { getRecord, patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { requireRole, AuthzError } from "../authz";
+import { requireSignedIn, AuthzError } from "../authz";
 import type { LeadStatus, LeadAttachment } from "../leads";
 
 export type MutationResult = { ok: true } | { error: string };
@@ -21,7 +21,7 @@ const TRANSCRIPT_MAX = 50_000;
 
 async function gate(): Promise<MutationResult | null> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

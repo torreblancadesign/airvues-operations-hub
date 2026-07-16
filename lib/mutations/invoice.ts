@@ -7,7 +7,7 @@
 import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import { logEventInternal } from "./project-log";
 
 export type CreateInvoiceResult = { ok: true; id: string } | { error: string };
@@ -124,7 +124,7 @@ function invalidate() {
 
 export async function createInvoice(input: CreateInvoiceInput): Promise<CreateInvoiceResult> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };
     throw e;
@@ -167,7 +167,7 @@ export async function updateInvoice(
   patch: UpdateInvoiceInput,
 ): Promise<MutationResult> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };
     throw e;
@@ -199,7 +199,7 @@ export async function updateInvoice(
 
 export async function markInvoiceSent(recordId: string): Promise<MutationResult> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };
     throw e;

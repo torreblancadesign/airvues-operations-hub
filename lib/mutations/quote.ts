@@ -1,12 +1,12 @@
 // Server Actions for Quote mutations (used by the Pipeline drawer editor).
-// All mutations gated by requireRole + revalidate cache tags so the pipeline
+// All mutations gated by requireSignedIn + revalidate cache tags so the pipeline
 // list, the per-quote detail, and downstream pages re-read.
 "use server";
 
 import { revalidateTag } from "next/cache";
 import { createRecords, getRecord, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import { getQuoteDetail } from "../quotes";
 import { getStoryById } from "../engineering";
 import type { Story } from "../engineering-types";
@@ -21,7 +21,7 @@ export type MutationResult<T = void> = ({ ok: true } & T) | { error: string };
 
 async function gate(): Promise<{ error: string } | null> {
   try {
-    await requireRole("admin", "lead", "editor", "engineer");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

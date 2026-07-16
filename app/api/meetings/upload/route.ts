@@ -2,14 +2,14 @@
 // Mirrors app/api/loops/upload. Audio MIME only, smaller cap (~100 MB).
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { requireRole, AuthzError } from "@/lib/authz";
+import { requireSignedIn, AuthzError } from "@/lib/authz";
 
 const ALLOWED_MIME = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/ogg"];
 const MEETING_UPLOAD_MAX_BYTES = 100 * 1024 * 1024; // 100 MB (≈ 3+ hours of 64 kbps opus)
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    await requireRole("admin", "lead", "editor", "engineer");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) {
       return NextResponse.json({ error: e.reason }, { status: 403 });

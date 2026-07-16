@@ -2,12 +2,12 @@
 // Mirrors app/api/leads/upload/route.ts but scoped to quotes/<quoteId>/ paths.
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { requireRole, AuthzError } from "@/lib/authz";
+import { requireSignedIn, AuthzError } from "@/lib/authz";
 import { UPLOAD_ALLOWED_MIME, UPLOAD_MAX_BYTES } from "@/lib/uploads";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) {
       return NextResponse.json({ error: e.reason }, { status: 403 });

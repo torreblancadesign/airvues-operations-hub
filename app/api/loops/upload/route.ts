@@ -2,7 +2,7 @@
 // Mirrors app/api/leads/upload + app/api/quotes/upload. Larger size cap.
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { requireRole, AuthzError } from "@/lib/authz";
+import { requireSignedIn, AuthzError } from "@/lib/authz";
 import { LOOP_UPLOAD_MAX_BYTES } from "@/lib/uploads";
 
 const ALLOWED_MIME = [
@@ -14,7 +14,7 @@ const ALLOWED_MIME = [
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    await requireRole("admin", "lead", "editor", "engineer");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) {
       return NextResponse.json({ error: e.reason }, { status: 403 });

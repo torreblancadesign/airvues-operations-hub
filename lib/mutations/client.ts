@@ -7,7 +7,7 @@
 import { revalidateTag } from "next/cache";
 import { patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import { logEventInternal } from "./project-log";
 
 export type ClientMutationResult = { ok: true } | { error: string };
@@ -28,7 +28,7 @@ export type LeadStatus = (typeof LEAD_STATUS_CHOICES)[number];
 
 async function gate(): Promise<ClientMutationResult | null> {
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

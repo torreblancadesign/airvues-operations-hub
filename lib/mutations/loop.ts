@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 import { del } from "@vercel/blob";
 import { waitUntil } from "@vercel/functions";
 import { createRecords, patchRecords, getRecord } from "../airtable";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
@@ -20,7 +20,7 @@ export type LoopMutationResult<T = unknown> =
 async function gate(): Promise<{ error: string } | null> {
   try {
     // Engineers + leads + admins + contractors-as-editor can record.
-    await requireRole("admin", "lead", "editor", "engineer");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 import { del } from "@vercel/blob";
 import { waitUntil } from "@vercel/functions";
 import { createRecords, patchRecords, getRecord } from "../airtable";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { MEETINGS_TABLE } from "../meetings";
@@ -18,7 +18,7 @@ export type MeetingMutationResult<T = unknown> =
 
 async function gate(): Promise<{ error: string } | null> {
   try {
-    await requireRole("admin", "lead", "editor", "engineer");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

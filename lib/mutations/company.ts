@@ -4,7 +4,7 @@
 import { revalidateTag } from "next/cache";
 import { patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 
 export type CompanyPatch = {
   // New blueprint fields
@@ -59,7 +59,7 @@ export async function updateCompany(
   if (!companyId) return { error: "Missing companyId" };
 
   try {
-    await requireRole("admin", "lead", "editor");
+    await requireSignedIn();
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };
     return { error: (e as Error).message };

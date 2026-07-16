@@ -1,4 +1,4 @@
-// Server Actions for Story mutations. All gated by requireRole("admin", "lead").
+// Server Actions for Story mutations. All gated by requireSignedIn().
 // After every successful write we invalidate the relevant cache tags so /engineering,
 // /me, /backlog, and home tiles refetch.
 "use server";
@@ -6,7 +6,7 @@
 import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, requireSignedIn } from "../authz";
 import { logEventInternal } from "./project-log";
 
 export type StoryPatch = {
@@ -68,7 +68,7 @@ function invalidateStoryCaches() {
 async function gate(): Promise<{ error: string } | null> {
   try {
     // "editor" is the legacy synonym for "lead" (see lib/auth.ts AppRole comment).
-    await requireRole("admin", "lead", "editor", "engineer");
+    await requireSignedIn();
     return null;
   } catch (e) {
     if (e instanceof AuthzError) return { error: e.reason };

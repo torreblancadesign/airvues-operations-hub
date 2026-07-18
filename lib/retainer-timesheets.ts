@@ -44,7 +44,7 @@ export async function listRetainers(): Promise<RetainerListItem[]> {
         t.fields["Stories"].id,
         t.fields["Total Hours"].id,
       ],
-      filterByFormula: `AND({Proposal Type} = 'Retainer Agreement', {Status} = 'Approved and Signed')`,
+      filterByFormula: `AND({Proposal Type} = 'Retainer Agreement', OR({Status} = 'Approved and Signed', {Status} = 'Project In Progress'))`,
     },
     ["retainer-timesheets:list"],
   );

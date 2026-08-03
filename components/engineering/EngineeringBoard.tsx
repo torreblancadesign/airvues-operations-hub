@@ -155,15 +155,17 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
         />
       </div>
 
-      <EngineeringFilterBar
-        filter={filter}
-        setFilter={setFilter}
-        engineers={engineersWithWork}
-        clients={data.clients}
-        sprints={data.sprints}
-        totalStories={data.totals.totalStories}
-        filteredCount={filteredCount}
-      />
+      <div className="sticky top-0 md:top-12 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-4 bg-bg/95 backdrop-blur border-b border-rule-soft">
+        <EngineeringFilterBar
+          filter={filter}
+          setFilter={setFilter}
+          engineers={engineersWithWork}
+          clients={data.clients}
+          sprints={data.sprints}
+          totalStories={data.totals.totalStories}
+          filteredCount={filteredCount}
+        />
+      </div>
 
       {/* Unified roster */}
       <div className="space-y-3">

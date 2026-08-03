@@ -41,7 +41,7 @@ export function EngineeringFilterBar({
     filter.orphanOnly;
 
   return (
-    <div className="mb-4">
+    <div>
       <div className="flex items-center gap-2 flex-wrap">
         <div className="w-full sm:flex-1 sm:min-w-[240px] relative">
           <svg

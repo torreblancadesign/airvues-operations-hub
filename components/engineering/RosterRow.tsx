@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { EngineerGroup, Story } from "@/lib/engineering-types";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { StoryTable } from "./StoryTable";
 
 type Props = {
@@ -26,6 +28,32 @@ export function RosterRow({
   const t = group.totals;
   const barPct =
     maxAssigned > 0 ? Math.min(100, (t.activeHoursAssigned / maxAssigned) * 100) : 0;
+
+  // Card-local filters — options come only from this engineer's own stories.
+  const [cardClient, setCardClient] = useState<string | null>(null);
+  const [cardStatus, setCardStatus] = useState<string | null>(null);
+
+  const clientOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of stories) for (const c of s.clientNames) set.add(c);
+    return [...set].sort().map((c) => ({ value: c, label: c }));
+  }, [stories]);
+
+  const statusOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of stories) if (s.status) set.add(s.status);
+    return [...set].sort();
+  }, [stories]);
+
+  const visibleStories = useMemo(
+    () =>
+      stories.filter(
+        (s) =>
+          (!cardClient || s.clientNames.includes(cardClient)) &&
+          (!cardStatus || s.status === cardStatus),
+      ),
+    [stories, cardClient, cardStatus],
+  );
 
   return (
     <section
@@ -77,7 +105,33 @@ export function RosterRow({
 
       {expanded && (
         <div className="border-t border-rule">
-          <div className="px-4 py-2 bg-bg-elevated border-b border-rule flex items-center justify-end gap-4 text-[11px]">
+          <div className="px-4 py-2 bg-bg-elevated border-b border-rule flex items-center justify-between gap-3 flex-wrap text-[11px]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <SearchableSelect
+                value={cardClient}
+                onChange={setCardClient}
+                options={clientOptions}
+                allLabel="All clients"
+              />
+              <select
+                value={cardStatus ?? ""}
+                onChange={(e) => setCardStatus(e.target.value || null)}
+                className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none transition-colors cursor-pointer"
+                aria-label="Status filter for this engineer"
+              >
+                <option value="">All statuses</option>
+                {statusOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              {(cardClient || cardStatus) && (
+                <span className="font-mono text-ink-faint tabnum">
+                  {visibleStories.length} of {stories.length}
+                </span>
+              )}
+            </div>
             {group.isOrphan ? (
               <Link
                 href="/hygiene/orphans"
@@ -94,7 +148,7 @@ export function RosterRow({
               </Link>
             )}
           </div>
-          <StoryTable stories={stories} selectedId={selectedId} onSelect={onSelectStory} />
+          <StoryTable stories={visibleStories} selectedId={selectedId} onSelect={onSelectStory} />
         </div>
       )}
     </section>

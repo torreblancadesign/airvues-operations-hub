@@ -1,6 +1,6 @@
 "use client";
 
-import { EMPTY_FILTER, Filter, StatusBucket } from "./types";
+import { EMPTY_FILTER, Filter, PRIORITIES, StatusBucket } from "./types";
 
 type EngineerOption = { id: string; name: string };
 
@@ -37,6 +37,7 @@ export function EngineeringFilterBar({
     filter.engineerId !== null ||
     filter.client !== null ||
     filter.sprintNumber !== null ||
+    filter.priority !== null ||
     filter.orphanOnly;
 
   return (
@@ -86,7 +87,6 @@ export function EngineeringFilterBar({
           aria-label="Engineer filter"
         >
           <option value="">All engineers</option>
-          <option value="__orphan__">Unassigned (orphan)</option>
           {engineers.map((e) => (
             <option key={e.id} value={e.id}>
               {e.name}
@@ -125,15 +125,19 @@ export function EngineeringFilterBar({
           ))}
         </select>
 
-        <label className="flex items-center gap-1.5 text-[12px] text-ink-muted cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={filter.orphanOnly}
-            onChange={(e) => update("orphanOnly", e.target.checked)}
-            className="accent-red"
-          />
-          Orphan only
-        </label>
+        <select
+          value={filter.priority ?? ""}
+          onChange={(e) => update("priority", e.target.value || null)}
+          className={selectCls}
+          aria-label="Priority filter"
+        >
+          <option value="">All priorities</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
 
         {hasActive && (
           <button

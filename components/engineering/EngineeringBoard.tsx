@@ -31,13 +31,14 @@ function storyMatches(s: Story, f: Filter): boolean {
   }
   if (f.client && !s.clientNames.includes(f.client)) return false;
   if (f.sprintNumber != null && !s.sprintNumbers.includes(f.sprintNumber)) return false;
+  if (f.priority && s.priority !== f.priority) return false;
   return true;
 }
 
 export function EngineeringBoard({ data, canEdit = false }: Props) {
   const [filter, setFilter] = useSearchParamsFilter<Filter>({
     defaults: EMPTY_FILTER,
-    keys: ["search", "status", "engineerId", "client", "sprintNumber", "orphanOnly"],
+    keys: ["search", "status", "engineerId", "client", "sprintNumber", "priority", "orphanOnly"],
   });
   const [selected, setSelected] = useState<Story | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());

@@ -4,10 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { EngineeringBoardData, Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
-import { StoryCard } from "./StoryCard";
 import { StorySheet } from "./StorySheet";
 import { EngineeringFilterBar } from "./FilterBar";
-import { CapacityPanel } from "./CapacityPanel";
+import { RosterRow } from "./RosterRow";
 import { EMPTY_FILTER, Filter, STATUS_GROUPS } from "./types";
 import { useSearchParamsFilter } from "@/lib/use-search-params-filter";
 
@@ -41,7 +40,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
     keys: ["search", "status", "engineerId", "client", "sprintNumber", "priority", "orphanOnly"],
   });
   const [selected, setSelected] = useState<Story | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(["__free__"]));
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {
@@ -89,6 +88,34 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
     [data.groups],
   );
 
+  const roster = useMemo(() => {
+    const orphan = filtered.find((g) => g.isOrphan);
+    const engineers = filtered.filter((g) => !g.isOrphan);
+    const working = engineers
+      .filter((g) => g.visibleStories.length > 0)
+      .sort(
+        (a, b) =>
+          b.totals.inProgressCount - a.totals.inProgressCount ||
+          b.totals.activeHoursAssigned - a.totals.activeHoursAssigned,
+      );
+    // Engineers with no visible stories under the current filter + assignable
+    // people who have no story group at all — folded into one "free" row.
+    const groupIds = new Set(engineers.map((g) => g.id));
+    const free: { id: string; name: string; role: string | null }[] = [
+      ...engineers
+        .filter((g) => g.visibleStories.length === 0)
+        .map((g) => ({ id: g.id, name: g.name, role: g.role })),
+      ...data.assignablePeople
+        .filter((p) => !groupIds.has(p.id))
+        .map((p) => ({ id: p.id, name: p.name, role: p.role })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    const maxAssigned = Math.max(
+      ...working.map((g) => g.totals.activeHoursAssigned),
+      1,
+    );
+    return { orphan, working, free, maxAssigned };
+  }, [filtered, data.assignablePeople]);
+
   return (
     <>
       {/* KPI strip */}
@@ -128,9 +155,6 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
         />
       </div>
 
-      {/* Capacity planning — hours per engineer */}
-      <CapacityPanel groups={data.groups} />
-
       <EngineeringFilterBar
         filter={filter}
         setFilter={setFilter}
@@ -141,101 +165,82 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
         filteredCount={filteredCount}
       />
 
-      {/* Engineer sections */}
-      <div className="space-y-6">
-        {filtered.length === 0 && (
+      {/* Unified roster */}
+      <div className="space-y-3">
+        {roster.orphan && roster.orphan.visibleStories.length > 0 && (
+          <RosterRow
+            group={roster.orphan}
+            stories={roster.orphan.visibleStories}
+            maxAssigned={roster.maxAssigned}
+            expanded={!collapsed.has("__orphan__")}
+            onToggle={() => toggleCollapse("__orphan__")}
+            selectedId={selected?.id ?? null}
+            onSelectStory={setSelected}
+          />
+        )}
+
+        {roster.working.map((g) => (
+          <RosterRow
+            key={g.id}
+            group={g}
+            stories={g.visibleStories}
+            maxAssigned={roster.maxAssigned}
+            expanded={!collapsed.has(g.id)}
+            onToggle={() => toggleCollapse(g.id)}
+            selectedId={selected?.id ?? null}
+            onSelectStory={setSelected}
+          />
+        ))}
+
+        {roster.working.length === 0 && !roster.orphan && (
           <div className="text-center py-12 text-ink-muted text-[13px]">
-            No engineers match the current filter.
+            No stories match the current filter.
           </div>
         )}
-        {filtered.map((g) => {
-          if (g.visibleStories.length === 0) return null;
-          const isCollapsed = collapsed.has(g.id);
-          return (
-            <section key={g.id} className="bg-surface border border-rule rounded-card overflow-hidden">
-              <button
-                type="button"
-                onClick={() => toggleCollapse(g.id)}
-                className="w-full text-left px-5 py-4 border-b border-rule flex items-center justify-between gap-4 hover:bg-bg-elevated transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${g.isOrphan ? "bg-red" : "bg-emerald"}`} />
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
-                      {g.name}
-                    </div>
-                    <div className="text-[11px] text-ink-muted mt-0.5 truncate">
-                      {g.role ? `${g.role}` : g.isOrphan ? "Triage these into an engineer" : "—"}
-                      {g.internalType && <span className="text-ink-faint"> · {g.internalType}</span>}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-4 sm:gap-6 text-right shrink-0">
-                  <div className="hidden sm:block">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Active</div>
-                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeCount}</div>
-                  </div>
-                  <div className="hidden md:block">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Assigned hrs</div>
-                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeHoursAssigned}h</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Worked hrs</div>
-                    <div className="text-[14px] font-semibold text-emerald tabnum">{g.totals.activeHoursWorked}h</div>
-                  </div>
-                  <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
-                    {isCollapsed ? "+" : "−"}
-                  </span>
-                </div>
-              </button>
-
-              {!isCollapsed && (
-                <>
-                  {/* Per-engineer status mini-strip + scorecard link */}
-                  <div className="px-5 py-2.5 bg-bg-elevated border-b border-rule flex items-center justify-between gap-4 text-[11px] font-mono text-ink-muted tabnum flex-wrap">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      {g.totals.inProgressCount > 0 && (
-                        <span><span className="text-emerald">●</span> {g.totals.inProgressCount} in progress</span>
-                      )}
-                      {g.totals.todoCount > 0 && (
-                        <span><span className="text-ink-faint">●</span> {g.totals.todoCount} todo</span>
-                      )}
-                      {g.totals.qaCount > 0 && (
-                        <span><span className="text-sky">●</span> {g.totals.qaCount} QA</span>
-                      )}
-                      {g.totals.onHoldCount > 0 && (
-                        <span><span className="text-amber">●</span> {g.totals.onHoldCount} hold</span>
-                      )}
-                      {g.totals.doneCount > 0 && (
-                        <span><span className="text-violet">●</span> {g.totals.doneCount} done</span>
-                      )}
+        {roster.free.length > 0 && !filter.orphanOnly && (
+          <section className="bg-surface border border-rule rounded-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleCollapse("__free__")}
+              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-bg-elevated transition-colors"
+            >
+              <div className="min-w-0">
+                <span className="text-[13px] font-semibold text-ink-strong">
+                  {roster.free.length} engineer{roster.free.length === 1 ? "" : "s"} free
+                </span>
+                <span className="ml-2 text-[12px] text-ink-muted truncate">
+                  {roster.free.map((p) => p.name).join(" · ")}
+                </span>
+              </div>
+              <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
+                {collapsed.has("__free__") ? "+" : "−"}
+              </span>
+            </button>
+            {!collapsed.has("__free__") && (
+              <div className="border-t border-rule divide-y divide-rule">
+                {roster.free.map((p) => (
+                  <div
+                    key={p.id}
+                    className="px-5 py-2.5 flex items-center justify-between gap-4 text-[12px]"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-ink-strong font-medium">{p.name}</span>
+                      <span className="ml-2 text-ink-muted">{p.role ?? "Engineer"}</span>
+                      <span className="ml-2 text-ink-faint">· no active stories</span>
                     </div>
-                    {!g.isOrphan && (
-                      <Link
-                        href={`/me?as=${g.id}`}
-                        className="text-emerald hover:text-emerald/80 transition-colors font-mono whitespace-nowrap"
-                      >
-                        View scorecard →
-                      </Link>
-                    )}
+                    <Link
+                      href={`/me?as=${p.id}`}
+                      className="text-emerald hover:text-emerald/80 transition-colors font-mono text-[11px] whitespace-nowrap"
+                    >
+                      View scorecard →
+                    </Link>
                   </div>
-
-                  <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {g.visibleStories.map((s) => (
-                      <StoryCard
-                        key={s.id}
-                        story={s}
-                        onClick={setSelected}
-                        selected={selected?.id === s.id}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </section>
-          );
-        })}
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <StorySheet

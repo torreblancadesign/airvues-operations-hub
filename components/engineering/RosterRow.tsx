@@ -1,0 +1,102 @@
+"use client";
+
+import Link from "next/link";
+import { EngineerGroup, Story } from "@/lib/engineering-types";
+import { StoryTable } from "./StoryTable";
+
+type Props = {
+  group: EngineerGroup;
+  stories: Story[]; // pre-filtered by the board
+  maxAssigned: number; // max activeHoursAssigned across engineers, for bar scaling
+  expanded: boolean;
+  onToggle: () => void;
+  selectedId: string | null;
+  onSelectStory: (s: Story) => void;
+};
+
+export function RosterRow({
+  group,
+  stories,
+  maxAssigned,
+  expanded,
+  onToggle,
+  selectedId,
+  onSelectStory,
+}: Props) {
+  const t = group.totals;
+  const barPct =
+    maxAssigned > 0 ? Math.min(100, (t.activeHoursAssigned / maxAssigned) * 100) : 0;
+
+  return (
+    <section
+      className={`bg-surface border border-rule rounded-card overflow-hidden ${
+        group.isOrphan ? "border-red/30" : ""
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-bg-elevated transition-colors"
+      >
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div
+            className={`w-2 h-2 rounded-full shrink-0 ${group.isOrphan ? "bg-red" : "bg-emerald"}`}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[14px] font-semibold text-ink-strong leading-tight truncate">
+                {group.name}
+              </span>
+              <span className="hidden sm:flex items-center gap-3 shrink-0 text-[11px] font-mono text-ink-muted tabnum">
+                {t.inProgressCount > 0 && (
+                  <span className="text-emerald">{t.inProgressCount} doing</span>
+                )}
+                {t.todoCount > 0 && <span>{t.todoCount} todo</span>}
+                {t.qaCount > 0 && <span className="text-sky">{t.qaCount} QA</span>}
+                <span className="text-ink-strong">{t.activeHoursAssigned}h</span>
+              </span>
+            </div>
+            <div className="mt-1.5 h-1 bg-bg-elevated rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${group.isOrphan ? "bg-red" : "bg-emerald"}`}
+                style={{ width: `${Math.max(barPct, 2)}%` }}
+              />
+            </div>
+            <div className="mt-1 text-[11px] text-ink-muted truncate">
+              {group.isOrphan
+                ? "Stories waiting for an engineer"
+                : (group.role ?? "Engineer") +
+                  (group.internalType ? ` · ${group.internalType}` : "")}
+            </div>
+          </div>
+        </div>
+        <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
+          {expanded ? "−" : "+"}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-rule">
+          <div className="px-4 py-2 bg-bg-elevated border-b border-rule flex items-center justify-end gap-4 text-[11px]">
+            {group.isOrphan ? (
+              <Link
+                href="/hygiene/orphans"
+                className="text-red hover:text-red/80 transition-colors font-mono"
+              >
+                Triage →
+              </Link>
+            ) : (
+              <Link
+                href={`/me?as=${group.id}`}
+                className="text-emerald hover:text-emerald/80 transition-colors font-mono"
+              >
+                View scorecard →
+              </Link>
+            )}
+          </div>
+          <StoryTable stories={stories} selectedId={selectedId} onSelect={onSelectStory} />
+        </div>
+      )}
+    </section>
+  );
+}

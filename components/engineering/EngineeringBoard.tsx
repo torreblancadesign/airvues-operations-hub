@@ -84,6 +84,11 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
 
   const filteredCount = filtered.reduce((sum, g) => sum + g.visibleStories.length, 0);
 
+  const inProgressNow = useMemo(
+    () => data.groups.reduce((sum, g) => sum + g.totals.inProgressCount, 0),
+    [data.groups],
+  );
+
   return (
     <>
       {/* KPI strip */}
@@ -94,10 +99,10 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           sub={`${data.totals.totalStories.toLocaleString()} total · ${data.totals.completedStories} done`}
         />
         <StatCard
-          label="Open hours"
+          label="In progress now"
           tone="emerald"
-          value={`${data.groups.reduce((sum, g) => sum + g.totals.activeHoursAssigned, 0)}h`}
-          sub="Scoped on active stories"
+          value={inProgressNow.toLocaleString()}
+          sub="Being worked on right now"
         />
         <StatCard
           label="Unassigned"
@@ -108,69 +113,23 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           onClick={() => setFilter({ ...filter, orphanOnly: !filter.orphanOnly })}
         />
         <StatCard
-          label="Over budget"
-          tone={data.totals.overBudgetCount > 0 ? "amber" : "neutral"}
-          value={data.totals.overBudgetCount.toLocaleString()}
-          sub="Hours worked exceeds scoped"
+          label="QA queue"
+          tone={data.totals.qaReviewCount > 0 ? "amber" : "neutral"}
+          value={data.totals.qaReviewCount.toLocaleString()}
+          sub="Waiting on review"
+          active={filter.status === "qa"}
+          onClick={() =>
+            setFilter(
+              filter.status === "qa"
+                ? { ...filter, status: "active" }
+                : { ...EMPTY_FILTER, status: "qa" },
+            )
+          }
         />
       </div>
 
       {/* Capacity planning — hours per engineer */}
       <CapacityPanel groups={data.groups} />
-
-      {/* Orphan banner */}
-      {data.totals.orphanStories > 0 && !filter.orphanOnly && (
-        <div className="w-full mb-4 bg-red/10 border border-red/30 rounded-md px-4 py-3">
-          <div className="flex items-start gap-3">
-            <div className="w-1 self-stretch bg-red rounded-full" />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-red">
-                {data.totals.orphanStories} stories have no engineer assigned
-              </div>
-              <div className="text-[12px] text-ink-muted mt-0.5">
-                Engineer attribution and commission tracking will under-report until these are routed.
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setFilter({ ...EMPTY_FILTER, orphanOnly: true })}
-                className="px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink-strong border border-rule hover:border-ink-muted rounded-md transition-colors whitespace-nowrap"
-              >
-                Filter here
-              </button>
-              <Link
-                href="/hygiene/orphans"
-                className="px-2.5 py-1 text-[11px] bg-red text-bg font-semibold rounded hover:bg-red/80 transition-colors whitespace-nowrap"
-              >
-                Triage now →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bottleneck signal — QA queue + analysis stalls */}
-      {(data.totals.qaReviewCount > 0 || data.totals.analysisRequiredCount > 0) && (
-        <div className="w-full mb-4 bg-amber/10 border border-amber/30 rounded-md px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="text-[12px] text-ink-muted">
-            <span className="font-mono uppercase tracking-wider text-[10px] text-amber mr-2">Bottlenecks</span>
-            <span className="text-ink-strong tabnum">{data.totals.qaReviewCount}</span> in QA Review ·{" "}
-            <span className="text-ink-strong tabnum">{data.totals.analysisRequiredCount}</span> awaiting analysis
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {data.totals.qaReviewCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilter({ ...EMPTY_FILTER, status: "qa" })}
-                className="px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink-strong border border-rule hover:border-ink-muted rounded-md transition-colors whitespace-nowrap"
-              >
-                QA queue →
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       <EngineeringFilterBar
         filter={filter}

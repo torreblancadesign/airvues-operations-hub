@@ -40,10 +40,11 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
     keys: ["search", "status", "engineerId", "client", "sprintNumber", "priority", "orphanOnly"],
   });
   const [selected, setSelected] = useState<Story | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set(["__free__"]));
+  // Everything starts collapsed — the roster reads as an overview first.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const toggleCollapse = (id: string) => {
-    setCollapsed((prev) => {
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -161,7 +162,6 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           setFilter={setFilter}
           engineers={engineersWithWork}
           clients={data.clients}
-          sprints={data.sprints}
           totalStories={data.totals.totalStories}
           filteredCount={filteredCount}
         />
@@ -174,8 +174,8 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
             group={roster.orphan}
             stories={roster.orphan.visibleStories}
             maxAssigned={roster.maxAssigned}
-            expanded={!collapsed.has("__orphan__")}
-            onToggle={() => toggleCollapse("__orphan__")}
+            expanded={expanded.has("__orphan__")}
+            onToggle={() => toggleExpand("__orphan__")}
             selectedId={selected?.id ?? null}
             onSelectStory={setSelected}
           />
@@ -187,8 +187,8 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
             group={g}
             stories={g.visibleStories}
             maxAssigned={roster.maxAssigned}
-            expanded={!collapsed.has(g.id)}
-            onToggle={() => toggleCollapse(g.id)}
+            expanded={expanded.has(g.id)}
+            onToggle={() => toggleExpand(g.id)}
             selectedId={selected?.id ?? null}
             onSelectStory={setSelected}
           />
@@ -204,7 +204,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           <section className="bg-surface border border-rule rounded-card overflow-hidden">
             <button
               type="button"
-              onClick={() => toggleCollapse("__free__")}
+              onClick={() => toggleExpand("__free__")}
               className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-bg-elevated transition-colors"
             >
               <div className="min-w-0">
@@ -216,10 +216,10 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
                 </span>
               </div>
               <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
-                {collapsed.has("__free__") ? "+" : "−"}
+                {expanded.has("__free__") ? "−" : "+"}
               </span>
             </button>
-            {!collapsed.has("__free__") && (
+            {expanded.has("__free__") && (
               <div className="border-t border-rule divide-y divide-rule">
                 {roster.free.map((p) => (
                   <div

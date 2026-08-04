@@ -57,6 +57,10 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
 
   const fromClient = searchParams?.fromClient ?? null;
 
+  const projectInvoices = allInvoices
+    .filter((inv) => inv.quoteRecordIds.includes(quote.id))
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+
   return (
     <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <div className="mb-3 text-[11px] font-mono text-ink-faint flex items-center gap-3">

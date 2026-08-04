@@ -169,6 +169,11 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
           <ProjectLogTimeline entries={logEntries} />
         </Section>
       </div>
+
+      <div className="mt-6">
+        <QuoteInvoices quoteId={quote.id} invoices={projectInvoices} canEdit={canEdit} />
+      </div>
     </main>
+
   );
 }

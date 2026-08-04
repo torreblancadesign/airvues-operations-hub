@@ -8,9 +8,11 @@ import { listAllQuotes } from "@/lib/pipeline";
 import { listPeopleOptions } from "@/lib/quotes";
 import { listSprintOptions } from "@/lib/sprints";
 import { listProjectLogForProject } from "@/lib/project-log";
+import { listAllInvoices } from "@/lib/money";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Section } from "@/components/ui/Section";
 import { QuoteSheetEditor } from "@/components/pipeline/QuoteSheetEditor";
+import { QuoteInvoices } from "@/components/pipeline/QuoteInvoices";
 import { DealStageChip } from "@/components/pipeline/DealStageChip";
 import { ProjectLogTimeline } from "@/components/projects/ProjectLogTimeline";
 import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
@@ -35,12 +37,13 @@ type Params = {
 
 export default async function QuoteDetailPage({ params, searchParams }: Params) {
   await assertCanAccess("/pipeline");
-  const [quotes, people, sprints, canEdit, logEntries] = await Promise.all([
+  const [quotes, people, sprints, canEdit, logEntries, allInvoices] = await Promise.all([
     listAllQuotes(),
     listPeopleOptions(),
     listSprintOptions(),
     canMutate(),
     listProjectLogForProject(params.id),
+    listAllInvoices(),
   ]);
 
   const quote = quotes.find((q) => q.id === params.id);
@@ -53,6 +56,10 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
     (quote.status === "Sent. Awaiting Approval." || quote.status === "Draft");
 
   const fromClient = searchParams?.fromClient ?? null;
+
+  const projectInvoices = allInvoices
+    .filter((inv) => inv.quoteRecordIds.includes(quote.id))
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
   return (
     <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
@@ -162,6 +169,11 @@ export default async function QuoteDetailPage({ params, searchParams }: Params) 
           <ProjectLogTimeline entries={logEntries} />
         </Section>
       </div>
+
+      <div className="mt-6">
+        <QuoteInvoices quoteId={quote.id} invoices={projectInvoices} canEdit={canEdit} />
+      </div>
     </main>
+
   );
 }

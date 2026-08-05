@@ -7,8 +7,8 @@ import { Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 
-import { StoryCard } from "@/components/engineering/StoryCard";
 import { StorySheet } from "@/components/engineering/StorySheet";
+import { StoryTable } from "@/components/engineering/StoryTable";
 import { PersonPicker } from "./PersonPicker";
 import { EarningsChart } from "./EarningsChart";
 import { GoalEditor } from "./GoalEditor";
@@ -357,10 +357,13 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
                 title="Next to Ship"
                 aside={`Highest-value active stories · ship these to earn ${fmtMoney(nextToShip.reduce((s, n) => s + n.commission, 0))}`}
               />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {nextToShip.map((s) => (
-                  <StoryCard key={s.id} story={s} onClick={setSelected} selected={selected?.id === s.id} />
-                ))}
+              <div className="bg-surface border border-rule rounded-card overflow-hidden">
+                <StoryTable
+                  stories={nextToShip}
+                  selectedId={selected?.id ?? null}
+                  onSelect={setSelected}
+                  preserveOrder
+                />
               </div>
             </div>
           )}

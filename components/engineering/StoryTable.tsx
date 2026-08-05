@@ -10,6 +10,8 @@ type Props = {
   onSelect: (s: Story) => void;
   /** Hide the Client column — for tables already grouped by client. */
   hideClient?: boolean;
+  /** Keep the caller's ordering instead of sorting by story number. */
+  preserveOrder?: boolean;
 };
 
 // Compact one-row-per-story table. Pay/quote/description details live in the
@@ -19,17 +21,25 @@ const GRID =
 const GRID_NO_CLIENT =
   "lg:grid lg:grid-cols-[120px_52px_86px_minmax(220px,1fr)_56px] lg:gap-3 lg:items-center";
 
-export function StoryTable({ stories, selectedId, onSelect, hideClient = false }: Props) {
+export function StoryTable({
+  stories,
+  selectedId,
+  onSelect,
+  hideClient = false,
+  preserveOrder = false,
+}: Props) {
   const grid = hideClient ? GRID_NO_CLIENT : GRID;
   // Sort by story number ascending; stories without a number sink to the end.
   const sorted = useMemo(
     () =>
-      [...stories].sort((a, b) => {
-        if (a.storyNumber == null) return b.storyNumber == null ? 0 : 1;
-        if (b.storyNumber == null) return -1;
-        return a.storyNumber - b.storyNumber;
-      }),
-    [stories],
+      preserveOrder
+        ? stories
+        : [...stories].sort((a, b) => {
+            if (a.storyNumber == null) return b.storyNumber == null ? 0 : 1;
+            if (b.storyNumber == null) return -1;
+            return a.storyNumber - b.storyNumber;
+          }),
+    [stories, preserveOrder],
   );
 
   if (stories.length === 0) {

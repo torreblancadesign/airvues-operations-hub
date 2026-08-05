@@ -14,7 +14,10 @@ export type Story = {
   hoursWorked: number | null;
   invoice: number;
   cost: number;
+  /** Total commission liability: sum of assigneeCommissions, or cost × default rate when unassigned. */
   commission: number;
+  /** Per-assignee commission (parallel to assigneeIds): round2(cost × that person's rate). */
+  assigneeCommissions: number[];
   budgetPctUsed: number | null;
   assigneeIds: string[];
   assigneeNames: string[];

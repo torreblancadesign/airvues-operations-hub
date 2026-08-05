@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Story } from "@/lib/engineering-types";
 import { statusTone, priorityDot } from "./story-badges";
 
@@ -12,9 +13,20 @@ type Props = {
 // Compact one-row-per-story table. Pay/quote/description details live in the
 // StorySheet drawer — this view is for scanning and comparing.
 const GRID =
-  "lg:grid lg:grid-cols-[120px_52px_86px_minmax(220px,1fr)_minmax(130px,0.5fr)_56px_56px] lg:gap-3 lg:items-center";
+  "lg:grid lg:grid-cols-[120px_52px_86px_minmax(220px,1fr)_minmax(130px,0.5fr)_56px] lg:gap-3 lg:items-center";
 
 export function StoryTable({ stories, selectedId, onSelect }: Props) {
+  // Sort by story number ascending; stories without a number sink to the end.
+  const sorted = useMemo(
+    () =>
+      [...stories].sort((a, b) => {
+        if (a.storyNumber == null) return b.storyNumber == null ? 0 : 1;
+        if (b.storyNumber == null) return -1;
+        return a.storyNumber - b.storyNumber;
+      }),
+    [stories],
+  );
+
   if (stories.length === 0) {
     return (
       <div className="px-4 py-4 text-[12px] text-ink-muted">
@@ -33,12 +45,11 @@ export function StoryTable({ stories, selectedId, onSelect }: Props) {
         <div>Priority</div>
         <div>Story</div>
         <div>Client</div>
-        <div>Sprint</div>
         <div className="text-right">Est</div>
       </div>
 
       <div className="divide-y divide-rule">
-        {stories.map((s) => {
+        {sorted.map((s) => {
           const isSelected = selectedId === s.id;
           return (
             <button
@@ -95,11 +106,6 @@ export function StoryTable({ stories, selectedId, onSelect }: Props) {
                 <span className="block truncate text-[12px] text-ink-muted">
                   {s.clientNames[0] ?? "—"}
                 </span>
-              </div>
-
-              {/* Sprint */}
-              <div className="hidden font-mono text-[11px] text-ink-muted tabnum lg:block">
-                {s.sprintNumbers[0] != null ? `S${s.sprintNumbers[0]}` : "—"}
               </div>
 
               {/* Est hours */}

@@ -108,6 +108,14 @@ export function StoryTable({
                     {s.storyNumber != null ? `#${s.storyNumber}` : ""}
                   </span>
                   {s.name}
+                  {s.assigneeNames.length > 1 && (
+                    <span
+                      title={`Shared: ${s.assigneeNames.join(", ")}`}
+                      className="ml-1.5 inline-block align-middle rounded border border-violet/30 bg-violet/10 px-1 py-px text-[9px] font-mono uppercase tracking-wider text-violet"
+                    >
+                      Shared · {s.assigneeNames.length}
+                    </span>
+                  )}
                 </span>
                 <span className="mt-0.5 block truncate text-[11px] text-ink-muted lg:hidden">
                   {hideClient

@@ -8,6 +8,7 @@ import { createRecords, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireSignedIn } from "../authz";
 import { logEventInternal } from "./project-log";
+import { createCompletionPayments } from "../completion-payments";
 
 export type StoryPatch = {
   name?: string;
@@ -26,7 +27,9 @@ export type StoryPatch = {
   tags?: string[];
 };
 
-export type MutationResult = { ok: true } | { error: string };
+export type MutationResult =
+  | { ok: true; paymentsCreated?: number }
+  | { error: string };
 
 const SPRINT_FIELD_NAME = "📆Sprints";
 
@@ -88,14 +91,27 @@ export async function updateStory(
       { id: storyId, fields: buildStoryFields(patch) },
     ]);
     invalidateStoryCaches();
+    let paymentsCreated: number | undefined;
     if (patch.status === "Completed") {
+      try {
+        const payRes = await createCompletionPayments(storyId);
+        paymentsCreated = payRes.created.length;
+        invalidateStoryCaches();
+      } catch (e) {
+        // Never fail the status change over payment automation; surface via log.
+        await logEventInternal({
+          projectId: null,
+          eventType: "Payment automation failed",
+          detail: `Story ${storyId}: ${(e as Error).message}`,
+        });
+      }
       await logEventInternal({
         projectId: null,
         eventType: "Story completed",
         detail: `Story ${storyId} marked Completed`,
       });
     }
-    return { ok: true };
+    return { ok: true, paymentsCreated };
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -116,7 +132,24 @@ export async function bulkUpdateStories(
       storyIds.map((id) => ({ id, fields })),
     );
     invalidateStoryCaches();
-    return { ok: true };
+    let paymentsCreated: number | undefined;
+    if (patch.status === "Completed") {
+      paymentsCreated = 0;
+      for (const id of storyIds) {
+        try {
+          const payRes = await createCompletionPayments(id);
+          paymentsCreated += payRes.created.length;
+        } catch (e) {
+          await logEventInternal({
+            projectId: null,
+            eventType: "Payment automation failed",
+            detail: `Story ${id}: ${(e as Error).message}`,
+          });
+        }
+      }
+      invalidateStoryCaches();
+    }
+    return { ok: true, paymentsCreated };
   } catch (e) {
     return { error: (e as Error).message };
   }

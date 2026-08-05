@@ -2,7 +2,7 @@
 
 > Read this entirely before touching code. These rules exist because something already broke when they weren't followed.
 >
-> **Last updated:** 2026-05-19 (TopBar widgets + personal-first home + people resolver)
+> **Last updated:** 2026-08-03 (2026-06 nav restructure + People.Permissions view gating + Loops/Meetings/Founder + Cmd+K)
 
 ## What this is
 
@@ -16,9 +16,20 @@ URL: `https://airvues-ops.vercel.app`
 - **Language:** TypeScript strict mode
 - **Styling:** Tailwind CSS, dark theme, JetBrains Mono numerics
 - **Data:** Airtable REST API via `lib/airtable.ts` (server-only)
-- **Auth:** NextAuth v5 Google OAuth + email/domain allowlist
+- **Auth:** NextAuth v5 Google OAuth + email/domain allowlist (role) + `People.Permissions` (view access)
+- **Media:** Vercel Blob (`BLOB_READ_WRITE_TOKEN`) for Loop/Meeting recordings + quote/lead uploads
+- **AI:** Lovable AI Gateway → `google/gemini-2.5-flash` for Loop/Meeting transcription (`LOVABLE_API_KEY`, `lib/transcribe.ts` + `lib/transcribe-meeting.ts`; audio extracted via bundled `ffmpeg-static`)
 - **Deploy:** Vercel (production + preview)
 - **Node:** Whatever Next.js 14 supports (18+)
+
+## Commands
+
+- `npm run dev` — local dev (needs `.env.local`)
+- `npx tsc --noEmit` (alias `npm run build:dev`) — typecheck, must pass before shipping
+- `npm run build` — production build, must pass before shipping
+- `npm run lint` — Next.js ESLint
+- `npm run verify-schema` — validates `lib/schema.ts` field IDs against the live Airtable Meta API
+- No test suite exists. Verification = typecheck → build → deploy → curl routes.
 
 ## ⛔ DO NOT — hard rules
 
@@ -36,6 +47,7 @@ These break things. Do not bypass.
 10. **DO NOT** add a third place for routes. `lib/nav.ts` is the single source of truth. Sidebar + MobileNav + home Jump-To all consume it.
 11. **DO NOT** ship without running `npx tsc --noEmit` AND `npm run build`. Type errors and build failures should never reach prod.
 12. **DO NOT** invent field IDs. Always extract from `lib/schema.ts`. Wrong IDs silently no-op on writes.
+13. **DO NOT** gate a page by hiding it from the nav only. Sidebar filtering is cosmetic — the real gate is `assertCanAccess(href)` (`lib/page-guard.ts`) at the top of the page, backed by `ROUTE_PERMISSION` in `lib/permissions.ts`.
 
 ## ✅ DO — patterns to follow
 
@@ -76,6 +88,7 @@ These break things. Do not bypass.
    - Create `app/(app)/<name>/page.tsx` (server component)
    - Add entry to `lib/nav.ts` with `showInSidebar: true` + optionally `showOnHome: true`
    - Sidebar + MobileNav + home cards auto-update
+   - If the page belongs to a gated section: add the route to `ROUTE_PERMISSION` in `lib/permissions.ts` AND call `await assertCanAccess("/<name>")` at the top of the page (`lib/page-guard.ts`). Nav hiding alone is not a gate.
    - If page links carry filter state, accept `searchParams` and seed an `initialFilter` prop
 
 7. **Single source of truth.** Constants in `lib/`. Nav in `lib/nav.ts`. Types in `lib/*-types.ts` (client-safe). Mutations in `lib/mutations/`.
@@ -100,79 +113,91 @@ These break things. Do not bypass.
 
 **Token refresh (2026-05-19):** Google access tokens expire after 1 hour. `refreshGoogleAccessToken()` in `lib/auth.ts` silently refreshes via the stored `refresh_token` when within 60s of expiry. Requires `prompt: "consent"` + `access_type: "offline"` on the initial OAuth params to get the refresh token issued.
 
+### View permissions (added post-2026-05, separate from roles)
+
+Two independent axes — don't conflate them:
+
+- **Role** (`admin/lead/engineer/client` from `ALLOWED_USERS`) governs **mutations** via `requireRole(...)`. Unchanged.
+- **Permissions** (`People.Permissions` multi-select in Airtable, resolved by email in `lib/people.ts`, carried on `session.user.permissions`) govern **what you can see**: nav groups, page access, conditional UI sections. Defined in `lib/permissions.ts`: `Revenue, Delivery, Engineering, Operations, Home - Firm Pulse, Scorecard - Admin, Founder`.
+- Admin role does **not** bypass view permissions — an admin without the `Founder` permission should not see the Founder section.
+- Server-side page gate: `assertCanAccess(href)` in `lib/page-guard.ts` (redirects to `/` if denied, `/login` if signed out). Route → permission mapping lives in `ROUTE_PERMISSION` in `lib/permissions.ts`.
+- Dev bypass session gets `ALL_PERMISSIONS`.
+
+**Quote SSO (`lib/quote-sso.ts`):** mints a short-lived (10 min) JWT signed with `QUOTE_SSO_SECRET` so ops users auto-authenticate into the separate airvues-quote app. Falls back to the plain URL if the secret or email is missing. Endpoint: `app/api/quote-sso/route.ts`.
+
+## Nav structure (2026-06 restructure)
+
+Groups: **Overview · Delivery · Engineering · Earnings · Operations · Founder** (`NavGroup` in `lib/nav.ts`). Renames to know about — routes did NOT change, only labels:
+
+- `/clients` is labeled **Accounts** (Leads + Clients unified there)
+- `/pipeline` is labeled **Projects**
+- `/money` is labeled **Earnings**
+- `/leads` is a hidden legacy route kept as fallback
+
 ## File map (current, not aspirational)
 
 ```
 app/
 ├── (app)/
 │   ├── page.tsx                  Home: personal-first landing (Your day → The board → Stack → firm snapshot)
-│   ├── me/page.tsx               Personal scorecard (admin picker until People-table auth)
-│   ├── money/page.tsx            Invoices + AR aging + filters
-│   ├── pipeline/page.tsx         Quotes funnel
-│   ├── engineering/page.tsx      Stories grouped by engineer + leaderboard + orphan banner
+│   ├── me/page.tsx               Personal scorecard (picker gated by "Scorecard - Admin" permission)
+│   ├── loops/                    Screen+mic recordings → Blob storage → AI summary (index, new, [id])
+│   ├── meetings/                 Recorded calls → AI transcripts, notes, action items (index, [id])
+│   ├── money/page.tsx            Earnings: invoices + AR aging + filters
+│   ├── pipeline/page.tsx         Projects (quotes funnel)
+│   ├── leads/page.tsx            Legacy — hidden from nav, unified into /clients
+│   ├── engineering/
+│   │   ├── page.tsx              Stories grouped by engineer + leaderboard + orphan banner
+│   │   └── retainer-timesheets/  Engineer-facing retainer story logging
 │   ├── backlog/page.tsx          Flat table + bulk edit + NewStoryModal
-│   ├── sprints/
-│   │   ├── page.tsx              Index with velocity overview
-│   │   ├── [id]/page.tsx         Kanban board
-│   │   └── [id]/plan/page.tsx    Capacity planning
-│   ├── clients/page.tsx          Companies list
+│   ├── sprints/                  Index + velocity, [id] kanban, [id]/plan capacity planning
+│   ├── clients/page.tsx          Accounts: leads, partners, clients
 │   ├── team/page.tsx             People + payments
 │   ├── stack/page.tsx            Internal SaaS subscriptions
-│   ├── hygiene/
-│   │   ├── page.tsx              Data quality index
-│   │   └── orphans/page.tsx      Orphan story triage
+│   ├── founder/page.tsx          Founder dashboard: scaling curves + team scaling simulator
+│   ├── hygiene/                  Data quality index + orphans/ triage
 │   └── layout.tsx                Sidebar + MobileNav + TopBar + auth gate
-├── (auth)/login/page.tsx         Google sign-in only — branded login with aurora backdrop + particle network
+├── (auth)/login/page.tsx         Google sign-in only — branded login (aurora backdrop + particle network)
 └── api/
     ├── auth/[...nextauth]/       NextAuth handler
-    └── auth/saml/                Dormant, legacy fallback only
+    ├── auth/saml/                Dormant, legacy fallback only
+    ├── loops|meetings|leads|quotes/upload/   Blob upload endpoints
+    ├── quote-sso/                Signed JWT handoff into airvues-quote app
+    └── search/                   Cmd+K search index endpoint
 
 components/
-├── backlog/                      Backlog table, bulk-bar, NewStoryModal
-├── engineering/                  Board, StoryCard, StorySheet (drawer), Leaderboard, FilterBar
-├── sprints/                      KanbanCard, SprintBoard, SprintPlanBoard, SprintRow, VelocityOverview, NewSprintModal
-├── me/                           PersonScorecard, PersonPicker
-├── hygiene/                      OrphanTriage, OrphanGroupCard
-├── home/                         HomeKpiCard, HomeJumpCard, CompanyGoals, GoalBar, YourDay, DeparturesBoard (StationBoard), TheStack
-├── header/                       TopBar, CalendarWidget, GmailWidget, TimeWeatherWidget (sticky topbar, desktop only)
-├── login/                        AuroraBackdrop, ParticleNetwork, Manifesto, LiveClock (login brand expression)
-├── clients/                      ClientsDashboard, ClientSheet
-├── team/                         TeamDashboard
-├── money/                        MoneyDashboard, InvoiceTable, InvoiceSheet, ArAgingChart, FilterBar
-├── pipeline/                     PipelineDashboard, QuoteTable, QuoteSheet, FilterBar
-├── stack/                        StackDashboard
+├── One dir per page (backlog, engineering, sprints, me, hygiene, home, clients,
+│   team, money, pipeline, stack, leads, loops, meetings, founder, projects)
+├── search/                       CommandPalette (Cmd+K), CommandPaletteProvider, SearchTrigger
+├── header/                       TopBar, CalendarWidget, GmailWidget, TimeWeatherWidget (desktop only)
+├── login/                        AuroraBackdrop, ParticleNetwork, Manifesto, LiveClock
+├── engineering/StorySheet        THE story drawer — mounted on 6+ pages, don't fork
 ├── ui/                           PageHeader, SectionTitle, StatCard, Sparkline, NumberTicker
-├── SidebarNav.tsx                Desktop nav (client — uses usePathname for active state)
-├── Sidebar.tsx                   Desktop nav shell
-└── MobileNav.tsx                 Mobile drawer nav
+└── Sidebar.tsx / SidebarNav.tsx / MobileNav.tsx   Nav shells (all consume lib/nav.ts)
 
 lib/
 ├── airtable.ts                   Server-only client (listRecordsCached, patchRecords, createRecords)
 ├── schema.ts                     Field-ID map (canonical reference) — 30 tables
 ├── auth.ts                       NextAuth + Google + AppRole + role resolver + token refresh
 ├── authz.ts                      requireRole, canMutate
-├── session.ts                    getAppSession (NextAuth + legacy SAML fallback + dev bypass)
+├── permissions.ts                People.Permissions view gating (client-safe types + route map)
+├── page-guard.ts                 assertCanAccess(href) — server-side page gate
+├── session.ts                    getAppSession (NextAuth + SAML fallback + dev bypass), loads permissions
+├── people.ts                     session.email → People recId + Permissions (dupe tiebreakers, PERSON_OVERRIDES)
 ├── nav.ts                        Single source of truth for routes
-├── engineering.ts                + engineering-types.ts — board data
-├── scorecard.ts                  + scorecard-types.ts — /me data
-├── sprints.ts                    + sprints-types.ts — sprint data
-├── sprint-plan.ts                + sprint-plan-types.ts — planning data
-├── velocity.ts                   Multi-sprint stats
-├── orphan-triage.ts              + orphan-triage-types.ts — hygiene
-├── hygiene.ts                    Index data
-├── quotes-light.ts               Quote picker options
-├── kpi.ts                        Firm KPIs (revenue, MRR, AR, retainer, sprint delivery)
-├── landing.ts                    Home Departures + Arrivals operational state
-├── personal-landing.ts           Home "Your day" — assigned stories + today's events for the signed-in user
-├── people.ts                     Resolve session.email → People recId (canonical-record tiebreakers for dupes)
-├── calendar.ts                   Server-only Google Calendar reader (uses session.accessToken)
-├── gmail.ts                      Server-only Gmail reader — unread inbox list
-├── weather.ts                    Vercel edge geo headers + Open-Meteo (10-min cache)
-├── clients.ts, team.ts, stack.ts Per-page data layers
-├── money.ts, pipeline.ts         Per-page data layers
-└── mutations/
-    ├── story.ts                  updateStory, bulkUpdateStories, planStory, setStorySprint, createStory
-    └── sprint.ts                 createSprint, updateSprintStatus
+├── quote-sso.ts                  Short-lived JWT for airvues-quote SSO handoff
+├── uploads.ts                    Vercel Blob upload helper
+├── transcribe.ts / transcribe-meeting.ts   ffmpeg audio extraction → Lovable gateway (Gemini)
+├── search-index.ts               Cmd+K palette index
+├── activity.ts                   Recent-activity feed derived from createdTime (no audit log yet)
+├── kpi.ts / firm-pulse.ts        Firm KPIs + home snapshot
+├── founder.ts / founder-math.ts / scaling-math.ts   Founder dashboard math
+├── <page>.ts + <page>-types.ts   Per-page data layers (engineering, sprints, scorecard, money,
+│                                 pipeline, clients, leads, loops, meetings, team, stack, hygiene,
+│                                 retainer-timesheets, project-log, …) — types files are client-safe
+└── mutations/                    One file per entity, all requireRole-gated:
+                                  story, sprint, sprint-capacity, quote, invoice, lead, loop,
+                                  meeting, person, client, company, founder, project-log
 
 scripts/
 ├── hygiene-companies.mjs         One-shot reclassification script (rollback log included)
@@ -196,6 +221,7 @@ docs/
 - `Invoice` (currency) on Story is the dollar value of THAT story (not the invoice the client paid).
 - `Hours` is scoped; `Hours Worked` is manually entered (mostly empty).
 - `Companies.Engagement Frequency` choices include `"Iddle"` (sic — keep the typo, that's the actual option in Airtable).
+- **Completing a story creates money rows.** `updateStory`/`bulkUpdateStories` with status `Completed` auto-create one 🔵 Team Task Payment per assignee (their own `People.Commission Percentage` × `Story.Cost` — each dev gets their full rate, NOT a split; Status "Needs Payment"; routed to their open Pending expense batch, created if missing). Duplicate-guarded per story+payee. Kill switch: `DISABLE_COMPLETION_PAYMENTS=1`. Logic: `lib/completion-payments.ts`; read-only dry-run: `node scripts/completion-payments-dryrun.mjs <recId>|--scan`.
 
 ## Hygiene state (known data quality issues)
 
@@ -205,17 +231,26 @@ docs/
 - **Time Entries empty** — velocity hours metrics return zero until daily logging starts.
 - **"Unknown" company** — $36K attributed revenue, name is placeholder. Manual triage pending.
 
-## What's deferred (clearly documented as TODO)
+## Built since the original spec (don't re-propose as new)
 
-- **Phase 2 auth:** derive role from Airtable `People.Role` instead of `ALLOWED_USERS` env JSON. Requires People dedupe first.
+- **Cmd+K command palette** — `components/search/` + `lib/search-index.ts` + `app/api/search/`.
+- **View permissions from Airtable** — `People.Permissions` multi-select (see Auth model). Partial Phase 2: *view access* comes from the People table; *role* still comes from `ALLOWED_USERS`.
+- **Loops** — in-house Loom replacement: screen+mic recording → Vercel Blob → Gemini transcript/summary.
+- **Meetings** — call recordings with AI transcripts, notes, action items, lead linking.
+- **Founder dashboard** — scaling curves + team scaling simulator (`Founder` permission).
+- **Retainer Timesheets** — `/engineering/retainer-timesheets`.
+- **Activity feed (partial)** — `lib/activity.ts` derives last-24h events from createdTime; still no mutation audit log.
+- **Quote SSO** — signed handoff into the airvues-quote app.
+
+## What's still deferred
+
+- **Phase 2 auth (rest):** derive *role* from Airtable `People.Role` instead of `ALLOWED_USERS` env JSON. Requires People dedupe first.
 - **Phase 3 auth:** field-level redaction (`lib/visibility.ts` — `redactPerson(viewerRole)`). Comp Amount, Equity %, Story.Cost should not be visible to engineers.
 - **Phase 4 auth:** client portals — `/client-portal/[companyId]` scoped to one Company.
-- **Deep-link param hydration** on `/pipeline`, `/clients`, `/sprints` (only `/backlog` and `/money` parse `?status=` / `?scope=` today).
-- **Drag-and-drop kanban** — currently click-based quick-advance + ship buttons.
+- **Drag-and-drop kanban** — sprint boards are still click-based quick-advance; `@dnd-kit` is only used in `components/pipeline/QuoteStoriesTable.tsx`.
 - **Time Entries logging UI** — empty until adoption ritual exists.
 - **CSV export from /backlog or /money**.
-- **Global search bar / Cmd+K command palette**.
-- **Activity feed** (who changed what, when).
+- **Mutation audit log** (who changed what, when — activity feed is inference-only).
 - **Asana / GitHub PR integrations** — sketched but not built.
 
 ## How to test what you change
@@ -225,7 +260,7 @@ docs/
 3. `vercel --prod` if pushing to prod, or push to a branch for preview
 4. Curl key routes:
    ```bash
-   for path in / /login /me /money /engineering /backlog /sprints /hygiene; do
+   for path in / /login /me /loops /meetings /money /pipeline /clients /engineering /backlog /sprints /founder /hygiene; do
      curl -s -o /dev/null -w "%{http_code} ${path}\n" "https://airvues-ops.vercel.app${path}"
    done
    ```

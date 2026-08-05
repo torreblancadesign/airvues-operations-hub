@@ -156,11 +156,12 @@ export function ClientStoriesRoster({ stories, selectedId, onSelect }: Props) {
   const [status, setStatus] = useState<StatusBucket>("active");
   const [client, setClient] = useState<string | null>(null);
   const [priority, setPriority] = useState<string | null>(null);
-  // Everything starts collapsed — the client list reads as an overview first.
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Unlike /engineering, cards start expanded here — it's your own work, so
+  // we track the collapsed set instead (covers groups appearing via filters).
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const toggleExpand = (name: string) => {
-    setExpanded((prev) => {
+    setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
@@ -320,7 +321,7 @@ export function ClientStoriesRoster({ stories, selectedId, onSelect }: Props) {
             key={g.name}
             group={g}
             maxCommission={roster.maxCommission}
-            expanded={expanded.has(g.name)}
+            expanded={!collapsed.has(g.name)}
             onToggle={() => toggleExpand(g.name)}
             selectedId={selectedId}
             onSelect={onSelect}

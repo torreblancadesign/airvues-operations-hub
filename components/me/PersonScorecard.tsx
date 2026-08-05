@@ -12,6 +12,7 @@ import { StorySheet } from "@/components/engineering/StorySheet";
 import { PersonPicker } from "./PersonPicker";
 import { EarningsChart } from "./EarningsChart";
 import { GoalEditor } from "./GoalEditor";
+import { ClientStoriesRoster } from "./ClientStoriesRoster";
 
 
 type Props = {
@@ -33,7 +34,7 @@ function levelFromRole(role: string | null): string {
 
 export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwitchPerson = false, canEditGoal = false }: Props) {
   const [selected, setSelected] = useState<Story | null>(null);
-  const { engineer, totals, nextToShip, byStatus, earnings, payments, shipped, goal, payout, shippedIsApproximate, commissionPct, commissionPctSource, commissionModel, salesCommission } = scorecard;
+  const { engineer, totals, nextToShip, earnings, payments, shipped, goal, payout, shippedIsApproximate, commissionPct, commissionPctSource, commissionModel, salesCommission } = scorecard;
   const isSales = commissionModel === "sales";
 
   const totalPotentialCost = totals.openCost + totals.earnedCost;
@@ -53,14 +54,6 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
   const onTrack = annualGoal != null && expectedYtdAtPace != null
     ? earnings.ytd >= expectedYtdAtPace
     : false;
-
-  const groups: { label: string; tone: string; stories: Story[] }[] = [
-    { label: "In progress", tone: "emerald", stories: byStatus.inProgress },
-    { label: "Todo", tone: "neutral", stories: byStatus.todo },
-    { label: "QA Review", tone: "sky", stories: byStatus.qa },
-    { label: "On Hold", tone: "amber", stories: byStatus.onHold },
-    { label: "Completed", tone: "violet", stories: byStatus.done },
-  ];
 
   return (
     <>
@@ -372,42 +365,16 @@ export function PersonScorecard({ scorecard, engineers, canEdit = false, canSwit
             </div>
           )}
 
-          {/* All stories grouped by status */}
+          {/* All stories grouped by client */}
           <SectionTitle
             title="All Your Stories"
-            aside={`${totals.storyCount} total`}
+            aside={`${totals.storyCount} total · grouped by client`}
           />
-          <div className="space-y-6">
-            {groups.map((g) => {
-              if (g.stories.length === 0) return null;
-              const sectionTotal = g.stories.reduce((sum, s) => sum + s.commission, 0);
-              return (
-                <section key={g.label} className="bg-surface border border-rule rounded-card overflow-hidden">
-                  <div className="px-5 py-3 border-b border-rule flex items-center justify-between bg-bg-elevated">
-                    <div className="text-[13px] font-semibold text-ink-strong flex items-center gap-2">
-                      <span>{g.label}</span>
-                      <span className="text-[11px] text-ink-muted font-mono tabnum">
-                        ({g.stories.length})
-                      </span>
-                    </div>
-                    <span className="text-[12px] font-semibold text-emerald tabnum">
-                      {fmtMoney(sectionTotal)}
-                    </span>
-                  </div>
-                  <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {g.stories.map((s) => (
-                      <StoryCard
-                        key={s.id}
-                        story={s}
-                        onClick={setSelected}
-                        selected={selected?.id === s.id}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+          <ClientStoriesRoster
+            stories={scorecard.stories}
+            selectedId={selected?.id ?? null}
+            onSelect={setSelected}
+          />
         </>
       )}
 

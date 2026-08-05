@@ -8,14 +8,19 @@ type Props = {
   stories: Story[];
   selectedId: string | null;
   onSelect: (s: Story) => void;
+  /** Hide the Client column — for tables already grouped by client. */
+  hideClient?: boolean;
 };
 
 // Compact one-row-per-story table. Pay/quote/description details live in the
 // StorySheet drawer — this view is for scanning and comparing.
 const GRID =
   "lg:grid lg:grid-cols-[120px_52px_86px_minmax(220px,1fr)_minmax(130px,0.5fr)_56px] lg:gap-3 lg:items-center";
+const GRID_NO_CLIENT =
+  "lg:grid lg:grid-cols-[120px_52px_86px_minmax(220px,1fr)_56px] lg:gap-3 lg:items-center";
 
-export function StoryTable({ stories, selectedId, onSelect }: Props) {
+export function StoryTable({ stories, selectedId, onSelect, hideClient = false }: Props) {
+  const grid = hideClient ? GRID_NO_CLIENT : GRID;
   // Sort by story number ascending; stories without a number sink to the end.
   const sorted = useMemo(
     () =>
@@ -38,13 +43,13 @@ export function StoryTable({ stories, selectedId, onSelect }: Props) {
   return (
     <div>
       <div
-        className={`hidden ${GRID} border-b border-rule px-4 py-1.5 text-[10px] font-mono uppercase tracking-wider text-ink-faint`}
+        className={`hidden ${grid} border-b border-rule px-4 py-1.5 text-[10px] font-mono uppercase tracking-wider text-ink-faint`}
       >
         <div>Status</div>
         <div>#</div>
         <div>Priority</div>
         <div>Story</div>
-        <div>Client</div>
+        {!hideClient && <div>Client</div>}
         <div className="text-right">Est</div>
       </div>
 
@@ -56,7 +61,7 @@ export function StoryTable({ stories, selectedId, onSelect }: Props) {
               key={s.id}
               type="button"
               onClick={() => onSelect(s)}
-              className={`block w-full px-4 py-2 text-left transition-colors hover:bg-bg-elevated ${GRID} ${
+              className={`block w-full px-4 py-2 text-left transition-colors hover:bg-bg-elevated ${grid} ${
                 isSelected ? "bg-emerald/5 ring-1 ring-inset ring-emerald/30" : ""
               }`}
             >
@@ -95,18 +100,22 @@ export function StoryTable({ stories, selectedId, onSelect }: Props) {
                   {s.name}
                 </span>
                 <span className="mt-0.5 block truncate text-[11px] text-ink-muted lg:hidden">
-                  {s.clientNames[0] ?? "No client"}
-                  {s.priority ? ` · ${s.priority}` : ""}
-                  {s.hours != null ? ` · ${s.hours}h est` : ""}
+                  {hideClient
+                    ? [s.priority, s.hours != null ? `${s.hours}h est` : null]
+                        .filter(Boolean)
+                        .join(" · ") || "—"
+                    : `${s.clientNames[0] ?? "No client"}${s.priority ? ` · ${s.priority}` : ""}${s.hours != null ? ` · ${s.hours}h est` : ""}`}
                 </span>
               </div>
 
               {/* Client */}
-              <div className="hidden min-w-0 lg:block">
-                <span className="block truncate text-[12px] text-ink-muted">
-                  {s.clientNames[0] ?? "—"}
-                </span>
-              </div>
+              {!hideClient && (
+                <div className="hidden min-w-0 lg:block">
+                  <span className="block truncate text-[12px] text-ink-muted">
+                    {s.clientNames[0] ?? "—"}
+                  </span>
+                </div>
+              )}
 
               {/* Est hours */}
               <div className="hidden text-right font-mono text-[11px] text-ink-strong tabnum lg:block">

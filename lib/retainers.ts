@@ -4,8 +4,12 @@ import "server-only";
 
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
-import { fromZoned, zonedParts } from "./retainer-sla";
-import type { RetainerPriority, RetainerTier } from "./retainer-types";
+import { currentPeriod } from "./retainer-period";
+import type { RetainerAgreement, RetainerPriority, RetainerTier } from "./retainer-types";
+
+// Re-exported so existing importers keep working after the pure-module split.
+export { currentPeriod };
+export type { RetainerAgreement };
 
 const TIER = Tables.RetainerTiers;
 const QUOTE = Tables.Quotes;
@@ -68,20 +72,6 @@ export async function listRetainerTiers(): Promise<RetainerTier[]> {
   return tiers.filter((t) => t.active).sort((a, b) => a.rank - b.rank);
 }
 
-export type RetainerAgreement = {
-  id: string;
-  projectName: string;
-  companyId: string | null;
-  companyName: string | null;
-  tierId: string | null;
-  monthlyRate: number | null;
-  includedHours: number | null;
-  termMonths: number | null;
-  effectiveDate: string | null;
-  subscriptionActive: boolean;
-  dealStatus: string | null;
-};
-
 /**
  * Retainer Agreement quotes. Only rows carrying a Company link are returned —
  * Company is the portal tenant key and an agreement without one is
@@ -127,42 +117,4 @@ export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
       };
     })
     .filter((a) => a.companyId !== null);
-}
-
-/**
- * The billing period containing `now`, anchored on the anniversary day of
- * effectiveDate (NOT the calendar month) so hours stay aligned with the Stripe
- * subscription date. A day-of-month past the end of a short month clamps to
- * that month's last day.
- */
-export function currentPeriod(
-  effectiveDate: string | null,
-  now: Date,
-): { start: Date; end: Date } | null {
-  if (!effectiveDate) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(effectiveDate);
-  if (!m) return null;
-  const anchorDay = +m[3];
-
-  const p = zonedParts(now);
-  const daysInMonth = (y: number, mo: number) => new Date(Date.UTC(y, mo, 0)).getUTCDate();
-  const startOf = (y: number, mo: number) =>
-    fromZoned(y, mo, Math.min(anchorDay, daysInMonth(y, mo)), 0, 0);
-
-  let sy = p.year;
-  let sm = p.month;
-  if (now < startOf(sy, sm)) {
-    sm -= 1;
-    if (sm === 0) {
-      sm = 12;
-      sy -= 1;
-    }
-  }
-  let ey = sy;
-  let em = sm + 1;
-  if (em === 13) {
-    em = 1;
-    ey += 1;
-  }
-  return { start: startOf(sy, sm), end: startOf(ey, em) };
 }

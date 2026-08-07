@@ -32,6 +32,22 @@ export type RetainerTier = {
   clientDescription: string | null;
 };
 
+/** A Retainer Agreement quote. Lives here, not in the server-only reader, so
+ *  pure modules and client components can use the type. */
+export type RetainerAgreement = {
+  id: string;
+  projectName: string;
+  companyId: string | null;
+  companyName: string | null;
+  tierId: string | null;
+  monthlyRate: number | null;
+  includedHours: number | null;
+  termMonths: number | null;
+  effectiveDate: string | null;
+  subscriptionActive: boolean;
+  dealStatus: string | null;
+};
+
 /** A client-submitted retainer request. Dates are ISO strings (client-safe). */
 export type RetainerRequest = {
   id: string;

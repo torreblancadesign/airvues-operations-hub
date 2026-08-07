@@ -38,7 +38,10 @@ export type RetainerAgreement = {
   id: string;
   projectName: string;
   companyId: string | null;
+  /** Companies.Name resolved via the Company link — the real org, e.g. "Gracie Barra". */
   companyName: string | null;
+  /** The Prepared-for contact, e.g. "Flavio Almeida". Not the company. */
+  contactName: string | null;
   tierId: string | null;
   monthlyRate: number | null;
   includedHours: number | null;

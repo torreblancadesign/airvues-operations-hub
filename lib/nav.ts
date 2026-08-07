@@ -95,6 +95,15 @@ export const NAV_ITEMS: NavItem[] = [
     showOnHome: true,
   },
 
+  {
+    href: "/retainers",
+    label: "Retainers",
+    desc: "Retainer health · open requests · SLA breaches · hours vs plan",
+    group: "delivery",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+
   // Stories umbrella
   {
     href: "/engineering",

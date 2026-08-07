@@ -40,6 +40,10 @@ const ROUTE_PERMISSION: Record<string, Permission> = {
   leads: "Delivery",
   pipeline: "Delivery",
   clients: "Delivery",
+  // Retainers rides on Delivery rather than a dedicated permission: a new
+  // People.Permissions option would leave the page invisible to everyone until
+  // each manager's Airtable record is edited. Split it out later if needed.
+  retainers: "Delivery",
   money: "Revenue",
   engineering: "Engineering",
   backlog: "Engineering",

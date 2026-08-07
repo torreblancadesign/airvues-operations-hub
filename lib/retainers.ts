@@ -77,8 +77,24 @@ export async function listRetainerTiers(): Promise<RetainerTier[]> {
  * Company is the portal tenant key and an agreement without one is
  * unscopable, so it is invisible by design rather than leaked to everyone.
  */
-export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
+/** recId -> Company.Name, for resolving the tenant key to a display name. */
+async function companyNameById(): Promise<Map<string, string>> {
   const rows = await listRecordsCached<Record<string, unknown>>(
+    Tables.Companies.id,
+    { fields: [Tables.Companies.fields["Name"].id] },
+    ["retainers:company-names"],
+  );
+  return new Map(
+    rows.flatMap((r) => {
+      const n = str(r.fields["Name"]);
+      return n ? ([[r.id, n]] as [string, string][]) : [];
+    }),
+  );
+}
+
+export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
+  const [rows, companyNames] = await Promise.all([
+    listRecordsCached<Record<string, unknown>>(
     QUOTE.id,
     {
       fields: [
@@ -95,18 +111,27 @@ export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
       ],
       filterByFormula: `{Proposal Type} = 'Retainer Agreement'`,
     },
-    ["retainers:agreements"],
-  );
+      ["retainers:agreements"],
+    ),
+    companyNameById(),
+  ]);
 
   return rows
     .map((r) => {
       const f = r.fields;
-      const names = f["Client Name"];
+      // Quotes."Client Name" is a lookup of the CONTACT, not the company —
+      // it renders as "Flavio Almeida", not "Gracie Barra". Resolve the real
+      // company through the Company link (the tenant key) and keep the
+      // contact name separately.
+      const contacts = f["Client Name"];
+      const companyId = firstLink(f["Company"]);
       return {
         id: r.id,
         projectName: str(f["Project Name"]) ?? "(no name)",
-        companyId: firstLink(f["Company"]),
-        companyName: Array.isArray(names) && typeof names[0] === "string" ? names[0] : null,
+        companyId,
+        companyName: companyId ? (companyNames.get(companyId) ?? null) : null,
+        contactName:
+          Array.isArray(contacts) && typeof contacts[0] === "string" ? contacts[0] : null,
         tierId: firstLink(f["Retainer Tier"]),
         monthlyRate: num(f["Retainer Selected Monthly Rate"]),
         includedHours: num(f["Retainer Selected Hours"]),

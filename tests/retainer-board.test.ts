@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildBoardRows } from "../lib/retainer-board";
 import { fromZoned } from "../lib/retainer-sla";
-import type { RetainerRequest, RetainerTier } from "../lib/retainer-types";
+import type { RetainerAgreement, RetainerRequest, RetainerTier } from "../lib/retainer-types";
 
 const NOW = fromZoned(2026, 8, 6, 14, 0);
 
@@ -26,11 +26,12 @@ const blankTier: RetainerTier = {
   slaHours: { Urgent: null, High: null, Medium: null, Low: null },
 };
 
-const agreement = {
+const agreement: RetainerAgreement = {
   id: "q1",
   projectName: "Gracie Barra Retainer",
   companyId: "co1",
   companyName: "Gracie Barra",
+  contactName: "Flavio Almeida",
   tierId: "tier1",
   monthlyRate: 6750,
   includedHours: 45,

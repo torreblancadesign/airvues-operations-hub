@@ -2,7 +2,7 @@
 // Do NOT import from a client component — this pulls in lib/airtable.ts.
 import "server-only";
 
-import { listRecordsCached } from "./airtable";
+import { listRecords, listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { currentPeriod } from "./retainer-period";
 import type { RetainerAgreement, RetainerPriority, RetainerTier } from "./retainer-types";
@@ -24,9 +24,17 @@ function firstLink(v: unknown): string | null {
   return Array.isArray(v) && typeof v[0] === "string" ? v[0] : null;
 }
 
-/** Active tiers, ordered by rank. Blank SLA columns stay null — not zero. */
-export async function listRetainerTiers(): Promise<RetainerTier[]> {
-  const rows = await listRecordsCached<Record<string, unknown>>(
+/**
+ * Active tiers, ordered by rank. Blank SLA columns stay null — not zero.
+ *
+ * `fresh: true` bypasses the 5-minute cache. MUTATIONS MUST PASS IT. `SLA Due
+ * At` is computed once at creation and never recalculated, so a request filed
+ * while a stale tier says "no SLA" keeps a null deadline permanently and is
+ * reported "Not covered" forever. Reads for display can stay cached.
+ */
+export async function listRetainerTiers(opts?: { fresh?: boolean }): Promise<RetainerTier[]> {
+  const read = opts?.fresh ? listRecords : listRecordsCached;
+  const rows = await read<Record<string, unknown>>(
     TIER.id,
     {
       fields: [
@@ -44,7 +52,7 @@ export async function listRetainerTiers(): Promise<RetainerTier[]> {
         TIER.fields["Client-facing Description"].id,
       ],
     },
-    ["retainers:tiers"],
+    opts?.fresh ? undefined : ["retainers:tiers"],
   );
 
   const tiers: RetainerTier[] = rows.map((r) => {
@@ -92,9 +100,12 @@ async function companyNameById(): Promise<Map<string, string>> {
   );
 }
 
-export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
+export async function listRetainerAgreements(opts?: {
+  fresh?: boolean;
+}): Promise<RetainerAgreement[]> {
+  const readAgreements = opts?.fresh ? listRecords : listRecordsCached;
   const [rows, companyNames] = await Promise.all([
-    listRecordsCached<Record<string, unknown>>(
+    readAgreements<Record<string, unknown>>(
     QUOTE.id,
     {
       fields: [
@@ -111,7 +122,7 @@ export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
       ],
       filterByFormula: `{Proposal Type} = 'Retainer Agreement'`,
     },
-      ["retainers:agreements"],
+      opts?.fresh ? undefined : ["retainers:agreements"],
     ),
     companyNameById(),
   ]);

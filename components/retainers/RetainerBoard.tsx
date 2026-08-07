@@ -106,7 +106,7 @@ export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
                 >
                   <td className="px-4 py-2.5">
                     <Link
-                      href={`/pipeline/${r.retainerId}`}
+                      href={`/retainers/${r.retainerId}`}
                       className="text-ink-strong hover:text-emerald font-medium"
                     >
                       {r.companyName ?? r.projectName}

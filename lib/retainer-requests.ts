@@ -6,15 +6,19 @@ import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { currentPeriod } from "./retainers";
 import type {
+  CommentSide,
   RetainerPriority,
   RequestStatus,
+  RetainerComment,
   RetainerRequest,
   SlaOutcome,
 } from "./retainer-types";
 
 const REQ = Tables.RetainerRequests;
+const CMT = Tables.RetainerRequestComments;
 const STORY = Tables.Stories;
 const QUOTE = Tables.Quotes;
+const PEOPLE = Tables.People;
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() !== "" ? v : null;
@@ -68,6 +72,65 @@ export async function listRetainerRequests(): Promise<RetainerRequest[]> {
       closedAt: str(f["Closed At"]),
     };
   });
+}
+
+export async function getRetainerRequest(id: string): Promise<RetainerRequest | null> {
+  const all = await listRetainerRequests();
+  return all.find((r) => r.id === id) ?? null;
+}
+
+/** recId -> People.Full Name, for attributing comments and assignees. */
+export async function peopleNameById(): Promise<Map<string, string>> {
+  const rows = await listRecordsCached<Record<string, unknown>>(
+    PEOPLE.id,
+    { fields: [PEOPLE.fields["Full Name"].id] },
+    ["retainers:people-names"],
+  );
+  return new Map(
+    rows.flatMap((r) => {
+      const n = str(r.fields["Full Name"]);
+      return n ? ([[r.id, n]] as [string, string][]) : [];
+    }),
+  );
+}
+
+/** Thread for one request, oldest first. */
+export async function listRetainerComments(requestId: string): Promise<RetainerComment[]> {
+  const [rows, names] = await Promise.all([
+    listRecordsCached<Record<string, unknown>>(
+      CMT.id,
+      {
+        fields: [
+          CMT.fields["Request"].id,
+          CMT.fields["Author"].id,
+          CMT.fields["Author Side"].id,
+          CMT.fields["Body"].id,
+          CMT.fields["Created At"].id,
+          CMT.fields["Visible to Client"].id,
+        ],
+      },
+      ["retainers:comments"],
+    ),
+    peopleNameById(),
+  ]);
+
+  return rows
+    .map((r) => {
+      const f = r.fields;
+      const authorId = firstLink(f["Author"]);
+      return {
+        id: r.id,
+        requestId: firstLink(f["Request"]),
+        authorId,
+        authorName: authorId ? (names.get(authorId) ?? null) : null,
+        authorSide: (str(f["Author Side"]) as CommentSide | null) ?? null,
+        body: str(f["Body"]) ?? "",
+        createdAt: str(f["Created At"]),
+        visibleToClient: f["Visible to Client"] === true,
+      };
+    })
+    .filter((c) => c.requestId === requestId)
+    .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
 }
 
 /**

@@ -69,6 +69,21 @@ export type RetainerRequest = {
   closedAt: string | null;
 };
 
+export type CommentSide = "Client" | "Airvues";
+
+/** One message on a retainer request thread. */
+export type RetainerComment = {
+  id: string;
+  requestId: string | null;
+  authorId: string | null;
+  authorName: string | null;
+  authorSide: CommentSide | null;
+  body: string;
+  createdAt: string | null;
+  /** Airvues comments with this false are internal-only and hidden from the portal. */
+  visibleToClient: boolean;
+};
+
 /** One row of the /retainers health board. */
 export type RetainerBoardRow = {
   retainerId: string;

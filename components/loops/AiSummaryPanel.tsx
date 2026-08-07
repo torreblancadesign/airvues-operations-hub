@@ -1,4 +1,5 @@
-// AI-generated client-facing summary cards. Shown on /loops/[id] and /r/[token].
+// AI-generated client-facing summary cards. Shown on the public /r/[token] page.
+// The internal /loops/[id] rail renders these sections itself — see LoopSidePanel.
 import type { ReactNode } from "react";
 
 type Props = {
@@ -41,8 +42,8 @@ export function AiSummaryPanel({
   if (!anyContent) {
     if (variant === "public") return null;
     return (
-      <div className="bg-surface border border-rule/60 border-dashed rounded-card p-4 text-[13px] text-ink-muted">
-        <span className="inline-block w-2 h-2 rounded-full bg-emerald/60 animate-pulse mr-2 align-middle" />
+      <div className="rounded-card border border-dashed border-rule/60 bg-surface p-4 text-[13px] text-ink-muted">
+        <span className="mr-2 inline-block h-2 w-2 rounded-full bg-emerald/60 align-middle motion-safe:animate-pulse" />
         Generating summary, key notes, and action items… refresh in a moment.
       </div>
     );

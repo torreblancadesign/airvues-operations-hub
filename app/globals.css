@@ -87,6 +87,21 @@ html, body {
 
 ::selection { background: var(--emerald); color: var(--bg); }
 
+/* Card quick-actions and hover affordances. Always visible where there is no
+   real pointer (touch), revealed on hover or keyboard focus where there is. */
+.hover-reveal {
+  opacity: 1;
+  transition: opacity 150ms ease-out;
+}
+@media (hover: hover) and (pointer: fine) {
+  .hover-reveal { opacity: 0; }
+  .group:hover .hover-reveal,
+  .group:focus-within .hover-reveal { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hover-reveal { transition: none; }
+}
+
 /* Zebra-striped table bodies. Apply on <tbody>. */
 .row-zebra > tr:nth-child(even) > td {
   background: rgba(255, 255, 255, 0.018);

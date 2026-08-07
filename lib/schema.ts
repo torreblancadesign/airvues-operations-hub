@@ -505,6 +505,7 @@ export const Tables = {
       "Tags": { id: "fldER0Y59CG4uLxk5", type: "singleLineText" },
       "Commission Model (from Assignee)": { id: "fldxsJ84t4kqnOdqY", type: "multipleLookupValues" },
       "🟣 Retainer Requests": { id: "fldUrPjwPfsfiAEpC", type: "multipleRecordLinks" },
+      "Status (from Link to Expenses) (from 🔵 Team Task Payments)": { id: "fldeqsH29BEeCfbsc", type: "multipleLookupValues" },
     },
   },
   SprintCapacity: {

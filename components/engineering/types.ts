@@ -13,6 +13,7 @@ export type Filter = {
   engineerId: string | null;
   client: string | null;
   sprintNumber: number | null;
+  priority: string | null;
   orphanOnly: boolean;
 };
 
@@ -22,8 +23,12 @@ export const EMPTY_FILTER: Filter = {
   engineerId: null,
   client: null,
   sprintNumber: null,
+  priority: null,
   orphanOnly: false,
 };
+
+// Airtable enum — byte-exact (see CLAUDE.md schema gotchas)
+export const PRIORITIES = ["Urgent", "High", "Medium", "Low"] as const;
 
 export const STATUS_GROUPS: Record<StatusBucket, string[] | "*"> = {
   all: "*",

@@ -16,6 +16,8 @@ type Props = {
 
 export function LoopPlayer({ src, poster, autoPlay, className, storageKey }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [rate, setRate] = useLocalStorageJSON<Speed>(storageKey, 1);
   const [open, setOpen] = useState(false);
 
@@ -32,6 +34,27 @@ export function LoopPlayer({ src, poster, autoPlay, className, storageKey }: Pro
     return () => v.removeEventListener("loadedmetadata", onLoaded);
   }, [rate]);
 
+  // Dismiss the speed menu the way a menu is expected to dismiss: click away or Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (menuRef.current?.contains(t) || triggerRef.current?.contains(t)) return;
+      setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
     <div className="relative">
       <video
@@ -40,13 +63,14 @@ export function LoopPlayer({ src, poster, autoPlay, className, storageKey }: Pro
         poster={poster}
         controls
         autoPlay={autoPlay}
-        className={className ?? "w-full rounded-card border border-rule bg-black aspect-video"}
+        className={className ?? "aspect-video w-full rounded-card border border-rule bg-black"}
       />
-      <div className="absolute top-2 right-2 z-10">
+      <div className="absolute right-2 top-2 z-10">
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="px-2 py-1 rounded bg-surface/85 backdrop-blur border border-rule text-[10px] font-mono uppercase tracking-wider text-ink-muted hover:text-emerald hover:border-emerald/40 transition"
+          className="rounded border border-rule bg-surface/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-ink-muted backdrop-blur transition-colors hover:border-emerald/40 hover:text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/70"
           aria-haspopup="menu"
           aria-expanded={open}
         >
@@ -54,8 +78,10 @@ export function LoopPlayer({ src, poster, autoPlay, className, storageKey }: Pro
         </button>
         {open && (
           <div
+            ref={menuRef}
             role="menu"
-            className="absolute right-0 mt-1 min-w-[6rem] bg-surface/95 backdrop-blur border border-rule rounded shadow-xl overflow-hidden"
+            aria-label="Playback speed"
+            className="absolute right-0 mt-1 min-w-[6rem] overflow-hidden rounded border border-rule bg-surface/95 shadow-xl backdrop-blur"
           >
             {SPEEDS.map((s) => (
               <button
@@ -66,8 +92,9 @@ export function LoopPlayer({ src, poster, autoPlay, className, storageKey }: Pro
                 onClick={() => {
                   setRate(s);
                   setOpen(false);
+                  triggerRef.current?.focus();
                 }}
-                className={`block w-full text-left px-3 py-1.5 text-[11px] font-mono tabnum tracking-wider transition ${
+                className={`block w-full px-3 py-1.5 text-left font-mono text-[11px] tabnum tracking-wider transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald/70 ${
                   s === rate
                     ? "bg-emerald/15 text-emerald"
                     : "text-ink-muted hover:bg-rule/40 hover:text-ink-strong"

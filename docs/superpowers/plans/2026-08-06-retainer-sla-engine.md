@@ -635,6 +635,7 @@ git commit -m "Add retainer SLA policy: tier + priority to deadline and outcome"
 
 **Files:**
 - Create: `lib/retainers.ts`
+- Create: `scripts/server-only-stub.cjs` (dev-only preload; see Step 4)
 
 **Interfaces:**
 - Consumes: `RetainerTier`, `RetainerPriority` from `lib/retainer-types` (Task 2); `listRecordsCached` from `lib/airtable`; `Tables` from `lib/schema`.
@@ -833,26 +834,87 @@ Expected: both exit 0.
 
 - [ ] **Step 4: Smoke-test the reads against the live base**
 
-Create a throwaway script and run it, confirming the seeded tiers and the three retainer agreements come back:
+`lib/retainers.ts` cannot be imported by a bare Node script as-is. Two Next-only
+constraints block it, and both must be neutralised:
 
-```bash
-cat > /tmp/retainer-smoke.mts <<'EOF'
-import { listRetainerAgreements, listRetainerTiers, currentPeriod } from "./lib/retainers";
-const tiers = await listRetainerTiers();
-console.log("tiers:", tiers.map((t) => `${t.rank} ${t.name} sla=${JSON.stringify(t.slaHours)}`));
-const ags = await listRetainerAgreements();
-console.log("agreements:", ags.length);
-for (const a of ags) {
-  console.log(" ", a.projectName, "| company:", a.companyId, "| tier:", a.tierId, "| period:", currentPeriod(a.effectiveDate, new Date()));
+1. `import "server-only"` throws unless resolved under the `react-server` export
+   condition. Do **not** reach for `--conditions=react-server` — it also flips
+   React to its server subset, which throws
+   `This entry point is not yet supported outside of experimental channels`.
+2. `unstable_cache` throws `Invariant: incrementalCache missing` with no Next
+   request context.
+
+First create `scripts/server-only-stub.cjs`:
+
+```js
+// Dev-only preload that lets modules under lib/ be exercised from a plain Node
+// script (smoke tests, dry runs) instead of only inside a Next request.
+//
+//   node --require ./scripts/server-only-stub.cjs --import tsx ./some-script.ts
+//
+// NEVER load this from application code — it defeats a real safety marker and
+// silently disables caching.
+
+const path = require("node:path");
+
+// --- 1. server-only -> empty module -------------------------------------
+const resolved = require.resolve("server-only");
+require.cache[resolved] = {
+  id: resolved,
+  filename: resolved,
+  path: path.dirname(resolved),
+  loaded: true,
+  children: [],
+  paths: [],
+  exports: {},
+};
+
+// --- 2. unstable_cache -> pass-through ----------------------------------
+// Patched before lib/* is loaded, so the app's import picks up the stub.
+try {
+  const nextCache = require("next/cache");
+  Object.defineProperty(nextCache, "unstable_cache", {
+    value: (fn) => fn,
+    configurable: true,
+    writable: true,
+  });
+} catch (err) {
+  console.warn("[server-only-stub] could not patch next/cache:", err.message);
 }
-EOF
-cp /tmp/retainer-smoke.mts ./retainer-smoke.mts
-set -a; source .env.local; set +a
-npx tsx ./retainer-smoke.mts
-rm ./retainer-smoke.mts
 ```
 
-Expected: 7 tiers with all-null `slaHours` (until management fills them), and **3** agreements — Gracie Barra with `tier: recIaQ8Q51Czl98x7`, the other two with `tier: null`. Gracie Barra's period should span the 16th to the 16th, matching its 2026-06-16 effective date.
+Then run the smoke script. Note the extension is `.ts`, **not** `.mts` — tsx
+compiles `lib/` to CJS (there is no `"type": "module"`), and an `.mts` importer
+is ESM, so Node's lexer fails to see some named exports and reports
+`does not provide an export named 'currentPeriod'`.
+
+```bash
+cat > ./retainer-smoke.ts <<'EOF'
+import { listRetainerAgreements, listRetainerTiers, currentPeriod } from "./lib/retainers";
+async function main() {
+  const tiers = await listRetainerTiers();
+  console.log("tiers:", tiers.length);
+  for (const t of tiers) console.log(`  ${t.rank} ${t.name} hrs=${t.includedHours ?? "-"} rate=${t.monthlyRate ?? "-"} sla=${JSON.stringify(t.slaHours)}`);
+  const ags = await listRetainerAgreements();
+  console.log("agreements (Company link present):", ags.length);
+  for (const a of ags) {
+    const p = currentPeriod(a.effectiveDate, new Date());
+    console.log(`  ${a.projectName} company=${a.companyId} tier=${a.tierId ?? "null"} eff=${a.effectiveDate ?? "-"}`);
+    if (p) console.log(`     period: ${p.start.toISOString().slice(0, 10)} -> ${p.end.toISOString().slice(0, 10)}`);
+  }
+}
+main();
+EOF
+set -a; source .env.local; set +a
+node --require ./scripts/server-only-stub.cjs --import tsx ./retainer-smoke.ts
+rm -f ./retainer-smoke.ts
+```
+
+Expected: 7 tiers with all-null `slaHours` (until management fills them),
+Platinum showing `hrs=45 rate=6750`, and **3** agreements — Gracie Barra with
+`tier=recIaQ8Q51Czl98x7`, the other two `tier=null`. Gracie Barra's period must
+span the 16th to the 16th (e.g. `2026-07-16 -> 2026-08-16`), matching its
+2026-06-16 effective date.
 
 - [ ] **Step 5: Commit**
 

@@ -13,6 +13,10 @@ import { canMutate } from "@/lib/authz";
 import { getAppSession } from "@/lib/session";
 import { resolvePersonByEmail } from "@/lib/people";
 import { canSwitchScorecard } from "@/lib/permissions";
+import { AssignedRequests, sortForInbox } from "@/components/me/AssignedRequests";
+import { listRetainerRequests } from "@/lib/retainer-requests";
+import { listRetainerAgreements } from "@/lib/retainers";
+import { OPEN_REQUEST_STATUSES } from "@/lib/retainer-types";
 
 export const revalidate = 300;
 
@@ -86,8 +90,35 @@ export default async function MePage({ searchParams }: { searchParams: Promise<S
 
   const canEditGoal = editable || (!!ownPersonId && engineerId === ownPersonId);
 
+  // Dev inbox: open retainer requests assigned to whoever's scorecard this is.
+  // Best-effort — a retainer read failing must never break the scorecard.
+  let assigned: Awaited<ReturnType<typeof listRetainerRequests>> = [];
+  const retainerNames = new Map<string, string>();
+  try {
+    if (engineerId) {
+      const [requests, agreements] = await Promise.all([
+        listRetainerRequests(),
+        listRetainerAgreements(),
+      ]);
+      assigned = sortForInbox(
+        requests.filter(
+          (r) =>
+            r.assignedToId === engineerId &&
+            r.status !== null &&
+            OPEN_REQUEST_STATUSES.includes(r.status),
+        ),
+      );
+      for (const a of agreements) {
+        retainerNames.set(a.id, a.companyName ?? a.projectName);
+      }
+    }
+  } catch {
+    assigned = [];
+  }
+
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
+      <AssignedRequests requests={assigned} retainerNames={retainerNames} />
       <PersonScorecard
         scorecard={payload.scorecard}
         engineers={payload.engineers}

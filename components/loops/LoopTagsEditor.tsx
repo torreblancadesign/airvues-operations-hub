@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ChevronDown } from "lucide-react";
 import { updateLoopLinks } from "@/lib/mutations/loop";
 
 type Option = { id: string; label: string };
@@ -12,6 +13,48 @@ type Props = {
   clients: Option[];
   quotes: Option[];
 };
+
+function TagSelect({
+  label,
+  value,
+  onChange,
+  disabled,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  options: Option[];
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-wider text-ink-faint">
+        {label}
+      </span>
+      <span className="relative block">
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          disabled={disabled}
+          className="w-full appearance-none rounded-md border border-rule bg-bg/50 py-1.5 pl-2.5 pr-7 text-[13px] text-ink-strong transition-colors hover:border-rule-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">— None —</option>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          strokeWidth={1.75}
+          className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint"
+        />
+      </span>
+    </label>
+  );
+}
 
 export function LoopTagsEditor({
   loopId,
@@ -44,67 +87,42 @@ export function LoopTagsEditor({
   };
 
   return (
-    <div className="bg-surface border border-rule rounded-card p-4 space-y-3">
-      <div className="text-[11px] font-mono uppercase tracking-wider text-ink-faint">
-        Tags
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <label className="block">
-          <span className="block text-[10px] font-mono uppercase tracking-wider text-ink-faint mb-1">
-            Client
-          </span>
-          <select
-            value={clientId}
-            onChange={(e) => setClientId(e.target.value)}
-            disabled={pending}
-            className="w-full bg-surface/40 border border-rule rounded-md px-2 py-1.5 text-[13px] text-ink-strong focus:outline-none focus:border-emerald/50"
-          >
-            <option value="">— None —</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="block text-[10px] font-mono uppercase tracking-wider text-ink-faint mb-1">
-            Quote
-          </span>
-          <select
-            value={quoteId}
-            onChange={(e) => setQuoteId(e.target.value)}
-            disabled={pending}
-            className="w-full bg-surface/40 border border-rule rounded-md px-2 py-1.5 text-[13px] text-ink-strong focus:outline-none focus:border-emerald/50"
-          >
-            <option value="">— None —</option>
-            {quotes.map((q) => (
-              <option key={q.id} value={q.id}>
-                {q.label}
-              </option>
-            ))}
-          </select>
-        </label>
+    <section className="space-y-3 rounded-card border border-rule bg-surface p-4">
+      <h2 className="text-[11px] font-mono uppercase tracking-[0.18em] text-ink-faint">Tags</h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <TagSelect
+          label="Client"
+          value={clientId}
+          onChange={setClientId}
+          disabled={pending}
+          options={clients}
+        />
+        <TagSelect
+          label="Quote"
+          value={quoteId}
+          onChange={setQuoteId}
+          disabled={pending}
+          options={quotes}
+        />
       </div>
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={save}
           disabled={!dirty || pending}
-          className="px-3 py-1.5 rounded-md bg-emerald/15 border border-emerald/30 text-emerald hover:bg-emerald/20 text-[12px] font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-md border border-emerald/30 bg-emerald/15 px-3 py-1.5 text-[12px] font-medium text-emerald transition-colors hover:bg-emerald/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/70 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending ? "Saving…" : "Save tags"}
         </button>
-        {msg && (
-          <span
-            className={`text-[11px] font-mono ${
-              msg.kind === "ok" ? "text-emerald" : "text-red"
-            }`}
-          >
-            {msg.text}
-          </span>
-        )}
+        <p
+          aria-live="polite"
+          className={`font-mono text-[11px] empty:hidden ${
+            msg?.kind === "err" ? "text-red" : "text-emerald"
+          }`}
+        >
+          {msg?.text ?? ""}
+        </p>
       </div>
-    </div>
+    </section>
   );
 }

@@ -1,7 +1,10 @@
 // Public share page — /r/[token]. No auth, no nav. Branded Airvues surface.
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { Video } from "lucide-react";
 import { getLoopByToken } from "@/lib/loops";
+import { DownloadLoopButton } from "@/components/loops/DownloadLoopButton";
+import { formatLoopDuration } from "@/lib/loops-types";
 import { incrementLoopViewCount } from "@/lib/mutations/loop";
 import { AuroraBackdrop } from "@/components/login/AuroraBackdrop";
 import { LiveClock } from "@/components/login/LiveClock";
@@ -55,8 +58,9 @@ export default async function PublicLoopPage({
             </div>
           </div>
         </div>
-        <div className="text-[10px] font-mono uppercase tracking-[0.22em] text-ink-faint">
-          ◆ Shared recording
+        <div className="inline-flex items-center gap-2 text-[10px] font-mono uppercase tracking-[0.22em] text-ink-faint">
+          <Video aria-hidden="true" strokeWidth={1.5} className="h-3.5 w-3.5" />
+          Shared recording
         </div>
         <div
           className="absolute bottom-0 left-0 right-0 h-px"
@@ -89,15 +93,30 @@ export default async function PublicLoopPage({
             />
           </div>
 
-          <div className="px-1 sm:px-2">
-            <h1 className="text-[24px] sm:text-[28px] font-semibold text-ink-strong leading-tight tracking-tight">
-              {loop.title}
-            </h1>
-            <div className="mt-2 flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-ink-faint">
-              {loop.ownerName && <span>Recorded by {loop.ownerName}</span>}
-              {loop.ownerName && <span aria-hidden="true">·</span>}
-              <span className="tabnum">{recordedAt}</span>
+          <div className="flex flex-wrap items-start justify-between gap-4 px-1 sm:px-2">
+            <div className="min-w-0">
+              <h1 className="text-[24px] sm:text-[28px] font-semibold text-ink-strong leading-tight tracking-tight">
+                {loop.title}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-ink-faint">
+                {loop.ownerName && <span>Recorded by {loop.ownerName}</span>}
+                {loop.ownerName && <span aria-hidden="true">·</span>}
+                <span className="tabnum">{recordedAt}</span>
+                {loop.durationSec > 0 && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="tabnum">{formatLoopDuration(loop.durationSec)}</span>
+                  </>
+                )}
+              </div>
             </div>
+            <DownloadLoopButton
+              videoUrl={loop.videoUrl}
+              title={loop.title}
+              sizeMb={loop.sizeMb}
+              variant="ghost"
+              className="shrink-0"
+            />
           </div>
 
           <AiSummaryPanel

@@ -18,7 +18,12 @@ export function fmtHours(h: number | null | undefined): string {
   return Number.isInteger(h) ? String(h) : h.toFixed(1);
 }
 
-type Tone = "ok" | "warn" | "bad" | "info" | "quiet";
+export type Tone = "ok" | "warn" | "bad" | "info" | "quiet";
+
+/** Ink for a tone when the state is a word in a line rather than a pill. */
+export function toneInk(tone: Tone): string {
+  return tone === "quiet" ? "var(--p-ink-3)" : `var(--p-${tone})`;
+}
 
 const TONE_STYLE: Record<Tone, { color: string; background: string }> = {
   ok: { color: "var(--p-ok)", background: "var(--p-ok-bg)" },

@@ -44,7 +44,7 @@ export function QueueList({
   }
 
   return (
-    <ul className="p-panel overflow-hidden">
+    <ul className="p-panel p-rows overflow-hidden">
       {entries.map((e) => (
         <li key={e.id}>
           <Link href={`/portal/requests/${e.id}`} className="p-row">
@@ -70,8 +70,15 @@ export function QueueList({
               </span>
               <span className="block t-fine fig mt-0.5">
                 {e.priority} · {e.requestedBy} asked {e.askedOn}
-                {e.waitedHours !== null && ` · waiting ${fmtHours(e.waitedHours)}h`}
-                {e.promisedHours !== null && ` of ${e.promisedHours}h`}
+                {/* Below 0.1 business hours the clock has barely started (or it is
+                    outside business hours) — "waiting 0h" reads broken, so the
+                    clause waits until there is something to say. */}
+                {e.waitedHours !== null && e.waitedHours >= 0.1 && (
+                  <>
+                    {` · waiting ${fmtHours(e.waitedHours)}h`}
+                    {e.promisedHours !== null && ` of ${e.promisedHours}h`}
+                  </>
+                )}
               </span>
             </span>
             <span className="shrink-0" style={{ paddingTop: 2 }}>

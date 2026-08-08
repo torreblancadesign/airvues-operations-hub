@@ -122,7 +122,9 @@
   }
 }
 
-/* One content measure. The whole page aligns to this and nothing else. */
+/* One content measure. The whole page aligns to this and nothing else.
+   1080 carries the desktop two-column overview; inner elements that need a
+   reading measure (threads, forms) constrain themselves inside it. */
 .p-main {
   padding: var(--s-6) var(--s-4) var(--s-14);
   min-width: 0;
@@ -133,7 +135,7 @@
   }
 }
 .p-measure {
-  max-width: 940px;
+  max-width: 1080px;
   margin: 0 auto;
 }
 
@@ -367,7 +369,6 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .p-row {
@@ -382,6 +383,78 @@
 }
 .p-row + .p-row {
   border-top: 1px solid var(--p-line);
+}
+/* List rows wrapped in <li> are not .p-row siblings, so the rule above never
+   fires for them — the list carries the separators instead. */
+.p-rows > li + li {
+  border-top: 1px solid var(--p-line);
+}
+
+/* Initials disc for attribution rows. Typography, not an icon system. */
+.p-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--p-sunk);
+  border: 1px solid var(--p-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--p-ink-2);
+  flex: none;
+}
+
+/* Response-record chart: one bar per answered request, each normalized to its
+   own promised window so a single dashed line can mean "the promise" for all
+   of them. Green under the line is a promise kept; red over it is not. */
+.p-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  height: 116px;
+  padding-top: var(--s-5);
+  /* Ground the bars — without a baseline they float in the panel. */
+  border-bottom: 1px solid var(--p-line);
+}
+.p-chart-bar {
+  flex: 1 1 0;
+  max-width: 28px;
+  min-width: 6px;
+  border-radius: 3px 3px 1px 1px;
+}
+.p-chart-promise {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed var(--p-line-strong);
+  z-index: 1;
+  pointer-events: none;
+}
+.p-chart-promise > span {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  font-size: var(--t-2xs);
+  letter-spacing: 0.02em;
+  color: var(--p-ink-3);
+  background: var(--p-panel);
+  padding-left: var(--s-2);
+}
+
+/* Step numbers in the how-it-works sequence — the order is the information. */
+.p-step-num {
+  width: 26px;
+  flex: none;
+  font-size: var(--t-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink-3);
+  line-height: 1.45;
 }
 
 @media (prefers-reduced-motion: reduce) {

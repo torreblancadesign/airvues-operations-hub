@@ -3,8 +3,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RetainerDetail } from "@/components/retainers/RetainerDetail";
+import { RetainerTerms } from "@/components/retainers/RetainerTerms";
 import { assertCanAccess } from "@/lib/page-guard";
-import { listRetainerAgreements, listRetainerTiers } from "@/lib/retainers";
+import { canMutate } from "@/lib/authz";
+import {
+  legacySelectedTierFor,
+  listRetainerAgreements,
+  listRetainerTiers,
+} from "@/lib/retainers";
 import { currentPeriod } from "@/lib/retainer-period";
 import { listRetainerComments, listRetainerRequests } from "@/lib/retainer-requests";
 import { listPeopleOptions } from "@/lib/quotes";
@@ -21,12 +27,15 @@ export default async function RetainerDetailRoute({
 }) {
   await assertCanAccess("/retainers");
 
-  const [agreements, tiers, allRequests, people] = await Promise.all([
-    listRetainerAgreements(),
-    listRetainerTiers(),
-    listRetainerRequests(),
-    listPeopleOptions(),
-  ]);
+  const [agreements, tiers, allRequests, people, canEdit, legacySelectedTier] =
+    await Promise.all([
+      listRetainerAgreements(),
+      listRetainerTiers(),
+      listRetainerRequests(),
+      listPeopleOptions(),
+      canMutate(),
+      legacySelectedTierFor(params.id),
+    ]);
 
   const agreement = agreements.find((a) => a.id === params.id);
   if (!agreement) notFound();
@@ -67,16 +76,24 @@ export default async function RetainerDetailRoute({
           </>
         }
       />
-      <RetainerDetail
-        agreement={agreement}
-        tier={tier}
-        requests={requests}
-        selected={selected}
-        comments={comments}
-        people={people}
-        periodStart={period ? period.start.toISOString() : null}
-        periodEnd={period ? period.end.toISOString() : null}
-      />
+      <div className="space-y-5">
+        <RetainerTerms
+          agreement={agreement}
+          tier={tier}
+          tiers={tiers}
+          periodStart={period ? period.start.toISOString() : null}
+          periodEnd={period ? period.end.toISOString() : null}
+          canEdit={canEdit}
+          legacySelectedTier={legacySelectedTier}
+        />
+        <RetainerDetail
+          agreement={agreement}
+          requests={requests}
+          selected={selected}
+          comments={comments}
+          people={people}
+        />
+      </div>
     </main>
   );
 }

@@ -38,34 +38,24 @@ function outcomeTone(o: string | null): string {
   return "bg-bg-elevated text-ink-faint";
 }
 
-function money(n: number | null): string {
-  return n == null ? "—" : `$${n.toLocaleString()}`;
-}
-
 function shortDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : "—";
 }
 
 type Props = {
   agreement: RetainerAgreement;
-  tier: RetainerTier | null;
   requests: RetainerRequest[];
   selected: RetainerRequest | null;
   comments: RetainerComment[];
   people: PersonOption[];
-  periodStart: string | null;
-  periodEnd: string | null;
 };
 
 export function RetainerDetail({
   agreement,
-  tier,
   requests,
   selected,
   comments,
   people,
-  periodStart,
-  periodEnd,
 }: Props) {
   const router = useRouter();
   const [showNew, setShowNew] = useState(false);
@@ -135,63 +125,6 @@ export function RetainerDetail({
 
   return (
     <div className="space-y-5">
-      {/* Agreement summary */}
-      <section className="bg-surface border border-rule rounded-card p-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <div>
-            <div className="eyebrow mb-1">Tier</div>
-            <div className="text-[14px] text-ink-strong">{tier?.name ?? "— none —"}</div>
-            {tier?.slaLabel && (
-              <div className="text-[10px] text-ink-faint">{tier.slaLabel}</div>
-            )}
-          </div>
-          <div>
-            <div className="eyebrow mb-1">Monthly</div>
-            <div className="text-[14px] text-ink-strong tabnum">
-              {money(agreement.monthlyRate ?? tier?.monthlyRate ?? null)}
-            </div>
-          </div>
-          <div>
-            <div className="eyebrow mb-1">Included hrs</div>
-            <div className="text-[14px] text-ink-strong tabnum">
-              {agreement.includedHours ?? tier?.includedHours ?? "—"}
-            </div>
-          </div>
-          <div>
-            <div className="eyebrow mb-1">Effective</div>
-            <div className="text-[14px] text-ink-strong font-mono">
-              {shortDate(agreement.effectiveDate)}
-            </div>
-          </div>
-          <div>
-            <div className="eyebrow mb-1">This period</div>
-            <div className="text-[12px] text-ink-strong font-mono">
-              {periodStart && periodEnd
-                ? `${periodStart.slice(5, 10)} → ${periodEnd.slice(5, 10)}`
-                : "—"}
-            </div>
-          </div>
-          <div>
-            <div className="eyebrow mb-1">Subscription</div>
-            <span
-              className={`${chip} ${
-                agreement.subscriptionActive
-                  ? "bg-emerald/15 text-emerald"
-                  : "bg-bg-elevated text-ink-muted"
-              }`}
-            >
-              {agreement.subscriptionActive ? "Active" : agreement.dealStatus ?? "—"}
-            </span>
-          </div>
-        </div>
-        {!tier && (
-          <p className="mt-3 text-[11px] text-amber">
-            No tier linked, so no response deadline is calculated. Requests are tracked but
-            reported as “Not covered”. Link a tier on the quote to start measuring.
-          </p>
-        )}
-      </section>
-
       {error && (
         <div className="bg-surface border border-red/30 rounded-card px-4 py-2.5 text-[12px] text-red">
           {error}

@@ -2,7 +2,7 @@
 // Do NOT import from a client component — this pulls in lib/airtable.ts.
 import "server-only";
 
-import { listRecords, listRecordsCached } from "./airtable";
+import { getRecord, listRecords, listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { currentPeriod } from "./retainer-period";
 import type { RetainerAgreement, RetainerPriority, RetainerTier } from "./retainer-types";
@@ -162,4 +162,21 @@ export async function listRetainerAgreements(opts?: {
       };
     })
     .filter((a) => a.companyId !== null);
+}
+
+/**
+ * The quote's legacy "Retainer Selected Tier" singleSelect, or null.
+ *
+ * Read separately from listRetainerAgreements because it exists only to be
+ * shown when it disagrees with the linked plan. Custom plans have no legacy
+ * equivalent, so writes leave it alone rather than blanking it, and the detail
+ * page surfaces the drift instead of hiding it.
+ */
+export async function legacySelectedTierFor(quoteId: string): Promise<string | null> {
+  try {
+    const rec = await getRecord<Record<string, unknown>>(QUOTE.id, quoteId);
+    return str(rec.fields["Retainer Selected Tier"]);
+  } catch {
+    return null;
+  }
 }

@@ -6,36 +6,21 @@ import { PlanCatalog } from "@/components/retainers/PlanCatalog";
 import { assertCanAccess } from "@/lib/page-guard";
 import { canMutate } from "@/lib/authz";
 import { listRetainerTiers } from "@/lib/retainers";
-import { listRecordsCached } from "@/lib/airtable";
-import { Tables } from "@/lib/schema";
+import { listCompanyOptions, type CompanyOption } from "@/lib/retainer-companies";
 import type { RetainerTier } from "@/lib/retainer-types";
 
 export const revalidate = 300;
-
-async function companyOptions(): Promise<{ id: string; name: string }[]> {
-  const rows = await listRecordsCached<Record<string, unknown>>(
-    Tables.Companies.id,
-    { fields: [Tables.Companies.fields["Name"].id] },
-    ["retainers:company-names"],
-  );
-  return rows
-    .flatMap((r) => {
-      const n = r.fields["Name"];
-      return typeof n === "string" && n.trim() !== "" ? [{ id: r.id, name: n }] : [];
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
 
 export default async function RetainerPlansRoute() {
   await assertCanAccess("/retainers/plans");
 
   const canEdit = await canMutate();
   let tiers: RetainerTier[] = [];
-  let companies: { id: string; name: string }[] = [];
+  let companies: CompanyOption[] = [];
   let error: string | null = null;
 
   try {
-    [tiers, companies] = await Promise.all([listRetainerTiers(), companyOptions()]);
+    [tiers, companies] = await Promise.all([listRetainerTiers(), listCompanyOptions()]);
   } catch (e) {
     error = (e as Error).message;
   }

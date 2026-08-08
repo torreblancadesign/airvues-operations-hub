@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { RetainerDetail } from "@/components/retainers/RetainerDetail";
 import { RetainerTerms } from "@/components/retainers/RetainerTerms";
+import { RetainerContacts } from "@/components/retainers/RetainerContacts";
 import { assertCanAccess } from "@/lib/page-guard";
 import { canMutate } from "@/lib/authz";
 import {
@@ -11,6 +12,7 @@ import {
   listRetainerAgreements,
   listRetainerTiers,
 } from "@/lib/retainers";
+import { listContactsForCompany } from "@/lib/retainer-contacts";
 import { currentPeriod } from "@/lib/retainer-period";
 import { listRetainerComments, listRetainerRequests } from "@/lib/retainer-requests";
 import { listPeopleOptions } from "@/lib/quotes";
@@ -52,6 +54,8 @@ export default async function RetainerDetailRoute({
   if (selected) comments = await listRetainerComments(selected.id);
 
   const period = currentPeriod(agreement.effectiveDate, new Date());
+  // Loaded after the agreement so the company link is known.
+  const contacts = await listContactsForCompany(agreement.companyId);
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
@@ -92,6 +96,12 @@ export default async function RetainerDetailRoute({
           selected={selected}
           comments={comments}
           people={people}
+        />
+        <RetainerContacts
+          contacts={contacts}
+          companyId={agreement.companyId}
+          companyName={agreement.companyName}
+          canEdit={canEdit}
         />
       </div>
     </main>

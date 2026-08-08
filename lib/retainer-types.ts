@@ -76,6 +76,25 @@ export type RetainerRequest = {
   closedAt: string | null;
 };
 
+export type PortalRole = "Owner" | "Member";
+
+/** A client-side person on a retainer's company. Portal identity lives here. */
+export type RetainerContact = {
+  id: string;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  companyId: string | null;
+  /** Whether they may sign in to the client portal at all. */
+  portalAccess: boolean;
+  portalRole: PortalRole | null;
+  /** ISO. Null means they have never signed in. */
+  portalLastLogin: string | null;
+  /** ISO. Stamped the first time access is granted. */
+  portalInvitedAt: string | null;
+};
+
 export type CommentSide = "Client" | "Airvues";
 
 /** One message on a retainer request thread. */

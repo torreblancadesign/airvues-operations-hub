@@ -103,14 +103,6 @@ export const NAV_ITEMS: NavItem[] = [
     showInSidebar: true,
     showOnHome: true,
   },
-  {
-    href: "/retainers/plans",
-    label: "Retainer Plans",
-    desc: "Rates, included hours, and response-time promises · custom plans per client",
-    group: "delivery",
-    showInSidebar: true,
-    showOnHome: false,
-  },
 
   // Stories umbrella
   {

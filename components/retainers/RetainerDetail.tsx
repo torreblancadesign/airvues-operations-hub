@@ -6,6 +6,7 @@ import Link from "next/link";
 import { RequestThread } from "./RequestThread";
 import {
   createRetainerRequest,
+  deleteRetainerRequest,
   triageRequestToStory,
   updateRetainerRequest,
 } from "@/lib/mutations/retainer-request";
@@ -63,12 +64,17 @@ export function RetainerDetail({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<RetainerPriority>("Medium");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const [triageName, setTriageName] = useState("");
   const [triageHours, setTriageHours] = useState("1");
   const [triageValue, setTriageValue] = useState("0");
   const [showTriage, setShowTriage] = useState(false);
+  // Two-step: the first click arms, the second deletes. Reset whenever the
+  // selection changes so an armed button never carries over to another request.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const engineers = people.filter((p) => p.isInternal && p.isActive);
 
@@ -103,6 +109,31 @@ export function RetainerDetail({
     startTransition(() => router.refresh());
   }
 
+  async function removeRequest() {
+    if (!selected || deleting) return;
+    setError(null);
+    setDeleting(true);
+    try {
+      const res = await deleteRetainerRequest(selected.id);
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      setConfirmDelete(null);
+      const kept =
+        res.storiesKept > 0
+          ? ` ${res.storiesKept} linked stor${res.storiesKept === 1 ? "y was" : "ies were"} kept.`
+          : "";
+      setNotice(`Request deleted.${kept}`);
+      startTransition(() => {
+        router.push(`/retainers/${agreement.id}`);
+        router.refresh();
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   async function submitTriage() {
     if (!selected) return;
     setError(null);
@@ -128,6 +159,12 @@ export function RetainerDetail({
       {error && (
         <div className="bg-surface border border-red/30 rounded-card px-4 py-2.5 text-[12px] text-red">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div className="bg-surface border border-emerald/30 rounded-card px-4 py-2.5 text-[12px] text-emerald">
+          {notice}
         </div>
       )}
 
@@ -302,6 +339,39 @@ export function RetainerDetail({
                 <span className={`${chip} ${outcomeTone(selected.slaOutcome)}`}>
                   {selected.slaOutcome ?? "—"}
                 </span>
+                {confirmDelete === selected.id ? (
+                  <span className="flex items-center gap-2 ml-auto">
+                    <span className="text-[11px] text-red">
+                      Delete this request and its thread?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={removeRequest}
+                      disabled={deleting}
+                      className="px-2 py-1 text-[11px] rounded bg-red/15 text-red border border-red/40 hover:bg-red/25 disabled:opacity-50"
+                    >
+                      {deleting ? "Deleting…" : "Yes, delete"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(null)}
+                      className="px-2 py-1 text-[11px] rounded border border-rule text-ink-muted"
+                    >
+                      Keep
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotice(null);
+                      setConfirmDelete(selected.id);
+                    }}
+                    className="ml-auto text-[11px] text-ink-faint hover:text-red underline"
+                  >
+                    Delete request
+                  </button>
+                )}
               </div>
 
               <RequestThread

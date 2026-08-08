@@ -6,9 +6,9 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { createRecords, getRecord, patchRecords } from "../airtable";
+import { createRecords, deleteRecord, getRecord, listRecords, patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireSignedIn } from "../authz";
+import { AuthzError, requireRole, requireSignedIn } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { listRetainerAgreements, listRetainerTiers } from "../retainers";
@@ -306,6 +306,63 @@ export async function triageRequestToStory(
       detail: `${name} · ${input.hours}h · from retainer request`,
     });
     return { ok: true, storyId: story.id };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/**
+ * Permanently delete a retainer request and its comment thread.
+ *
+ * Gated on admin/lead, NOT on requireSignedIn like the rest of this file.
+ * Everything else here is reachable by a client filing or replying to their own
+ * request; destroying the record is not something a client may ever do.
+ *
+ * Comments cascade — they are meaningless without their request and would
+ * otherwise be orphaned rows pointing at a record that no longer exists.
+ *
+ * Linked Stories DO NOT cascade. A story is real delivered work carrying Hours,
+ * Invoice and Cost, and completing one creates commission payment rows against
+ * a person. Deleting it here would orphan those payments, which is exactly how
+ * the base ended up with $41K of unrouted ones. The story keeps its own Quote
+ * link and simply loses its request backlink.
+ */
+export async function deleteRetainerRequest(
+  requestId: string,
+): Promise<RequestMutationResult<{ commentsDeleted: number; storiesKept: number }>> {
+  try {
+    await requireRole("admin", "lead");
+  } catch (e) {
+    if (e instanceof AuthzError) return { error: e.reason };
+    return { error: (e as Error).message };
+  }
+
+  try {
+    const rec = await getRecord<Record<string, unknown>>(REQ.id, requestId);
+    const storiesKept = Array.isArray(rec.fields["Stories"])
+      ? (rec.fields["Stories"] as string[]).length
+      : 0;
+
+    // Read UNCACHED. A comment added inside the 5-minute window would survive
+    // the cascade and be left dangling.
+    const allComments = await listRecords<Record<string, unknown>>(CMT.id, {
+      fields: [CMT.fields["Request"].id],
+    });
+    const mine = allComments.filter((c) => {
+      const link = c.fields["Request"];
+      return Array.isArray(link) && link.includes(requestId);
+    });
+
+    for (const c of mine) {
+      await deleteRecord(CMT.id, c.id);
+      // Airtable allows 5 requests/second per base; deleteRecord has no
+      // built-in spacing the way patchRecords does.
+      await new Promise((r) => setTimeout(r, 220));
+    }
+
+    await deleteRecord(REQ.id, requestId);
+    invalidate();
+    return { ok: true, commentsDeleted: mine.length, storiesKept };
   } catch (e) {
     return { error: (e as Error).message };
   }

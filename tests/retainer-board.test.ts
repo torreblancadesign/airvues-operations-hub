@@ -266,3 +266,18 @@ test("requestsNeedingSlaRecompute excludes requests with no submit time", () => 
 test("requestsNeedingSlaRecompute returns nothing when no retainer uses the plan", () => {
   assert.deepEqual(requestsNeedingSlaRecompute([slaReq({ id: "r7" })], []), []);
 });
+
+test("unansweredCount counts open requests with no first reply", () => {
+  const rows = buildBoardRows({
+    ...base,
+    requests: [
+      req({ id: "a" }),
+      req({ id: "b", firstRespondedAt: fromZoned(2026, 8, 6, 11, 0).toISOString() }),
+      req({ id: "c" }),
+      // Closed requests are not open, so they cannot be awaiting a reply.
+      req({ id: "d", status: "Closed" }),
+    ],
+  });
+  assert.equal(rows[0].openCount, 3);
+  assert.equal(rows[0].unansweredCount, 2);
+});

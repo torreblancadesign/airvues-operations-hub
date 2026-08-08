@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setRetainerArchived, updateRetainer } from "@/lib/mutations/retainer";
 import { createPlan } from "@/lib/mutations/retainer-tier";
+import { PeriodMeter } from "./Meters";
 import { plansAvailableFor, legacyTierChoiceFor } from "@/lib/retainer-catalog";
 import {
   RETAINER_PRIORITIES,
@@ -55,6 +56,10 @@ export function RetainerTerms({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const locked = busy || pending;
+  // Client-side clock: the period bar is time-dependent and would otherwise
+  // hydrate mismatched against the server render.
+  const [nowMs, setNowMs] = useState<number | null>(null);
+  useEffect(() => setNowMs(Date.now()), []);
 
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -231,46 +236,12 @@ export function RetainerTerms({
             still linked and nothing was deleted. Restore to bring it back.
           </div>
         )}
-        <div className="flex items-start justify-between gap-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 flex-1">
-            <div>
-              <div className="eyebrow mb-1">Plan</div>
-              <div className="text-[14px] text-ink-strong">{tier?.name ?? "— none —"}</div>
-              {tier?.slaLabel && (
-                <div className="text-[10px] text-ink-faint">{tier.slaLabel}</div>
-              )}
-              {tier && !tier.active && (
-                <div className="text-[10px] text-amber">retired plan</div>
-              )}
-            </div>
-            <div>
-              <div className="eyebrow mb-1">Monthly</div>
-              <div className="text-[14px] text-ink-strong tabnum">
-                {money(agreement.monthlyRate ?? tier?.monthlyRate ?? null)}
-              </div>
-            </div>
-            <div>
-              <div className="eyebrow mb-1">Included hrs</div>
-              <div className="text-[14px] text-ink-strong tabnum">
-                {agreement.includedHours ?? tier?.includedHours ?? "—"}
-              </div>
-            </div>
-            <div>
-              <div className="eyebrow mb-1">Effective</div>
-              <div className="text-[14px] text-ink-strong font-mono">
-                {shortDate(agreement.effectiveDate)}
-              </div>
-            </div>
-            <div>
-              <div className="eyebrow mb-1">This period</div>
-              <div className="text-[12px] text-ink-strong font-mono">
-                {periodStart && periodEnd
-                  ? `${periodStart.slice(5, 10)} → ${periodEnd.slice(5, 10)}`
-                  : "—"}
-              </div>
-            </div>
-            <div>
-              <div className="eyebrow mb-1">Subscription</div>
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-[17px] font-semibold text-ink-strong leading-tight">
+                {tier?.name ?? "No plan linked"}
+              </h2>
               <span
                 className={`${chip} ${
                   agreement.subscriptionActive
@@ -278,10 +249,38 @@ export function RetainerTerms({
                     : "bg-bg-elevated text-ink-muted"
                 }`}
               >
-                {agreement.subscriptionActive ? "Active" : (agreement.dealStatus ?? "—")}
+                {agreement.subscriptionActive ? "Active" : (agreement.dealStatus ?? "Not active")}
               </span>
+              {tier && !tier.active && (
+                <span className={`${chip} bg-amber/15 text-amber`}>retired plan</span>
+              )}
+              {tier?.custom && (
+                <span className={`${chip} bg-violet/15 text-violet`}>custom</span>
+              )}
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-3 flex-wrap text-[13px]">
+              <span className="tabnum text-ink-strong font-medium">
+                {money(agreement.monthlyRate ?? tier?.monthlyRate ?? null)}
+              </span>
+              <span className="text-ink-faint">/ month</span>
+              <span className="text-rule-strong">·</span>
+              <span className="tabnum text-ink-strong font-medium">
+                {agreement.includedHours ?? tier?.includedHours ?? "—"}h
+              </span>
+              <span className="text-ink-faint">included</span>
+              {agreement.termMonths !== null && (
+                <>
+                  <span className="text-rule-strong">·</span>
+                  <span className="tabnum text-ink-muted">{agreement.termMonths}-month term</span>
+                </>
+              )}
+            </div>
+            <div className="mt-1 text-[11px] text-ink-faint tabnum">
+              effective {shortDate(agreement.effectiveDate)}
+              {agreement.contactName && ` · ${agreement.contactName}`}
             </div>
           </div>
+
           {canEdit && (
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -290,14 +289,14 @@ export function RetainerTerms({
                   setEditing(true);
                   setMessage(null);
                 }}
-                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald"
+                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald transition-colors"
               >
                 Edit terms
               </button>
               <button
                 onClick={toggleArchived}
                 disabled={locked}
-                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-faint hover:text-amber hover:border-amber disabled:opacity-50"
+                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-faint hover:text-amber hover:border-amber disabled:opacity-50 transition-colors"
               >
                 {agreement.archived ? "Restore" : "Archive"}
               </button>
@@ -305,29 +304,47 @@ export function RetainerTerms({
           )}
         </div>
 
-        {tier && (
-          <div className="mt-3 pt-3 border-t border-rule/50 flex flex-wrap gap-4">
-            <div className="eyebrow">First response</div>
-            {RETAINER_PRIORITIES.map((p) => (
-              <div key={p} className="text-[11px]">
-                <span className="text-ink-muted">{p}: </span>
-                {tier.slaHours[p] === null ? (
-                  <span className="text-amber">not covered</span>
-                ) : (
-                  <span className="text-ink tabnum">{tier.slaHours[p]}h</span>
-                )}
+        <div className="mt-4 pt-4 border-t border-rule/60 grid gap-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div>
+            <div className="eyebrow mb-2">
+              First response promised · business hours, 9–6 Mon–Fri Pacific
+            </div>
+            {tier ? (
+              <div className="flex flex-wrap gap-x-6 gap-y-2">
+                {RETAINER_PRIORITIES.map((p) => (
+                  <div key={p}>
+                    <div className="text-[10px] text-ink-faint uppercase tracking-wider">{p}</div>
+                    {tier.slaHours[p] === null ? (
+                      <div className="text-[14px] text-amber leading-tight">not covered</div>
+                    ) : (
+                      <div className="text-[16px] text-ink-strong font-semibold tabnum leading-tight">
+                        {tier.slaHours[p]}
+                        <span className="text-[12px] text-ink-faint font-normal">h</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <p className="text-[12px] text-amber leading-snug max-w-md">
+                No plan is linked, so no deadline is calculated. Requests are still recorded and
+                answered — they are just reported as “Not covered” and can never count as a
+                breach.{canEdit && " Use Edit terms to assign a plan."}
+              </p>
+            )}
           </div>
-        )}
 
-        {!tier && (
-          <p className="mt-3 text-[11px] text-amber">
-            No plan linked, so no response deadline is calculated. Requests are tracked but
-            reported as “Not covered”.{" "}
-            {canEdit && "Use Edit terms to assign one."}
-          </p>
-        )}
+          <div className="sm:w-[180px] sm:border-l sm:border-rule/60 sm:pl-5">
+            <div className="eyebrow mb-2">This period</div>
+            {periodStart && periodEnd ? (
+              <PeriodMeter start={periodStart} end={periodEnd} now={nowMs ?? Date.parse(periodStart)} />
+            ) : (
+              <div className="text-[11px] text-ink-faint">
+                No effective date, so no billing period is tracked.
+              </div>
+            )}
+          </div>
+        </div>
 
         {legacyMismatch && (
           <p className="mt-2 text-[11px] text-amber">

@@ -100,10 +100,14 @@ export type RetainerBoardRow = {
   tierName: string | null;
   slaLabel: string | null;
   subscriptionActive: boolean;
+  /** Quote status, e.g. "Rejected". Explains WHY a row is not active. */
+  dealStatus: string | null;
   /** Hidden from the board unless "Show archived" is on. */
   archived: boolean;
   /** Requests not yet Closed or Declined. */
   openCount: number;
+  /** Open and still waiting on a first Airvues reply. The actionable number. */
+  unansweredCount: number;
   /** Open, unanswered, and past their deadline. */
   breachedNowCount: number;
   /** Open, unanswered, >=75% of the window elapsed, not yet breached. */

@@ -290,7 +290,7 @@ export function PlanCatalog({
         <td className="px-4 py-2.5">
           <div className="text-ink-strong">{t.name}</div>
           {t.custom && (
-            <div className="text-[10px] text-purple">
+            <div className="text-[10px] text-violet">
               custom · {companyName(t.customForCompanyId) ?? "no client — hidden everywhere"}
             </div>
           )}

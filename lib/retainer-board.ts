@@ -47,12 +47,15 @@ export function buildBoardRows(args: {
 
     let breachedNowCount = 0;
     let atRiskCount = 0;
+    let unansweredCount = 0;
     let oldestUnansweredHours: number | null = null;
 
     for (const r of open) {
       const submittedAt = r.submittedAt ? new Date(r.submittedAt) : null;
       const dueAt = r.slaDueAt ? new Date(r.slaDueAt) : null;
       const answered = !!r.firstRespondedAt;
+
+      if (!answered) unansweredCount += 1;
 
       if (!answered && submittedAt) {
         const waited = businessHoursBetween(submittedAt, now);
@@ -91,8 +94,10 @@ export function buildBoardRows(args: {
       tierName: tier?.name ?? null,
       slaLabel: tier?.slaLabel ?? null,
       subscriptionActive: a.subscriptionActive,
+      dealStatus: a.dealStatus,
       archived: a.archived,
       openCount: open.length,
+      unansweredCount,
       breachedNowCount,
       atRiskCount,
       breachedThisPeriodCount,

@@ -1,7 +1,7 @@
 // Retainer health board — cross-retainer view answering "which retainer is at risk?".
 // Create and edit live here too; requests are filed from the detail page.
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
+import { RetainerHeadline } from "@/components/retainers/RetainerHeadline";
 import { RetainerBoard } from "@/components/retainers/RetainerBoard";
 import { NewRetainerButton } from "@/components/retainers/NewRetainerButton";
 import { assertCanAccess } from "@/lib/page-guard";
@@ -46,16 +46,19 @@ export default async function RetainersRoute() {
   // an unsigned proposal carries the same Proposal Type but is not under any
   // SLA, and counting it made the board overstate exposure.
   const liveRows = rows.filter((r) => r.subscriptionActive && !r.archived);
-  const totalOpen = liveRows.reduce((n, r) => n + r.openCount, 0);
+  const totalUnanswered = liveRows.reduce((n, r) => n + r.unansweredCount, 0);
   const totalBreached = liveRows.reduce((n, r) => n + r.breachedNowCount, 0);
   const totalAtRisk = liveRows.reduce((n, r) => n + r.atRiskCount, 0);
   const noTier = liveRows.filter((r) => r.tierName === null).length;
+  const overHours = liveRows.filter(
+    (r) => r.includedHours !== null && (r.hoursLoggedThisPeriod ?? 0) > r.includedHours,
+  ).length;
 
   return (
     <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 sm:py-5">
       <PageHeader
         title="Retainers"
-        subtitle="Which retainer is at risk. SLA clocks run 9am–6pm Mon–Fri Pacific."
+        subtitle="Response clocks run 9am–6pm, Monday to Friday, Pacific."
         meta={
           <>
             <div className="font-mono tabnum">
@@ -77,27 +80,14 @@ export default async function RetainersRoute() {
               <NewRetainerButton companies={companies} tiers={tiers} />
             </div>
           )}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
-            <StatCard label="Open requests" value={String(totalOpen)} />
-            <StatCard
-              label="Breached"
-              value={String(totalBreached)}
-              tone={totalBreached > 0 ? "red" : "neutral"}
-              sub="past deadline, unanswered"
-            />
-            <StatCard
-              label="At risk"
-              value={String(totalAtRisk)}
-              tone={totalAtRisk > 0 ? "amber" : "neutral"}
-              sub="75% of window elapsed"
-            />
-            <StatCard
-              label="No tier linked"
-              value={String(noTier)}
-              tone={noTier > 0 ? "amber" : "neutral"}
-              sub="SLA not measured"
-            />
-          </div>
+          <RetainerHeadline
+            liveCount={liveRows.length}
+            unanswered={totalUnanswered}
+            breached={totalBreached}
+            atRisk={totalAtRisk}
+            noPlan={noTier}
+            overHours={overHours}
+          />
           <RetainerBoard rows={rows} />
         </>
       )}

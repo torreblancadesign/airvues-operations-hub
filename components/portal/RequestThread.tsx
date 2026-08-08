@@ -51,10 +51,10 @@ export function PortalThread({
 
   return (
     <section className="mt-6">
-      <h2 style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.015em" }}>Conversation</h2>
+      <h2 className="t-h2">Conversation</h2>
 
       {comments.length === 0 ? (
-        <p style={{ fontSize: 14, color: "var(--p-ink-2)", marginTop: 10 }}>
+        <p className="t-body mt-2">
           No messages yet. Anything you add here goes straight to the team working on this.
         </p>
       ) : (
@@ -64,26 +64,25 @@ export function PortalThread({
             return (
               <li
                 key={c.id}
-                className="p-card p-4"
+                className="p-panel p-4"
                 style={{
-                  background: mine ? "var(--p-card-sunk)" : "var(--p-card)",
+                  background: mine ? "var(--p-sunk)" : "var(--p-panel)",
                   marginLeft: mine ? "auto" : undefined,
                   maxWidth: "min(100%, 620px)",
                 }}
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>
+                  <span style={{ fontSize: "var(--t-sm)", fontWeight: 600 }}>
                     {mine ? (c.authorName ?? "You") : (c.authorName ?? "Airvues")}
                   </span>
-                  <span className="fig" style={{ fontSize: 12, color: "var(--p-ink-3)" }}>
+                  <span className="fig t-fine">
                     {stamp(c.createdAt)}
                   </span>
                 </div>
                 <p
+                  className="mt-1.5"
                   style={{
-                    fontSize: 14.5,
-                    color: "var(--p-ink)",
-                    marginTop: 6,
+                    fontSize: "var(--t-base)",
                     lineHeight: 1.6,
                     whiteSpace: "pre-wrap",
                   }}
@@ -98,7 +97,7 @@ export function PortalThread({
 
       <div className="mt-5">
         {error && (
-          <p style={{ fontSize: 13.5, color: "var(--p-bad)", marginBottom: 8 }}>{error}</p>
+          <p className="t-small mb-2" style={{ color: "var(--p-bad)" }}>{error}</p>
         )}
         <textarea
           className="p-input"
@@ -109,7 +108,7 @@ export function PortalThread({
           style={{ resize: "vertical", lineHeight: 1.6 }}
         />
         <div className="flex items-center justify-between gap-3 mt-2.5 flex-wrap">
-          <p style={{ fontSize: 12.5, color: "var(--p-ink-3)" }}>
+          <p className="t-fine">
             {closed
               ? "Replying reopens this request so it is not missed."
               : "Your reply does not restart the response clock."}

@@ -28,26 +28,19 @@ export default async function NewPortalRequest() {
   ) as Record<RetainerPriority, number | null>;
 
   return (
-    <main className="mx-auto max-w-[720px] px-5 py-9 sm:py-12">
+    <div className="max-w-[680px]">
       <Link
         href="/portal"
-        style={{ fontSize: 13.5, color: "var(--p-ink-2)" }}
-        className="hover:underline"
+        className="t-small hover:underline"
       >
         ← Back
       </Link>
       <h1
-        style={{
-          fontSize: 24,
-          fontWeight: 600,
-          letterSpacing: "-0.022em",
-          marginTop: 14,
-          lineHeight: 1.2,
-        }}
+        className="t-h1 mt-3"
       >
         New request
       </h1>
-      <p style={{ fontSize: 14.5, color: "var(--p-ink-2)", marginTop: 6, lineHeight: 1.6 }}>
+      <p className="t-body mt-1.5">
         The response clock starts the moment you send this.
       </p>
 
@@ -59,6 +52,6 @@ export default async function NewPortalRequest() {
         promised={promised}
         showPromises={isOwner}
       />
-    </main>
+    </div>
   );
 }

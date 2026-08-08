@@ -54,7 +54,13 @@ export function requestState(r: RetainerRequest): { tone: Tone; label: string } 
   return { tone: "quiet", label: "Received" };
 }
 
-/** A meter that always sits beside the number it describes, never alone. */
+/**
+ * A meter that always carries its own end labels.
+ *
+ * At zero used it would otherwise render as a bare grey bar, which reads as a
+ * divider rather than a measurement — the labels are what make an empty track
+ * mean "all of it is still available".
+ */
 export function Meter({
   value,
   max,
@@ -66,17 +72,26 @@ export function Meter({
 }) {
   const ratio = max > 0 ? value / max : 0;
   const pct = Math.min(100, Math.max(ratio * 100, value > 0 ? 2 : 0));
+  const over = ratio > 1;
   const color =
     tone === "quiet"
       ? "var(--p-ink-3)"
-      : ratio > 1
+      : over
         ? "var(--p-bad)"
         : ratio >= 0.85
           ? "var(--p-warn)"
           : "var(--p-ok)";
   return (
-    <div className="p-meter" role="presentation">
-      <span style={{ width: `${pct}%`, background: color }} />
+    <div>
+      <div className="p-meter" role="img" aria-label={`${fmtHours(value)} of ${fmtHours(max)} hours used`}>
+        <span style={{ width: `${pct}%`, background: color }} />
+      </div>
+      <div className="flex items-baseline justify-between mt-1.5">
+        <span className="t-fine fig">{fmtHours(value)} used</span>
+        <span className="t-fine fig" style={{ color: over ? "var(--p-bad)" : undefined }}>
+          {over ? `${fmtHours(value - max)} over` : `${fmtHours(max - value)} left`}
+        </span>
+      </div>
     </div>
   );
 }

@@ -66,9 +66,9 @@ export function NewRequestForm({
   const window = promised[priority];
 
   return (
-    <div className="p-card p-6 mt-6">
+    <div className="p-panel p-6 mt-6">
       {error && (
-        <p style={{ fontSize: 14, color: "var(--p-bad)", marginBottom: 14 }}>{error}</p>
+        <p className="t-body mb-3" style={{ color: "var(--p-bad)" }}>{error}</p>
       )}
 
       <label className="block">
@@ -110,16 +110,16 @@ export function NewRequestForm({
                 className="text-left transition-colors"
                 style={{
                   border: `1px solid ${on ? "var(--p-ink)" : "var(--p-line-strong)"}`,
-                  background: on ? "var(--p-card-sunk)" : "var(--p-card)",
+                  background: on ? "var(--p-sunk)" : "var(--p-panel)",
                   borderRadius: "var(--p-radius-sm)",
                   padding: "11px 13px",
                   boxShadow: on ? "0 0 0 3px rgba(10,15,26,0.06)" : "none",
                 }}
               >
                 <span className="flex items-baseline justify-between gap-2">
-                  <span style={{ fontSize: 14.5, fontWeight: 600 }}>{p}</span>
+                  <span style={{ fontSize: "var(--t-base)", fontWeight: 600 }}>{p}</span>
                   {showPromises && (
-                    <span className="fig" style={{ fontSize: 12.5, color: "var(--p-ink-3)" }}>
+                    <span className="fig t-fine">
                       {hrs === null ? "not covered" : `${hrs} business hrs`}
                     </span>
                   )}
@@ -161,7 +161,7 @@ export function NewRequestForm({
         className="mt-6 pt-5 flex items-center justify-between gap-4 flex-wrap"
         style={{ borderTop: "1px solid var(--p-line)" }}
       >
-        <p style={{ fontSize: 13, color: "var(--p-ink-2)", maxWidth: 400 }}>
+        <p className="t-small" style={{ maxWidth: 400 }}>
           {!showPromises
             ? "This joins your team's queue and we will reply as soon as we can."
             : window === null

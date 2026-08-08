@@ -12,8 +12,8 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
   const session = await getPortalSession();
   if (!session) {
     return (
-      <main className="mx-auto max-w-[980px] px-5 py-12">
-        <div className="p-card p-8 text-center max-w-[520px] mx-auto">
+      <div>
+        <div className="p-panel p-8 text-center max-w-[460px] mx-auto">
           <p style={{ fontSize: 15 }}>
             Your session has ended.{" "}
             <Link href="/portal" style={{ textDecoration: "underline" }}>
@@ -22,7 +22,7 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
             .
           </p>
         </div>
-      </main>
+      </div>
     );
   }
 
@@ -43,19 +43,17 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
   const closed = request.status === "Closed" || request.status === "Delivered";
 
   return (
-    <main className="mx-auto max-w-[760px] px-5 py-9 sm:py-12">
+    <div>
       <Link
         href="/portal"
-        style={{ fontSize: 13.5, color: "var(--p-ink-2)" }}
-        className="hover:underline"
+        className="t-small hover:underline"
       >
         ← All requests
       </Link>
 
       <div className="flex items-start justify-between gap-4 mt-4 flex-wrap">
         <h1
-          style={{ fontSize: 24, fontWeight: 600, letterSpacing: "-0.022em", lineHeight: 1.25 }}
-          className="min-w-0"
+          className="t-h1 min-w-0"
         >
           {request.title}
         </h1>
@@ -64,12 +62,12 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
         </div>
       </div>
 
-      <div className="p-card mt-5 p-5 grid gap-5 sm:grid-cols-3">
+      <div className="p-panel mt-5 p-5 grid gap-5 sm:grid-cols-3">
         <div>
           <Label>Asked by</Label>
-          <div style={{ fontSize: 15, marginTop: 2 }}>
+          <div className="mt-0.5" style={{ fontSize: "var(--t-md)" }}>
             {requestedBy}
-            <span className="fig" style={{ color: "var(--p-ink-3)" }}>
+            <span className="fig t-fine">
               {" "}
               · {shortDate(request.submittedAt)}
             </span>
@@ -77,11 +75,11 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
         </div>
         <div>
           <Label>Priority</Label>
-          <div style={{ fontSize: 15, marginTop: 2 }}>{request.priority ?? "Medium"}</div>
+          <div className="mt-0.5" style={{ fontSize: "var(--t-md)" }}>{request.priority ?? "Medium"}</div>
         </div>
         <div>
           <Label>{request.firstRespondedAt ? "We replied" : "Status"}</Label>
-          <div className="fig" style={{ fontSize: 15, marginTop: 2 }}>
+          <div className="fig mt-0.5" style={{ fontSize: "var(--t-md)" }}>
             {request.firstRespondedAt ? (
               shortDate(request.firstRespondedAt)
             ) : isOwner ? (
@@ -97,17 +95,17 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
 
       {/* Only claim a promise was kept when the system actually measured it. */}
       {request.slaOutcome === "Met" && request.firstRespondedAt && (
-        <p style={{ fontSize: 13.5, color: "var(--p-ok)", marginTop: 12 }}>
+        <p className="t-small mt-3" style={{ color: "var(--p-ok)" }}>
           We replied inside the response time on your plan.
         </p>
       )}
       {request.slaOutcome === "Breached" && (
-        <p style={{ fontSize: 13.5, color: "var(--p-bad)", marginTop: 12 }}>
+        <p className="t-small mt-3" style={{ color: "var(--p-bad)" }}>
           We did not reply within the time we promised on this one.
         </p>
       )}
 
       <PortalThread requestId={request.id} comments={comments} closed={closed} />
-    </main>
+    </div>
   );
 }

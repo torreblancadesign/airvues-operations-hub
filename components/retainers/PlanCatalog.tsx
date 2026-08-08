@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPlan, setPlanActive, updatePlan } from "@/lib/mutations/retainer-tier";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   RETAINER_PRIORITIES,
   type RetainerPriority,
@@ -250,18 +251,12 @@ export function PlanCatalog({
             Custom plan for one client
           </label>
           {draft.custom && (
-            <select
-              className={input}
-              value={draft.customForCompanyId}
-              onChange={(e) => setDraft({ ...draft, customForCompanyId: e.target.value })}
-            >
-              <option value="">Select a client…</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={draft.customForCompanyId || null}
+              onChange={(v) => setDraft({ ...draft, customForCompanyId: v ?? "" })}
+              options={companies.map((c) => ({ value: c.id, label: c.name }))}
+              allLabel="Select a client…"
+            />
           )}
         </div>
 

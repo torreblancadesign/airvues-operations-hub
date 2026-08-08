@@ -127,6 +127,7 @@ export async function listRetainerAgreements(opts?: {
         QUOTE.fields["Retainer Initial Term Months"].id,
         QUOTE.fields["Retainer Effective Date"].id,
         QUOTE.fields["Retainer Subscription Active"].id,
+        QUOTE.fields["Retainer Archived"].id,
         QUOTE.fields["Status"].id,
       ],
       filterByFormula: `{Proposal Type} = 'Retainer Agreement'`,
@@ -158,6 +159,7 @@ export async function listRetainerAgreements(opts?: {
         termMonths: num(f["Retainer Initial Term Months"]),
         effectiveDate: str(f["Retainer Effective Date"]),
         subscriptionActive: f["Retainer Subscription Active"] === "Active",
+        archived: f["Retainer Archived"] === true,
         dealStatus: str(f["Status"]),
       };
     })

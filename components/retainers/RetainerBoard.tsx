@@ -20,6 +20,7 @@ function periodLabel(row: RetainerBoardRow): string {
 export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
   const [query, setQuery] = useState("");
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -32,11 +33,20 @@ export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
     });
   }, [rows, query, attentionOnly]);
 
+  // Archived rows are hidden entirely unless asked for. Nothing is deleted —
+  // the retainer and everything linked to it stays in the base.
+  const visible = filtered.filter((r) => !r.archived);
+  const archived = filtered.filter((r) => r.archived);
+
   // Split on the subscription, not on deal status. A rejected quote and an
   // unsigned proposal both carry Proposal Type "Retainer Agreement", and
   // reporting them as live retainers under an SLA was simply wrong.
-  const live = filtered.filter((r) => r.subscriptionActive);
-  const dormant = filtered.filter((r) => !r.subscriptionActive);
+  const live = visible.filter((r) => r.subscriptionActive);
+  const dormant = visible.filter((r) => !r.subscriptionActive);
+  // What the table will actually render. Not `filtered.length` — with every
+  // match archived and the toggle off that is non-zero, and the table would
+  // render headers over nothing.
+  const shownCount = live.length + dormant.length + (showArchived ? archived.length : 0);
 
 
   function group(items: RetainerBoardRow[], variant: "dormant" | null) {
@@ -121,7 +131,8 @@ export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
         <div>
           <div className="eyebrow">Retainer health</div>
           <div className="text-[12px] text-ink-muted mt-0.5">
-            {live.length} active · {dormant.length} not active · {rows.length} total
+            {live.length} active · {dormant.length} not active
+            {archived.length > 0 && ` · ${archived.length} archived`}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -134,6 +145,15 @@ export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
             />
             Needs attention
           </label>
+          <label className="text-[11px] text-ink-muted flex items-center gap-1.5 select-none cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="accent-amber"
+            />
+            Show archived
+          </label>
           <input
             type="search"
             value={query}
@@ -144,10 +164,12 @@ export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {shownCount === 0 ? (
         <div className="px-4 py-8 text-center text-[12px] text-ink-muted">
           Nothing matches.{" "}
-          {attentionOnly && "No retainer is breached or at risk right now."}
+          {attentionOnly && "No retainer is breached or at risk right now. "}
+          {!showArchived && archived.length > 0 &&
+            `${archived.length} archived retainer${archived.length === 1 ? " is" : "s are"} hidden.`}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -183,6 +205,18 @@ export function RetainerBoard({ rows }: { rows: RetainerBoardRow[] }) {
                 </tr>
               )}
               {group(dormant, "dormant")}
+              {showArchived && archived.length > 0 && (
+                <tr className="border-b border-rule">
+                  <td colSpan={8} className="px-4 pt-5 pb-1.5">
+                    <div className="eyebrow text-ink-faint">Archived</div>
+                    <div className="text-[11px] text-ink-faint mt-0.5">
+                      Hidden from the board by default. Nothing was deleted — open one and
+                      choose Restore to bring it back.
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {showArchived && group(archived, "dormant")}
             </tbody>
           </table>
 

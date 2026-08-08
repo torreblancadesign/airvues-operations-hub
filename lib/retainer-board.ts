@@ -91,6 +91,7 @@ export function buildBoardRows(args: {
       tierName: tier?.name ?? null,
       slaLabel: tier?.slaLabel ?? null,
       subscriptionActive: a.subscriptionActive,
+      archived: a.archived,
       openCount: open.length,
       breachedNowCount,
       atRiskCount,

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateRetainer } from "@/lib/mutations/retainer";
+import { setRetainerArchived, updateRetainer } from "@/lib/mutations/retainer";
 import { createPlan } from "@/lib/mutations/retainer-tier";
 import { plansAvailableFor, legacyTierChoiceFor } from "@/lib/retainer-catalog";
 import {
@@ -150,6 +150,26 @@ export function RetainerTerms({
     }
   }
 
+  async function toggleArchived() {
+    if (locked) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await setRetainerArchived(agreement.id, !agreement.archived);
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      refresh(
+        agreement.archived
+          ? "Retainer restored to the board."
+          : "Retainer archived. Nothing was deleted — its requests and stories are intact.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function saveCustomPlan() {
     if (locked) return;
     if (!agreement.companyId) {
@@ -198,9 +218,18 @@ export function RetainerTerms({
 
   if (!editing) {
     return (
-      <section className="bg-surface border border-rule rounded-card p-4">
-        {message && (
-          <div className="mb-3 text-[12px] text-emerald">{message}</div>
+      <section
+        className={`bg-surface border rounded-card p-4 ${
+          agreement.archived ? "border-amber/40" : "border-rule"
+        }`}
+      >
+        {message && <div className="mb-3 text-[12px] text-emerald">{message}</div>}
+        {error && <div className="mb-3 text-[12px] text-red">{error}</div>}
+        {agreement.archived && (
+          <div className="mb-3 text-[12px] text-amber">
+            Archived — hidden from the retainers board. Every request, comment and story is
+            still linked and nothing was deleted. Restore to bring it back.
+          </div>
         )}
         <div className="flex items-start justify-between gap-4">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 flex-1">
@@ -254,16 +283,25 @@ export function RetainerTerms({
             </div>
           </div>
           {canEdit && (
-            <button
-              onClick={() => {
-                reset();
-                setEditing(true);
-                setMessage(null);
-              }}
-              className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald shrink-0"
-            >
-              Edit terms
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => {
+                  reset();
+                  setEditing(true);
+                  setMessage(null);
+                }}
+                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald"
+              >
+                Edit terms
+              </button>
+              <button
+                onClick={toggleArchived}
+                disabled={locked}
+                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-faint hover:text-amber hover:border-amber disabled:opacity-50"
+              >
+                {agreement.archived ? "Restore" : "Archive"}
+              </button>
+            </div>
           )}
         </div>
 

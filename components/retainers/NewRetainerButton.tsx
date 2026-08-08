@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createRetainer } from "@/lib/mutations/retainer";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { plansAvailableFor } from "@/lib/retainer-catalog";
 import type { RetainerTier } from "@/lib/retainer-types";
 
@@ -115,21 +116,15 @@ export function NewRetainerButton({
       {error && <div className="text-[12px] text-red">{error}</div>}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <label className="block">
+        <div className="block">
           <span className="eyebrow block mb-1">Client</span>
-          <select
-            className={`${input} w-full`}
-            value={companyId}
-            onChange={(e) => chooseCompany(e.target.value)}
-          >
-            <option value="">Select a client…</option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </label>
+          <SearchableSelect
+            value={companyId || null}
+            onChange={(v) => chooseCompany(v ?? "")}
+            options={companies.map((c) => ({ value: c.id, label: c.name }))}
+            allLabel="Select a client…"
+          />
+        </div>
         <label className="block lg:col-span-2">
           <span className="eyebrow block mb-1">Retainer name</span>
           <input

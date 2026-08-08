@@ -52,6 +52,9 @@ export type RetainerAgreement = {
   termMonths: number | null;
   effectiveDate: string | null;
   subscriptionActive: boolean;
+  /** Hidden from the board. Nothing is deleted; requests and stories stay linked.
+   *  Distinct from subscriptionActive, which is the subscription's own state. */
+  archived: boolean;
   dealStatus: string | null;
 };
 
@@ -97,6 +100,8 @@ export type RetainerBoardRow = {
   tierName: string | null;
   slaLabel: string | null;
   subscriptionActive: boolean;
+  /** Hidden from the board unless "Show archived" is on. */
+  archived: boolean;
   /** Requests not yet Closed or Declined. */
   openCount: number;
   /** Open, unanswered, and past their deadline. */

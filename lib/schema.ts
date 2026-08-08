@@ -284,6 +284,7 @@ export const Tables = {
       "🟣 Retainer Requests": { id: "fldXf2u0rFUb6Js9o", type: "multipleRecordLinks" },
       "Company": { id: "fldes4pqblaFvJOHD", type: "multipleRecordLinks" },
       "Retainer Tier": { id: "fldDaVIXgp5Q9eIwK", type: "multipleRecordLinks" },
+      "Retainer Archived": { id: "fldDpA5XiWHXwLnDg", type: "checkbox" },
     },
   },
   Invoices: {

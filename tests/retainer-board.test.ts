@@ -40,6 +40,7 @@ const agreement: RetainerAgreement = {
   termMonths: 3,
   effectiveDate: "2026-06-16",
   subscriptionActive: true,
+  archived: false,
   dealStatus: "Approved and Signed",
 };
 
@@ -192,6 +193,24 @@ test("requests belonging to another retainer are not counted", () => {
     requests: [req({ id: "a", retainerId: "someone-else" })],
   });
   assert.equal(rows[0].openCount, 0);
+});
+
+test("archived flag is carried onto the board row", () => {
+  const rows = buildBoardRows({ ...base, requests: [] });
+  assert.equal(rows[0].archived, false);
+});
+
+test("an archived retainer still produces a row, flagged", () => {
+  const rows = buildBoardRows({
+    ...base,
+    agreements: [{ ...agreement, archived: true }],
+    requests: [],
+  });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].archived, true);
+  // Archiving must not touch SLA maths — hiding is a view concern, and an
+  // un-archived retainer has to come back with its history intact.
+  assert.equal(rows[0].tierName, "Platinum");
 });
 
 // ---------- requestsNeedingSlaRecompute ----------

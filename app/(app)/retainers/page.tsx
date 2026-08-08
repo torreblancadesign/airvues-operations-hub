@@ -42,10 +42,10 @@ export default async function RetainersRoute() {
     error = (e as Error).message;
   }
 
-  // Counters describe LIVE retainers only. A rejected quote or an unsigned
-  // proposal carries the same Proposal Type but is not under any SLA, and
-  // counting it made the board overstate exposure.
-  const liveRows = rows.filter((r) => r.subscriptionActive);
+  // Counters describe LIVE, non-archived retainers only. A rejected quote or
+  // an unsigned proposal carries the same Proposal Type but is not under any
+  // SLA, and counting it made the board overstate exposure.
+  const liveRows = rows.filter((r) => r.subscriptionActive && !r.archived);
   const totalOpen = liveRows.reduce((n, r) => n + r.openCount, 0);
   const totalBreached = liveRows.reduce((n, r) => n + r.breachedNowCount, 0);
   const totalAtRisk = liveRows.reduce((n, r) => n + r.atRiskCount, 0);

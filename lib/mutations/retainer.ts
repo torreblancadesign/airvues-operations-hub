@@ -178,3 +178,30 @@ export async function updateRetainer(
     return { error: (e as Error).message };
   }
 }
+
+/**
+ * Archive or restore a retainer.
+ *
+ * A SOFT hide, and deliberately not a delete. The quote keeps every linked
+ * request, comment, story and invoice; archiving only removes it from the
+ * board's default view. Restoring brings it back with its history intact.
+ *
+ * Kept separate from `Retainer Subscription Active` on purpose: that field is
+ * the subscription's own state, and a cancelled retainer is often still worth
+ * looking at. Archiving is the decision to stop looking.
+ */
+export async function setRetainerArchived(
+  id: string,
+  archived: boolean,
+): Promise<RetainerMutationResult> {
+  const denied = await gate();
+  if (denied) return denied;
+
+  try {
+    await patchRecords(QUOTE.id, [{ id, fields: { "Retainer Archived": archived } }]);
+    invalidate();
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

@@ -438,11 +438,13 @@ export const Tables = {
       "\ud83d\udd35 Time Entries": { id: "fldrz77Nu5Pbi4ucW", type: "multipleRecordLinks" },
       "Manual sort": { id: "fldepJFnkcijIEfqW", type: "manualSort" },
       "Phase": { id: "fldu8cAPCJbdDS6zb", type: "singleSelect", options: { choices: [{"name": "Phase 1"}, {"name": "Phase 2"}, {"name": "Phase 3"}] } },
-      // Airtable accepts the field NAME in place of fldXXX. Swap to real ID once available.
-      "Change Order": { id: "Change Order", type: "checkbox" },
+      "Change Order": { id: "fldoJMwiAy2Pz2Tld", type: "checkbox" },
       "Quote Order": { id: "fldfeJqFh88bHKItW", type: "number" },
-      "Completed Date": { id: "Completed Date", type: "date" },
-      "Tags": { id: "Tags", type: "singleLineText" },
+      "Completed Date": { id: "fldM6ApgoMtoQW7RW", type: "date" },
+      "Tags": { id: "fldER0Y59CG4uLxk5", type: "singleLineText" },
+      "🔵 Team Task Payments": { id: "fldjlCJCwOckeazEu", type: "multipleRecordLinks" },
+      "Assignee Commission Amount": { id: "fldGpRvdPOc19UObC", type: "currency" },
+      "Commission Percentage (from Assignee)": { id: "fldj02RRtwN360KzT", type: "multipleLookupValues" },
     },
   },
 
@@ -467,6 +469,7 @@ export const Tables = {
     name: "\ud83d\udd35 Team Task Payments",
     fields: {
       "Payment Job ID": { id: "fldwKOnImb0Xnzlxw", type: "autoNumber" },
+      "Stories": { id: "fldfu34ybjOyJbcfR", type: "multipleRecordLinks" },
       "Client Invoice": { id: "fld5M4m6N0ZRXQFGn", type: "multipleRecordLinks" },
       "Date (from Client Invoice)": { id: "fldRItOeChQKP6LrG", type: "multipleLookupValues" },
       "Year": { id: "fld7wLicR05QHVxzU", type: "formula" },
@@ -691,6 +694,7 @@ export const Tables = {
       "Stakeholder Priority": { id: "fldqytqdN9sK9zZ5I", type: "formula" },
       "Form Submission | \ud83d\udc64 Clients": { id: "fldVUPZqrghLy2sO7", type: "multipleRecordLinks" },
       "Airtable Account": { id: "fldeo2BqLzQ5xfiXx", type: "multipleCollaborators" },
+      "Commission Percentage": { id: "fldC445d4d8lIjLGT", type: "percent" },
       "Type": { id: "fldeQaa8IgkhQM9EU", type: "singleSelect", options: { choices: [{"name": "Internal"}, {"name": "External"}, {"name": "External client/partner"}, {"name": "Internal team member"}] } },
       "Status": { id: "fldVHzJogxKQDkndc", type: "singleSelect", options: { choices: [{"name": "Active"}, {"name": "Onboarding"}, {"name": "Innactive"}, {"name": "Unknown "}, {"name": "Former"}] } },
       "Stories": { id: "fldK9ddGoafIV2Epf", type: "multipleRecordLinks" },

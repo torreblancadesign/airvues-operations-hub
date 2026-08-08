@@ -90,6 +90,7 @@ export function StorySheet({
   const [local, setLocal] = useState<Partial<Story>>({});
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -110,6 +111,7 @@ export function StorySheet({
   useEffect(() => {
     setLocal({});
     setError(null);
+    setNotice(null);
   }, [story?.id]);
 
   useEffect(() => {
@@ -141,6 +143,11 @@ export function StorySheet({
       if (!("ok" in result)) {
         setError(result.error);
       } else {
+        if (result.paymentsCreated) {
+          setNotice(
+            `${result.paymentsCreated} commission payment${result.paymentsCreated === 1 ? "" : "s"} queued (Needs Payment)`,
+          );
+        }
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1200);
       }
@@ -185,6 +192,7 @@ export function StorySheet({
               <span>Story {current.storyNumber != null ? `#${current.storyNumber}` : ""}</span>
               {pending && <span className="text-amber">· saving…</span>}
               {savedFlash && !pending && <span className="text-emerald">· saved</span>}
+              {notice && !pending && <span className="text-emerald truncate">· {notice}</span>}
               {error && <span className="text-red truncate">· {error}</span>}
             </div>
             {canEdit ? (

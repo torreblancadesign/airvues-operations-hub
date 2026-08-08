@@ -4,10 +4,9 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { EngineeringBoardData, Story } from "@/lib/engineering-types";
 import { StatCard } from "@/components/ui/StatCard";
-import { StoryCard } from "./StoryCard";
 import { StorySheet } from "./StorySheet";
 import { EngineeringFilterBar } from "./FilterBar";
-import { CapacityPanel } from "./CapacityPanel";
+import { RosterRow } from "./RosterRow";
 import { EMPTY_FILTER, Filter, STATUS_GROUPS } from "./types";
 import { useSearchParamsFilter } from "@/lib/use-search-params-filter";
 
@@ -31,19 +30,21 @@ function storyMatches(s: Story, f: Filter): boolean {
   }
   if (f.client && !s.clientNames.includes(f.client)) return false;
   if (f.sprintNumber != null && !s.sprintNumbers.includes(f.sprintNumber)) return false;
+  if (f.priority && s.priority !== f.priority) return false;
   return true;
 }
 
 export function EngineeringBoard({ data, canEdit = false }: Props) {
   const [filter, setFilter] = useSearchParamsFilter<Filter>({
     defaults: EMPTY_FILTER,
-    keys: ["search", "status", "engineerId", "client", "sprintNumber", "orphanOnly"],
+    keys: ["search", "status", "engineerId", "client", "sprintNumber", "priority", "orphanOnly"],
   });
   const [selected, setSelected] = useState<Story | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Everything starts collapsed — the roster reads as an overview first.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  const toggleCollapse = (id: string) => {
-    setCollapsed((prev) => {
+  const toggleExpand = (id: string) => {
+    setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -83,6 +84,39 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
 
   const filteredCount = filtered.reduce((sum, g) => sum + g.visibleStories.length, 0);
 
+  const inProgressNow = useMemo(
+    () => data.groups.reduce((sum, g) => sum + g.totals.inProgressCount, 0),
+    [data.groups],
+  );
+
+  const roster = useMemo(() => {
+    const orphan = filtered.find((g) => g.isOrphan);
+    const engineers = filtered.filter((g) => !g.isOrphan);
+    const working = engineers
+      .filter((g) => g.visibleStories.length > 0)
+      .sort(
+        (a, b) =>
+          b.totals.inProgressCount - a.totals.inProgressCount ||
+          b.totals.activeHoursAssigned - a.totals.activeHoursAssigned,
+      );
+    // Engineers with no visible stories under the current filter + assignable
+    // people who have no story group at all — folded into one "free" row.
+    const groupIds = new Set(engineers.map((g) => g.id));
+    const free: { id: string; name: string; role: string | null }[] = [
+      ...engineers
+        .filter((g) => g.visibleStories.length === 0)
+        .map((g) => ({ id: g.id, name: g.name, role: g.role })),
+      ...data.assignablePeople
+        .filter((p) => !groupIds.has(p.id))
+        .map((p) => ({ id: p.id, name: p.name, role: p.role })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    const maxAssigned = Math.max(
+      ...working.map((g) => g.totals.activeHoursAssigned),
+      1,
+    );
+    return { orphan, working, free, maxAssigned };
+  }, [filtered, data.assignablePeople]);
+
   return (
     <>
       {/* KPI strip */}
@@ -93,10 +127,10 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           sub={`${data.totals.totalStories.toLocaleString()} total · ${data.totals.completedStories} done`}
         />
         <StatCard
-          label="Open hours"
+          label="In progress now"
           tone="emerald"
-          value={`${data.groups.reduce((sum, g) => sum + g.totals.activeHoursAssigned, 0)}h`}
-          sub="Scoped on active stories"
+          value={inProgressNow.toLocaleString()}
+          sub="Being worked on right now"
         />
         <StatCard
           label="Unassigned"
@@ -107,175 +141,108 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
           onClick={() => setFilter({ ...filter, orphanOnly: !filter.orphanOnly })}
         />
         <StatCard
-          label="Over budget"
-          tone={data.totals.overBudgetCount > 0 ? "amber" : "neutral"}
-          value={data.totals.overBudgetCount.toLocaleString()}
-          sub="Hours worked exceeds scoped"
+          label="QA queue"
+          tone={data.totals.qaReviewCount > 0 ? "amber" : "neutral"}
+          value={data.totals.qaReviewCount.toLocaleString()}
+          sub="Waiting on review"
+          active={filter.status === "qa"}
+          onClick={() =>
+            setFilter(
+              filter.status === "qa"
+                ? { ...filter, status: "active" }
+                : { ...EMPTY_FILTER, status: "qa" },
+            )
+          }
         />
       </div>
 
-      {/* Capacity planning — hours per engineer */}
-      <CapacityPanel groups={data.groups} />
+      <div className="sticky top-0 md:top-12 z-20 -mx-4 sm:-mx-6 px-4 sm:px-6 py-3 mb-4 bg-bg/95 backdrop-blur border-b border-rule-soft">
+        <EngineeringFilterBar
+          filter={filter}
+          setFilter={setFilter}
+          engineers={engineersWithWork}
+          clients={data.clients}
+          totalStories={data.totals.totalStories}
+          filteredCount={filteredCount}
+        />
+      </div>
 
-      {/* Orphan banner */}
-      {data.totals.orphanStories > 0 && !filter.orphanOnly && (
-        <div className="w-full mb-4 bg-red/10 border border-red/30 rounded-md px-4 py-3">
-          <div className="flex items-start gap-3">
-            <div className="w-1 self-stretch bg-red rounded-full" />
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-semibold text-red">
-                {data.totals.orphanStories} stories have no engineer assigned
-              </div>
-              <div className="text-[12px] text-ink-muted mt-0.5">
-                Engineer attribution and commission tracking will under-report until these are routed.
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setFilter({ ...EMPTY_FILTER, orphanOnly: true })}
-                className="px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink-strong border border-rule hover:border-ink-muted rounded-md transition-colors whitespace-nowrap"
-              >
-                Filter here
-              </button>
-              <Link
-                href="/hygiene/orphans"
-                className="px-2.5 py-1 text-[11px] bg-red text-bg font-semibold rounded hover:bg-red/80 transition-colors whitespace-nowrap"
-              >
-                Triage now →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Unified roster */}
+      <div className="space-y-3">
+        {roster.orphan && roster.orphan.visibleStories.length > 0 && (
+          <RosterRow
+            group={roster.orphan}
+            stories={roster.orphan.visibleStories}
+            maxAssigned={roster.maxAssigned}
+            expanded={expanded.has("__orphan__")}
+            onToggle={() => toggleExpand("__orphan__")}
+            selectedId={selected?.id ?? null}
+            onSelectStory={setSelected}
+          />
+        )}
 
-      {/* Bottleneck signal — QA queue + analysis stalls */}
-      {(data.totals.qaReviewCount > 0 || data.totals.analysisRequiredCount > 0) && (
-        <div className="w-full mb-4 bg-amber/10 border border-amber/30 rounded-md px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="text-[12px] text-ink-muted">
-            <span className="font-mono uppercase tracking-wider text-[10px] text-amber mr-2">Bottlenecks</span>
-            <span className="text-ink-strong tabnum">{data.totals.qaReviewCount}</span> in QA Review ·{" "}
-            <span className="text-ink-strong tabnum">{data.totals.analysisRequiredCount}</span> awaiting analysis
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {data.totals.qaReviewCount > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilter({ ...EMPTY_FILTER, status: "qa" })}
-                className="px-2.5 py-1 text-[11px] text-ink-muted hover:text-ink-strong border border-rule hover:border-ink-muted rounded-md transition-colors whitespace-nowrap"
-              >
-                QA queue →
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+        {roster.working.map((g) => (
+          <RosterRow
+            key={g.id}
+            group={g}
+            stories={g.visibleStories}
+            maxAssigned={roster.maxAssigned}
+            expanded={expanded.has(g.id)}
+            onToggle={() => toggleExpand(g.id)}
+            selectedId={selected?.id ?? null}
+            onSelectStory={setSelected}
+          />
+        ))}
 
-      <EngineeringFilterBar
-        filter={filter}
-        setFilter={setFilter}
-        engineers={engineersWithWork}
-        clients={data.clients}
-        sprints={data.sprints}
-        totalStories={data.totals.totalStories}
-        filteredCount={filteredCount}
-      />
-
-      {/* Engineer sections */}
-      <div className="space-y-6">
-        {filtered.length === 0 && (
+        {roster.working.length === 0 && !roster.orphan && (
           <div className="text-center py-12 text-ink-muted text-[13px]">
-            No engineers match the current filter.
+            No stories match the current filter.
           </div>
         )}
-        {filtered.map((g) => {
-          if (g.visibleStories.length === 0) return null;
-          const isCollapsed = collapsed.has(g.id);
-          return (
-            <section key={g.id} className="bg-surface border border-rule rounded-card overflow-hidden">
-              <button
-                type="button"
-                onClick={() => toggleCollapse(g.id)}
-                className="w-full text-left px-5 py-4 border-b border-rule flex items-center justify-between gap-4 hover:bg-bg-elevated transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${g.isOrphan ? "bg-red" : "bg-emerald"}`} />
-                  <div className="min-w-0">
-                    <div className="text-[15px] font-semibold text-ink-strong leading-tight truncate">
-                      {g.name}
-                    </div>
-                    <div className="text-[11px] text-ink-muted mt-0.5 truncate">
-                      {g.role ? `${g.role}` : g.isOrphan ? "Triage these into an engineer" : "—"}
-                      {g.internalType && <span className="text-ink-faint"> · {g.internalType}</span>}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-4 sm:gap-6 text-right shrink-0">
-                  <div className="hidden sm:block">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Active</div>
-                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeCount}</div>
-                  </div>
-                  <div className="hidden md:block">
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Assigned hrs</div>
-                    <div className="text-[14px] font-semibold text-ink-strong tabnum">{g.totals.activeHoursAssigned}h</div>
-                  </div>
-                  <div>
-                    <div className="text-[10px] text-ink-faint uppercase tracking-wider font-mono">Worked hrs</div>
-                    <div className="text-[14px] font-semibold text-emerald tabnum">{g.totals.activeHoursWorked}h</div>
-                  </div>
-                  <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
-                    {isCollapsed ? "+" : "−"}
-                  </span>
-                </div>
-              </button>
-
-              {!isCollapsed && (
-                <>
-                  {/* Per-engineer status mini-strip + scorecard link */}
-                  <div className="px-5 py-2.5 bg-bg-elevated border-b border-rule flex items-center justify-between gap-4 text-[11px] font-mono text-ink-muted tabnum flex-wrap">
-                    <div className="flex items-center gap-4 flex-wrap">
-                      {g.totals.inProgressCount > 0 && (
-                        <span><span className="text-emerald">●</span> {g.totals.inProgressCount} in progress</span>
-                      )}
-                      {g.totals.todoCount > 0 && (
-                        <span><span className="text-ink-faint">●</span> {g.totals.todoCount} todo</span>
-                      )}
-                      {g.totals.qaCount > 0 && (
-                        <span><span className="text-sky">●</span> {g.totals.qaCount} QA</span>
-                      )}
-                      {g.totals.onHoldCount > 0 && (
-                        <span><span className="text-amber">●</span> {g.totals.onHoldCount} hold</span>
-                      )}
-                      {g.totals.doneCount > 0 && (
-                        <span><span className="text-violet">●</span> {g.totals.doneCount} done</span>
-                      )}
+        {roster.free.length > 0 && !filter.orphanOnly && (
+          <section className="bg-surface border border-rule rounded-card overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleExpand("__free__")}
+              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-bg-elevated transition-colors"
+            >
+              <div className="min-w-0">
+                <span className="text-[13px] font-semibold text-ink-strong">
+                  {roster.free.length} engineer{roster.free.length === 1 ? "" : "s"} free
+                </span>
+                <span className="ml-2 text-[12px] text-ink-muted truncate">
+                  {roster.free.map((p) => p.name).join(" · ")}
+                </span>
+              </div>
+              <span className="text-ink-faint text-[14px] font-mono w-3 shrink-0">
+                {expanded.has("__free__") ? "−" : "+"}
+              </span>
+            </button>
+            {expanded.has("__free__") && (
+              <div className="border-t border-rule divide-y divide-rule">
+                {roster.free.map((p) => (
+                  <div
+                    key={p.id}
+                    className="px-5 py-2.5 flex items-center justify-between gap-4 text-[12px]"
+                  >
+                    <div className="min-w-0">
+                      <span className="text-ink-strong font-medium">{p.name}</span>
+                      <span className="ml-2 text-ink-muted">{p.role ?? "Engineer"}</span>
+                      <span className="ml-2 text-ink-faint">· no active stories</span>
                     </div>
-                    {!g.isOrphan && (
-                      <Link
-                        href={`/me?as=${g.id}`}
-                        className="text-emerald hover:text-emerald/80 transition-colors font-mono whitespace-nowrap"
-                      >
-                        View scorecard →
-                      </Link>
-                    )}
+                    <Link
+                      href={`/me?as=${p.id}`}
+                      className="text-emerald hover:text-emerald/80 transition-colors font-mono text-[11px] whitespace-nowrap"
+                    >
+                      View scorecard →
+                    </Link>
                   </div>
-
-                  <div className="p-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {g.visibleStories.map((s) => (
-                      <StoryCard
-                        key={s.id}
-                        story={s}
-                        onClick={setSelected}
-                        selected={selected?.id === s.id}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </section>
-          );
-        })}
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <StorySheet

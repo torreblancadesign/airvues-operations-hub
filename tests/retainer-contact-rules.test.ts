@@ -96,3 +96,70 @@ test("validateContact rejects an obviously malformed email", () => {
 test("validateContact accepts a contact with no last name", () => {
   assert.equal(validateContact({ firstName: "Cher", lastName: "", email: "cher@example.com" }), null);
 });
+
+// ---------- appendHistory ----------
+
+import { appendHistory } from "../lib/retainer-contact-rules";
+
+const AT = new Date("2026-08-08T14:30:00.000Z");
+
+test("appendHistory writes a dated line naming the actor", () => {
+  const out = appendHistory(null, { at: AT, actor: "david@airvues.com", action: "Portal access granted" });
+  assert.equal(out, "2026-08-08 14:30 · Portal access granted · by david@airvues.com");
+});
+
+test("appendHistory includes the detail when given", () => {
+  const out = appendHistory("", {
+    at: AT,
+    actor: "david@airvues.com",
+    action: "Detached from Gracie Barra",
+    detail: "left the company",
+  });
+  assert.match(out, /Detached from Gracie Barra — left the company · by david@airvues\.com/);
+});
+
+test("appendHistory puts the newest entry first and keeps the old ones", () => {
+  const first = appendHistory(null, { at: AT, actor: "a@x.com", action: "Contact added" });
+  const second = appendHistory(first, {
+    at: new Date("2026-08-09T09:00:00.000Z"),
+    actor: "b@x.com",
+    action: "Portal access revoked",
+  });
+  const lines = second.split("\n");
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /revoked/);
+  assert.match(lines[1], /Contact added/);
+});
+
+test("appendHistory records an unknown actor rather than dropping the entry", () => {
+  const out = appendHistory(null, { at: AT, actor: null, action: "Portal access granted" });
+  assert.match(out, /by unknown$/);
+  const blank = appendHistory(null, { at: AT, actor: "   ", action: "X" });
+  assert.match(blank, /by unknown$/);
+});
+
+test("appendHistory drops the OLDEST entries when the field would overflow", () => {
+  // One line well under the cap, repeated past it.
+  let history = "";
+  for (let i = 0; i < 500; i++) {
+    history = appendHistory(history, {
+      at: AT,
+      actor: "a@x.com",
+      action: `Event ${i} ${"padding".repeat(10)}`,
+    });
+  }
+  assert.ok(history.length <= 20_000);
+  // The most recent write survived; the first one did not.
+  assert.match(history.split("\n")[0], /Event 499/);
+  assert.equal(history.includes("Event 0 "), false);
+});
+
+test("appendHistory never leaves a half-truncated line", () => {
+  let history = "";
+  for (let i = 0; i < 400; i++) {
+    history = appendHistory(history, { at: AT, actor: "a@x.com", action: `E${i} ${"x".repeat(80)}` });
+  }
+  for (const line of history.split("\n")) {
+    assert.match(line, /· by a@x\.com$/);
+  }
+});

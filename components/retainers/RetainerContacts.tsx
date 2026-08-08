@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addRetainerContact,
+  createPortalSignInLink,
   removeRetainerContact,
   setContactPortalAccess,
   setContactPortalRole,
@@ -54,7 +55,32 @@ export function RetainerContacts({
   const [role, setRole] = useState<PortalRole>("Member");
   const [grant, setGrant] = useState(true);
 
+  // Detach asks why. The company link is cleared by the action, so this reason
+  // becomes the only surviving record that they ever belonged to this client.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  // The generated link, shown once. Never persisted — it is a bearer credential.
+  const [link, setLink] = useState<{ id: string; url: string; minutes: number } | null>(null);
+
   const rows = sortContacts(contacts);
+
+  async function issueLink(c: RetainerContact) {
+    if (locked) return;
+    setError(null);
+    setMessage(null);
+    setLink(null);
+    setBusy(true);
+    try {
+      const res = await createPortalSignInLink(c.id);
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      setLink({ id: c.id, url: res.url, minutes: res.expiresInMinutes });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function done(msg: string) {
     setError(null);
@@ -215,7 +241,7 @@ export function RetainerContacts({
           {rows.map((c) => {
             const state = STATUS[readinessOf(c)];
             return (
-              <li key={c.id} className="px-4 py-3 flex items-start justify-between gap-4">
+              <li key={c.id} className="px-4 py-3 flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-2.5 min-w-0">
                   <span
                     className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${state.dot}`}
@@ -271,19 +297,104 @@ export function RetainerContacts({
                     >
                       {c.portalAccess ? "Revoke" : "Grant access"}
                     </button>
+                    {c.portalAccess && (
+                      <button
+                        onClick={() => issueLink(c)}
+                        disabled={locked}
+                        title="Generates a one-click sign-in link to hand over yourself"
+                        className="text-[11px] text-ink-muted hover:text-sky disabled:opacity-40"
+                      >
+                        Sign-in link
+                      </button>
+                    )}
                     <button
-                      onClick={() =>
-                        run(
-                          () => removeRetainerContact(c.id),
-                          () => `${c.name} detached from this client.`,
-                        )
-                      }
+                      onClick={() => {
+                        setRemoving(c.id);
+                        setReason("");
+                        setError(null);
+                        setMessage(null);
+                      }}
                       disabled={locked}
                       title="Unlinks them from this client. The person record is kept."
                       className="text-[11px] text-ink-faint hover:text-amber disabled:opacity-40"
                     >
                       Remove
                     </button>
+                  </div>
+                )}
+
+                {removing === c.id && (
+                  <div className="basis-full mt-3 pt-3 border-t border-rule/60 space-y-2">
+                    <label className="block">
+                      <span className="text-[11px] text-ink-muted block mb-1">
+                        Why is {c.name} being removed? This is kept on their record —
+                        the client link is cleared, so it becomes the only trace that they
+                        were ever attached here.
+                      </span>
+                      <input
+                        className={`${input} w-full`}
+                        placeholder="e.g. left the company, replaced by another contact"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        autoFocus
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          run(
+                            () =>
+                              removeRetainerContact(c.id, {
+                                companyName,
+                                reason,
+                              }),
+                            () => `${c.name} detached. The reason was saved to their record.`,
+                          ).then(() => setRemoving(null))
+                        }
+                        disabled={locked}
+                        className="px-2.5 py-1 text-[11px] rounded bg-amber/15 text-amber border border-amber/40 hover:bg-amber/25 disabled:opacity-50"
+                      >
+                        {locked ? "Removing…" : "Remove from this client"}
+                      </button>
+                      <button
+                        onClick={() => setRemoving(null)}
+                        className="px-2.5 py-1 text-[11px] rounded border border-rule text-ink-muted"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {link?.id === c.id && (
+                  <div className="basis-full mt-3 pt-3 border-t border-rule/60">
+                    <div className="text-[11px] text-ink-muted mb-1.5">
+                      One-click sign-in for {c.name}. Expires in {link.minutes} minutes, and
+                      anyone holding it signs in as them — send it the way you would a password.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={link.url}
+                        onFocus={(e) => e.currentTarget.select()}
+                        className={`${input} flex-1 font-mono text-[11px]`}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(link.url);
+                          setMessage("Link copied.");
+                        }}
+                        className="px-2.5 py-1 text-[11px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        onClick={() => setLink(null)}
+                        className="px-2.5 py-1 text-[11px] rounded border border-rule text-ink-faint"
+                      >
+                        Hide
+                      </button>
+                    </div>
                   </div>
                 )}
               </li>
@@ -293,8 +404,10 @@ export function RetainerContacts({
       )}
 
       <div className="px-4 py-2.5 border-t border-rule text-[11px] text-ink-faint leading-snug">
-        Granting access records who is allowed in. It does not email anyone — the portal and its
-        magic-link sign-in are not built yet.
+        Granting access records who is allowed in. Nothing is emailed yet — until the mail
+        provider is wired up, use <span className="text-ink-muted">Sign-in link</span> and send
+        it yourself. Links last 30 minutes; access is re-checked on every page, so revoking
+        someone locks them out immediately even mid-session.
       </div>
     </section>
   );

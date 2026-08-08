@@ -82,3 +82,35 @@ export function validateContact(input: NewContactInput): string | null {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "That email does not look valid.";
   return null;
 }
+
+// ---------- Portal history ----------
+
+/** Airtable long-text caps at 100k; stay well under and trim from the top. */
+const HISTORY_MAX_CHARS = 20_000;
+
+/**
+ * Prepend one dated line to a person's portal history.
+ *
+ * Newest first, because the reason someone was detached is read far more often
+ * than the day they were first granted access. Append-only in spirit: existing
+ * lines are never rewritten, and when the field would overflow the OLDEST
+ * entries are dropped, never the newest.
+ */
+export function appendHistory(
+  existing: string | null | undefined,
+  entry: { at: Date; actor: string | null; action: string; detail?: string | null },
+): string {
+  const stamp = entry.at.toISOString().slice(0, 16).replace("T", " ");
+  const who = entry.actor?.trim() ? entry.actor.trim() : "unknown";
+  const detail = entry.detail?.trim() ? ` — ${entry.detail.trim()}` : "";
+  const line = `${stamp} · ${entry.action}${detail} · by ${who}`;
+
+  const prior = (existing ?? "").trim();
+  const combined = prior ? `${line}\n${prior}` : line;
+  if (combined.length <= HISTORY_MAX_CHARS) return combined;
+
+  // Drop whole lines from the end until it fits, so no entry is half-truncated.
+  const lines = combined.split("\n");
+  while (lines.length > 1 && lines.join("\n").length > HISTORY_MAX_CHARS) lines.pop();
+  return lines.join("\n");
+}

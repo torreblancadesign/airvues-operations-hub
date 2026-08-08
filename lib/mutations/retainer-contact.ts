@@ -7,15 +7,18 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { createRecords, patchRecords } from "../airtable";
+import { createRecords, getRecord, patchRecords } from "../airtable";
 import { Tables } from "../schema";
 import { AuthzError, requireRole } from "../authz";
 import { listPeopleWithEmail } from "../retainer-contacts";
 import {
+  appendHistory,
   findByEmail,
   validateContact,
   type NewContactInput,
 } from "../retainer-contact-rules";
+import { getAppSession } from "../session";
+import { LINK_TTL_SECONDS, signPortalLinkToken } from "../portal-token";
 import type { PortalRole } from "../retainer-types";
 
 const PEOPLE = Tables.People;
@@ -35,6 +38,51 @@ async function gate(): Promise<{ error: string } | null> {
 function invalidate() {
   revalidateTag("airtable");
   revalidateTag("retainers:contacts");
+}
+
+
+/** Who is making the change, for the history line. */
+async function actor(): Promise<string | null> {
+  try {
+    const session = await getAppSession();
+    return session?.user?.email ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Read the current history and return the field payload with one line added.
+ *
+ * Read-modify-write, so it is last-write-wins under concurrency. Two ops users
+ * changing the same contact in the same second could lose one line; the
+ * alternative is a separate audit table, which is the deferred mutation-log
+ * work in CLAUDE.md rather than something to invent here.
+ */
+async function withHistory(
+  personId: string,
+  fields: Record<string, unknown>,
+  action: string,
+  detail?: string | null,
+): Promise<Record<string, unknown>> {
+  let existing: string | null = null;
+  try {
+    const rec = await getRecord<Record<string, unknown>>(PEOPLE.id, personId);
+    const v = rec.fields["Portal History"];
+    existing = typeof v === "string" ? v : null;
+  } catch {
+    // A history read failure must not block the access change itself.
+    existing = null;
+  }
+  return {
+    ...fields,
+    "Portal History": appendHistory(existing, {
+      at: new Date(),
+      actor: await actor(),
+      action,
+      detail,
+    }),
+  };
 }
 
 export type AddContactInput = NewContactInput & {
@@ -79,7 +127,15 @@ export async function addRetainerContact(
       // were attached elsewhere this is the correction we want; the alternative
       // is a duplicate that breaks sign-in.
       await patchRecords(PEOPLE.id, [
-        { id: existing.id, fields: { ...portalFields, Company: [input.companyId] } },
+        {
+          id: existing.id,
+          fields: await withHistory(
+            existing.id,
+            { ...portalFields, Company: [input.companyId] },
+            `Linked to client as ${input.portalRole}`,
+            input.grantAccess ? "portal access granted" : "no portal access",
+          ),
+        },
       ]);
       invalidate();
       return { ok: true, id: existing.id, linked: true };
@@ -94,6 +150,12 @@ export async function addRetainerContact(
           Company: [input.companyId],
           Type: "External client/partner",
           ...portalFields,
+          "Portal History": appendHistory(null, {
+            at: new Date(),
+            actor: await actor(),
+            action: `Contact created as ${input.portalRole}`,
+            detail: input.grantAccess ? "portal access granted" : "no portal access",
+          }),
         },
       },
     ]);
@@ -114,17 +176,28 @@ export async function addRetainerContact(
 export async function setContactPortalAccess(
   personId: string,
   granted: boolean,
-  opts?: { alreadyInvited?: boolean },
+  opts?: { alreadyInvited?: boolean; reason?: string },
 ): Promise<ContactMutationResult> {
   const denied = await gate();
   if (denied) return denied;
 
   try {
+    const reason = opts?.reason?.trim() || null;
     const fields: Record<string, unknown> = { "Portal Access": granted };
     if (granted && !opts?.alreadyInvited) {
       fields["Portal Invited At"] = new Date().toISOString();
     }
-    await patchRecords(PEOPLE.id, [{ id: personId, fields }]);
+    await patchRecords(PEOPLE.id, [
+      {
+        id: personId,
+        fields: await withHistory(
+          personId,
+          fields,
+          granted ? "Portal access granted" : "Portal access revoked",
+          reason,
+        ),
+      },
+    ]);
     invalidate();
     return { ok: true };
   } catch (e) {
@@ -140,7 +213,12 @@ export async function setContactPortalRole(
   if (denied) return denied;
 
   try {
-    await patchRecords(PEOPLE.id, [{ id: personId, fields: { "Portal Role": role } }]);
+    await patchRecords(PEOPLE.id, [
+      {
+        id: personId,
+        fields: await withHistory(personId, { "Portal Role": role }, `Role changed to ${role}`),
+      },
+    ]);
     invalidate();
     return { ok: true };
   } catch (e) {
@@ -155,16 +233,85 @@ export async function setContactPortalRole(
  */
 export async function removeRetainerContact(
   personId: string,
+  opts?: { companyName?: string | null; reason?: string },
 ): Promise<ContactMutationResult> {
   const denied = await gate();
   if (denied) return denied;
 
   try {
+    const where = opts?.companyName?.trim() || "the client";
     await patchRecords(PEOPLE.id, [
-      { id: personId, fields: { Company: [], "Portal Access": false } },
+      {
+        id: personId,
+        fields: await withHistory(
+          personId,
+          { Company: [], "Portal Access": false },
+          `Detached from ${where}`,
+          // The company link is cleared, so this line is the ONLY remaining
+          // record that this person ever belonged to that client.
+          opts?.reason?.trim() || "no reason given",
+        ),
+      },
     ]);
     invalidate();
     return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/**
+ * Mint a one-click sign-in link for a contact.
+ *
+ * Returns the URL for ops to hand over by whatever channel they already use.
+ * Nothing is emailed — the provider is not wired up yet — so this is the
+ * interim path, and the link is deliberately short-lived because it is a
+ * bearer credential the moment it leaves this screen.
+ *
+ * admin/lead only. Anyone who can mint one of these can sign in as a client.
+ */
+export async function createPortalSignInLink(
+  personId: string,
+): Promise<ContactMutationResult<{ url: string; expiresInMinutes: number }>> {
+  const denied = await gate();
+  if (denied) return denied;
+
+  try {
+    const rec = await getRecord<Record<string, unknown>>(PEOPLE.id, personId);
+    const f = rec.fields;
+
+    if (f["Portal Access"] !== true) {
+      return { error: "Grant portal access first — a link would be rejected at sign-in." };
+    }
+    const email = typeof f["Primary Email"] === "string" ? f["Primary Email"].trim() : "";
+    if (!email) return { error: "This contact has no email, so there is nobody to sign in as." };
+
+    const company = f["Company"];
+    const companyId =
+      Array.isArray(company) && typeof company[0] === "string" ? company[0] : null;
+    if (!companyId) {
+      return { error: "This contact is not linked to a client, so nothing could be scoped." };
+    }
+
+    const token = await signPortalLinkToken({ personId, companyId, email });
+    if (!token) {
+      return { error: "No signing secret configured. Set PORTAL_SESSION_SECRET or AUTH_SECRET." };
+    }
+
+    const base = (process.env.NEXTAUTH_URL || "http://localhost:3000").replace(/\/$/, "");
+    await patchRecords(PEOPLE.id, [
+      {
+        id: personId,
+        fields: await withHistory(personId, {}, "Sign-in link issued", "handed over manually"),
+      },
+    ]);
+    invalidate();
+
+    return {
+      ok: true,
+      url: `${base}/portal/verify?t=${token}`,
+      expiresInMinutes: Math.round(LINK_TTL_SECONDS / 60),
+    };
   } catch (e) {
     return { error: (e as Error).message };
   }

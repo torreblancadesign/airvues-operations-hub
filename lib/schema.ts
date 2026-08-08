@@ -896,6 +896,7 @@ export const Tables = {
       "Portal Role": { id: "fldlygnFJBbiPzEVr", type: "singleSelect", options: { choices: [{"name":"Owner"},{"name":"Member"}] } },
       "Portal Last Login": { id: "fld0FTk8FN9DrZ4EX", type: "dateTime" },
       "Portal Invited At": { id: "fldgLtWMdwj2OmaEH", type: "dateTime" },
+      "Portal History": { id: "fld6hUEH3q6i7zeRy", type: "multilineText" },
     },
   },
   TemplatePhases: {

@@ -392,3 +392,30 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* ---------- loading ---------- */
+
+.portal-root .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Breathing, not spinning: the skeleton says "arriving", a spinner says
+   "waiting". Held above 0.55 so it never reads as a flash. */
+.p-skeleton {
+  animation: p-pulse 1.5s ease-in-out infinite;
+}
+@keyframes p-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p-skeleton { animation: none; }
+}

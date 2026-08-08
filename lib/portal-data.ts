@@ -6,6 +6,8 @@
 // one answer site instead of one per route.
 import "server-only";
 
+import { cache } from "react";
+
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { listRetainerAgreements, listRetainerTiers } from "./retainers";
@@ -48,7 +50,7 @@ export type PortalData = {
   promisedHoursFor: (r: RetainerRequest) => number | null;
 };
 
-export async function companyNameFor(companyId: string): Promise<string | null> {
+export const companyNameFor = cache(async (companyId: string): Promise<string | null> => {
   const rows = await listRecordsCached<Record<string, unknown>>(
     Tables.Companies.id,
     { fields: [Tables.Companies.fields["Name"].id] },
@@ -57,17 +59,30 @@ export async function companyNameFor(companyId: string): Promise<string | null> 
   const row = rows.find((r) => r.id === companyId);
   const n = row?.fields["Name"];
   return typeof n === "string" && n.trim() !== "" ? n : null;
-}
+});
+
+/**
+ * The Airtable reads, deduplicated per request.
+ *
+ * React cache() keyed on the company, so a layout, a page and a nested helper
+ * that each call getPortalData share ONE set of fetches instead of three. The
+ * request detail page was previously loading the whole set twice on its own.
+ */
+const loadCore = cache(async (companyId: string) => {
+  const [allAgreements, tiers, allRequests, names] = await Promise.all([
+    listRetainerAgreements(),
+    listRetainerTiers(),
+    listRetainerRequests(),
+    peopleNameById(),
+  ]);
+  return { allAgreements, tiers, allRequests, names };
+});
 
 export async function getPortalData(
   session: PortalSession,
   now: Date = new Date(),
 ): Promise<PortalData> {
-  const [allAgreements, tiers, allRequests] = await Promise.all([
-    listRetainerAgreements(),
-    listRetainerTiers(),
-    listRetainerRequests(),
-  ]);
+  const { allAgreements, tiers, allRequests, names } = await loadCore(session.companyId);
 
   // --- boundary ---
   const mine = allAgreements.filter(
@@ -102,7 +117,6 @@ export async function getPortalData(
     .sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
 
   const tierByRetainer = new Map(retainers.map((r) => [r.agreement.id, r.tier]));
-  const names = await peopleNameById();
 
   return {
     retainers,

@@ -35,6 +35,7 @@ export default async function PortalRequestPage({ params }: { params: { id: stri
   const isOwner = session.role === "Owner";
   // Members do not see the agreed response window, so tell them the thing they
   // can act on instead: where this sits behind their colleagues' requests.
+  // Shares loadCore's cache with getPortalRequest above — same request, one fetch.
   const { queue, requesterName } = await getPortalData(session);
   const queuePosition = positionOf(queue, request.id);
   const requestedBy =

@@ -7,6 +7,7 @@
 // which record to go and check.
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { getRecord } from "./airtable";
 import { Tables } from "./schema";
@@ -28,8 +29,14 @@ function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() !== "" ? v : null;
 }
 
-/** The signed-in portal visitor, or null. Null means "show the sign-in page". */
-export async function getPortalSession(): Promise<PortalSession | null> {
+/**
+ * The signed-in portal visitor, or null.
+ *
+ * cache() so the layout and the page resolve it once between them. It still
+ * re-reads People on every REQUEST — that is the revocation guarantee — it
+ * just no longer does so three times within the same one.
+ */
+export const getPortalSession = cache(async (): Promise<PortalSession | null> => {
   const token = cookies().get(PORTAL_COOKIE)?.value;
   if (!token) return null;
 
@@ -63,7 +70,7 @@ export async function getPortalSession(): Promise<PortalSession | null> {
     name: str(f["Full Name"]) ?? "there",
     role: (str(f["Portal Role"]) as PortalRole | null) ?? "Member",
   };
-}
+});
 
 /** Stamp the last-seen time. Best-effort — never block a page render on it. */
 export async function touchPortalLogin(personId: string): Promise<void> {

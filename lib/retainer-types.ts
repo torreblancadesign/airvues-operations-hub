@@ -23,6 +23,10 @@ export type RetainerTier = {
   name: string;
   rank: number;
   active: boolean;
+  /** True = a negotiated plan for one client, hidden from the general catalog. */
+  custom: boolean;
+  /** The Company this custom plan belongs to. null on catalog plans. */
+  customForCompanyId: string | null;
   includedHours: number | null;
   monthlyRate: number | null;
   /** Business hours to first response, per priority. null = not covered. */

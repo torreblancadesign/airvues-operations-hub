@@ -25,7 +25,8 @@ function firstLink(v: unknown): string | null {
 }
 
 /**
- * Active tiers, ordered by rank. Blank SLA columns stay null — not zero.
+ * All tiers, active and inactive, catalog and custom, ordered by rank.
+ * Blank SLA columns stay null — not zero.
  *
  * `fresh: true` bypasses the 5-minute cache. MUTATIONS MUST PASS IT. `SLA Due
  * At` is computed once at creation and never recalculated, so a request filed
@@ -50,6 +51,8 @@ export async function listRetainerTiers(opts?: { fresh?: boolean }): Promise<Ret
         TIER.fields["SLA Label (client-facing)"].id,
         TIER.fields["Max Urgent / Month"].id,
         TIER.fields["Client-facing Description"].id,
+        TIER.fields["Custom"].id,
+        TIER.fields["Custom For"].id,
       ],
     },
     opts?.fresh ? undefined : ["retainers:tiers"],
@@ -68,6 +71,8 @@ export async function listRetainerTiers(opts?: { fresh?: boolean }): Promise<Ret
       name: str(f["Tier Name"]) ?? "(unnamed)",
       rank: num(f["Rank"]) ?? 999,
       active: f["Active"] === true,
+      custom: f["Custom"] === true,
+      customForCompanyId: firstLink(f["Custom For"]),
       includedHours: num(f["Included Hours"]),
       monthlyRate: num(f["Monthly Rate"]),
       slaHours,
@@ -77,7 +82,11 @@ export async function listRetainerTiers(opts?: { fresh?: boolean }): Promise<Ret
     };
   });
 
-  return tiers.filter((t) => t.active).sort((a, b) => a.rank - b.rank);
+  // Inactive plans are returned deliberately. The board resolves tier names
+  // from this list, and tierForRetainer resolves SLA hours from it — filtering
+  // here would blank the name on every retainer using a retired plan and drop
+  // its live requests to "Not covered". Picker scoping is plansAvailableFor's job.
+  return tiers.sort((a, b) => a.rank - b.rank);
 }
 
 /**

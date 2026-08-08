@@ -11,6 +11,8 @@ const platinum: RetainerTier = {
   name: "Platinum",
   rank: 5,
   active: true,
+  custom: false,
+  customForCompanyId: null,
   includedHours: 45,
   monthlyRate: 6750,
   slaHours: { Urgent: 2, High: 4, Medium: 8, Low: 16 },

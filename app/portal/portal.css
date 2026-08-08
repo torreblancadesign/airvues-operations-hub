@@ -1,0 +1,183 @@
+/* Client portal tokens.
+ *
+ * Scoped to .portal-root, never :root — app/globals.css owns the dark ops
+ * palette on html/body, and the portal must not inherit or fight it. The
+ * wrapper paints its own ground over the top.
+ *
+ * Quality bar: Mercury / Ramp. Muted ground, white cards, near-black ink,
+ * and colour that only ever carries meaning — never decoration. */
+
+.portal-root {
+  --p-ground: #f7f8fa;
+  --p-card: #ffffff;
+  --p-card-sunk: #fbfcfd;
+  --p-line: #e7e9ee;
+  --p-line-strong: #d5d9e2;
+
+  --p-ink: #0a0f1a;
+  --p-ink-2: #5a6373;
+  --p-ink-3: #8b93a2;
+
+  /* Semantic only. There is no "brand accent" field on this surface. */
+  --p-ok: #067a5e;
+  --p-ok-bg: #e7f5f1;
+  --p-warn: #b45309;
+  --p-warn-bg: #fdf3e7;
+  --p-bad: #b42318;
+  --p-bad-bg: #feeceb;
+  --p-info: #175cd3;
+  --p-info-bg: #eaf1fd;
+
+  --p-radius: 14px;
+  --p-radius-sm: 9px;
+
+  /* Offset + blur, never a zero-offset halo. */
+  --p-shadow: 0 1px 2px rgba(10, 15, 26, 0.04), 0 4px 12px -6px rgba(10, 15, 26, 0.08);
+  --p-shadow-lift: 0 2px 4px rgba(10, 15, 26, 0.05), 0 12px 28px -12px rgba(10, 15, 26, 0.14);
+
+  background: var(--p-ground);
+  color: var(--p-ink);
+  font-family: var(--font-sans), -apple-system, system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* Figures compare down columns and across cards, so they align by default. */
+.portal-root .fig {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss01" 1;
+  letter-spacing: -0.01em;
+}
+
+/* The hero numeral. Large, calm, never coloured unless it means something. */
+.portal-root .display-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.portal-root .p-card {
+  background: var(--p-card);
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-radius);
+  box-shadow: var(--p-shadow);
+}
+
+.portal-root .p-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--p-ink-2);
+  letter-spacing: 0.005em;
+}
+
+/* One pill vocabulary for every status on the surface. */
+.portal-root .p-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.portal-root .p-pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+
+.portal-root .p-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--p-radius-sm);
+  font-size: 14.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.portal-root .p-btn-primary {
+  background: var(--p-ink);
+  color: #fff;
+  border: 1px solid var(--p-ink);
+  box-shadow: var(--p-shadow);
+}
+.portal-root .p-btn-primary:hover:not(:disabled) {
+  background: #1b2333;
+  box-shadow: var(--p-shadow-lift);
+}
+.portal-root .p-btn-secondary {
+  background: var(--p-card);
+  color: var(--p-ink);
+  border: 1px solid var(--p-line-strong);
+}
+.portal-root .p-btn-secondary:hover:not(:disabled) {
+  background: var(--p-card-sunk);
+  border-color: var(--p-ink-3);
+}
+.portal-root .p-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.portal-root .p-input {
+  width: 100%;
+  background: var(--p-card);
+  border: 1px solid var(--p-line-strong);
+  border-radius: var(--p-radius-sm);
+  padding: 10px 12px;
+  font-size: 15px;
+  color: var(--p-ink);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.portal-root .p-input::placeholder {
+  color: var(--p-ink-3);
+}
+.portal-root .p-input:focus {
+  outline: none;
+  border-color: var(--p-ink);
+  box-shadow: 0 0 0 3px rgba(10, 15, 26, 0.08);
+}
+
+/* Focus that looks designed rather than defaulted, on every interactive thing. */
+.portal-root a:focus-visible,
+.portal-root button:focus-visible,
+.portal-root select:focus-visible,
+.portal-root [tabindex]:focus-visible {
+  outline: 2px solid var(--p-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* A meter, not a decoration: it always sits beside the number it describes. */
+.portal-root .p-meter {
+  height: 6px;
+  border-radius: 999px;
+  background: #edeff3;
+  overflow: hidden;
+}
+.portal-root .p-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-root *,
+  .portal-root *::before,
+  .portal-root *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

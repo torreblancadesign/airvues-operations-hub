@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildBoardRows } from "../lib/retainer-board";
+import { buildBoardRows, requestsNeedingSlaRecompute } from "../lib/retainer-board";
 import { fromZoned } from "../lib/retainer-sla";
 import type { RetainerAgreement, RetainerRequest, RetainerTier } from "../lib/retainer-types";
 
@@ -192,4 +192,58 @@ test("requests belonging to another retainer are not counted", () => {
     requests: [req({ id: "a", retainerId: "someone-else" })],
   });
   assert.equal(rows[0].openCount, 0);
+});
+
+// ---------- requestsNeedingSlaRecompute ----------
+
+function slaReq(over: Partial<RetainerRequest> & { id: string }): RetainerRequest {
+  return {
+    title: "t",
+    retainerId: "recQuoteA",
+    companyId: "recCo",
+    submittedById: null,
+    priority: "High",
+    status: "Submitted",
+    submittedAt: "2026-08-03T16:00:00.000Z",
+    slaDueAt: null,
+    firstRespondedAt: null,
+    slaOutcome: "Not covered",
+    assignedToId: null,
+    storyIds: [],
+    closedAt: null,
+    ...over,
+  };
+}
+
+test("requestsNeedingSlaRecompute selects open unanswered requests on matching retainers", () => {
+  const open = slaReq({ id: "r1" });
+  assert.deepEqual(
+    requestsNeedingSlaRecompute([open], ["recQuoteA"]).map((r) => r.id),
+    ["r1"],
+  );
+});
+
+test("requestsNeedingSlaRecompute excludes answered requests", () => {
+  const answered = slaReq({ id: "r2", firstRespondedAt: "2026-08-03T17:00:00.000Z" });
+  assert.deepEqual(requestsNeedingSlaRecompute([answered], ["recQuoteA"]), []);
+});
+
+test("requestsNeedingSlaRecompute excludes closed and declined requests", () => {
+  const closed = slaReq({ id: "r3", status: "Closed" });
+  const declined = slaReq({ id: "r4", status: "Declined" });
+  assert.deepEqual(requestsNeedingSlaRecompute([closed, declined], ["recQuoteA"]), []);
+});
+
+test("requestsNeedingSlaRecompute excludes requests on an unrelated retainer", () => {
+  const other = slaReq({ id: "r5", retainerId: "recQuoteZ" });
+  assert.deepEqual(requestsNeedingSlaRecompute([other], ["recQuoteA"]), []);
+});
+
+test("requestsNeedingSlaRecompute excludes requests with no submit time", () => {
+  const undated = slaReq({ id: "r6", submittedAt: null });
+  assert.deepEqual(requestsNeedingSlaRecompute([undated], ["recQuoteA"]), []);
+});
+
+test("requestsNeedingSlaRecompute returns nothing when no retainer uses the plan", () => {
+  assert.deepEqual(requestsNeedingSlaRecompute([slaReq({ id: "r7" })], []), []);
 });

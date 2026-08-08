@@ -108,3 +108,30 @@ export function buildBoardRows(args: {
     (x, y) => y.severity - x.severity || x.projectName.localeCompare(y.projectName),
   );
 }
+
+/**
+ * Requests whose SLA Due At must be recomputed after a plan's SLA hours change.
+ *
+ * SLA Due At is stamped once at creation and never recalculated, so a request
+ * filed while its plan had no SLA keeps a null deadline permanently. Filling
+ * the plan in later has to reach back and fix those, or the feature ships inert.
+ *
+ * Deliberately excludes answered requests: a reply that met a 4-hour promise
+ * must not become a breach because the promise was later tightened to 2. It
+ * also needs `submittedAt` — the deadline is computed forward from it, and
+ * there is nothing to compute from without it.
+ */
+export function requestsNeedingSlaRecompute(
+  requests: RetainerRequest[],
+  retainerIds: string[],
+): RetainerRequest[] {
+  const wanted = new Set(retainerIds);
+  return requests.filter(
+    (r) =>
+      r.retainerId !== null &&
+      wanted.has(r.retainerId) &&
+      isOpen(r) &&
+      !r.firstRespondedAt &&
+      !!r.submittedAt,
+  );
+}

@@ -1,6 +1,7 @@
 "use client";
 
-import { EMPTY_FILTER, Filter, StatusBucket } from "./types";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { EMPTY_FILTER, Filter, PRIORITIES, StatusBucket } from "./types";
 
 type EngineerOption = { id: string; name: string };
 
@@ -9,7 +10,6 @@ type Props = {
   setFilter: (f: Filter) => void;
   engineers: EngineerOption[];
   clients: string[];
-  sprints: { number: number; status: string | null }[];
   totalStories: number;
   filteredCount: number;
 };
@@ -24,7 +24,6 @@ export function EngineeringFilterBar({
   setFilter,
   engineers,
   clients,
-  sprints,
   totalStories,
   filteredCount,
 }: Props) {
@@ -37,10 +36,11 @@ export function EngineeringFilterBar({
     filter.engineerId !== null ||
     filter.client !== null ||
     filter.sprintNumber !== null ||
+    filter.priority !== null ||
     filter.orphanOnly;
 
   return (
-    <div className="mb-4">
+    <div>
       <div className="flex items-center gap-2 flex-wrap">
         <div className="w-full sm:flex-1 sm:min-w-[240px] relative">
           <svg
@@ -79,61 +79,33 @@ export function EngineeringFilterBar({
           <option value="hold">On Hold / Incomplete</option>
         </select>
 
-        <select
-          value={filter.engineerId ?? ""}
-          onChange={(e) => update("engineerId", e.target.value || null)}
-          className={`${selectCls} max-w-[180px]`}
-          aria-label="Engineer filter"
-        >
-          <option value="">All engineers</option>
-          <option value="__orphan__">Unassigned (orphan)</option>
-          {engineers.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
+        <SearchableSelect
+          value={filter.engineerId}
+          onChange={(v) => update("engineerId", v)}
+          options={engineers.map((e) => ({ value: e.id, label: e.name }))}
+          allLabel="All engineers"
+        />
+
+        <SearchableSelect
+          value={filter.client}
+          onChange={(v) => update("client", v)}
+          options={clients.map((c) => ({ value: c, label: c }))}
+          allLabel="All clients"
+        />
 
         <select
-          value={filter.client ?? ""}
-          onChange={(e) => update("client", e.target.value || null)}
-          className={`${selectCls} max-w-[180px]`}
-          aria-label="Client filter"
-        >
-          <option value="">All clients</option>
-          {clients.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={filter.sprintNumber ?? ""}
-          onChange={(e) =>
-            update("sprintNumber", e.target.value ? Number(e.target.value) : null)
-          }
+          value={filter.priority ?? ""}
+          onChange={(e) => update("priority", e.target.value || null)}
           className={selectCls}
-          aria-label="Sprint filter"
+          aria-label="Priority filter"
         >
-          <option value="">All sprints</option>
-          {sprints.map((s) => (
-            <option key={s.number} value={s.number}>
-              Sprint {s.number}
-              {s.status ? ` · ${s.status}` : ""}
+          <option value="">All priorities</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={p}>
+              {p}
             </option>
           ))}
         </select>
-
-        <label className="flex items-center gap-1.5 text-[12px] text-ink-muted cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={filter.orphanOnly}
-            onChange={(e) => update("orphanOnly", e.target.checked)}
-            className="accent-red"
-          />
-          Orphan only
-        </label>
 
         {hasActive && (
           <button

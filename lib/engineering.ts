@@ -38,6 +38,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
   const sprintEnds = asStringArray(f["Sprint End (from 📆Sprints)"]);
 
   let assigneeNames: string[] = [];
+  const pctMap = new Map<string, number>();
   if (assigneeIds.length > 0) {
     const pTbl = Tables.People;
     const people = await listRecordsCached<Record<string, unknown>>(
@@ -47,6 +48,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
           pTbl.fields["Full Name"].id,
           pTbl.fields["First Name"].id,
           pTbl.fields["Last Name"].id,
+          pTbl.fields["Commission Percentage"].id,
         ],
       },
       ["engineering:people"],
@@ -59,6 +61,7 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
         [pf["First Name"], pf["Last Name"]].filter(Boolean).join(" ").trim() ||
         "(unnamed)";
       map.set(p.id, nm);
+      pctMap.set(p.id, normalizePct(pf["Commission Percentage"]));
     }
     assigneeNames = assigneeIds.map((id) => map.get(id) ?? "(unknown)");
   }
@@ -123,6 +126,15 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     }
   }
 
+  const cost = typeof f["Cost"] === "number" ? (f["Cost"] as number) : 0;
+  const assigneeCommissions = assigneeIds.map((id) =>
+    round2(cost * (pctMap.get(id) ?? COMMISSION_RATE)),
+  );
+  const commission =
+    assigneeIds.length > 0
+      ? round2(assigneeCommissions.reduce((a, b) => a + b, 0))
+      : round2(cost * COMMISSION_RATE);
+
   return {
     id: rec.id,
     storyNumber: (f["ID"] as number) ?? null,
@@ -133,8 +145,9 @@ export async function getStoryById(storyId: string): Promise<Story | null> {
     hours: typeof f["Hours"] === "number" ? (f["Hours"] as number) : null,
     hoursWorked: typeof f["Hours Worked"] === "number" ? (f["Hours Worked"] as number) : null,
     invoice,
-    cost: typeof f["Cost"] === "number" ? (f["Cost"] as number) : 0,
-    commission: invoice * COMMISSION_RATE,
+    cost,
+    commission,
+    assigneeCommissions,
     budgetPctUsed: typeof f[" Budget % Used"] === "number" ? (f[" Budget % Used"] as number) : null,
     assigneeIds,
     assigneeNames,
@@ -195,6 +208,16 @@ function asStr(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// People.Commission Percentage — same normalization as lib/scorecard.ts:
+// a number > 1 is a percentage (÷100), ≤ 1 is already a decimal; explicit 0
+// is honored (no commission); missing falls back to the flat default.
+function normalizePct(raw: unknown): number {
+  if (typeof raw !== "number") return COMMISSION_RATE;
+  return raw > 1 ? raw / 100 : raw;
+}
+
 export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
   const sTbl = Tables.Stories;
   const pTbl = Tables.People;
@@ -245,6 +268,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           pTbl.fields["Internal Type"].id,
           pTbl.fields["Status"].id,
           pTbl.fields["Type"].id,
+          pTbl.fields["Commission Percentage"].id,
         ],
       },
       ["engineering:people"],
@@ -292,6 +316,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     internalType: string | null;
     status: string | null;
     type: string | null;
+    commissionPct: number;
   };
 
   const peopleMap = new Map<string, PersonRow>();
@@ -307,6 +332,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       internalType: (f["Internal Type"] as string) ?? null,
       status: (f["Status"] as string) ?? null,
       type: (f["Type"] as string) ?? null,
+      commissionPct: normalizePct(f["Commission Percentage"]),
     });
   }
 
@@ -327,6 +353,16 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     const assigneeNames = assigneeIds.map((id) => peopleMap.get(id)?.name ?? "(unknown)");
     const clientNames = asStringArray(f["Client Name (from Quote)"]);
 
+    const cost = typeof f["Cost"] === "number" ? (f["Cost"] as number) : 0;
+    // Each assignee earns their OWN rate on the FULL story cost (not a split).
+    const assigneeCommissions = assigneeIds.map((id) =>
+      round2(cost * (peopleMap.get(id)?.commissionPct ?? COMMISSION_RATE)),
+    );
+    const commission =
+      assigneeIds.length > 0
+        ? round2(assigneeCommissions.reduce((a, b) => a + b, 0))
+        : round2(cost * COMMISSION_RATE);
+
     return {
       id: r.id,
       storyNumber: typeof f["ID"] === "number" ? (f["ID"] as number) : null,
@@ -337,8 +373,9 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       hours: typeof f["Hours"] === "number" ? (f["Hours"] as number) : null,
       hoursWorked: typeof f["Hours Worked"] === "number" ? (f["Hours Worked"] as number) : null,
       invoice,
-      cost: typeof f["Cost"] === "number" ? (f["Cost"] as number) : 0,
-      commission: invoice * COMMISSION_RATE,
+      cost,
+      commission,
+      assigneeCommissions,
       budgetPctUsed: typeof f[" Budget % Used"] === "number" ? (f[" Budget % Used"] as number) : null,
       assigneeIds,
       assigneeNames,
@@ -467,16 +504,24 @@ function emptyTotals(): EngineerGroup["totals"] {
   };
 }
 
+// A dev's share of a story = their own entry in assigneeCommissions.
+// Orphan group keeps the story's total (projected liability at default rate).
+function commissionFor(g: EngineerGroup, s: Story): number {
+  if (g.isOrphan) return s.commission;
+  const idx = s.assigneeIds.indexOf(g.id);
+  return idx >= 0 ? s.assigneeCommissions[idx] ?? 0 : 0;
+}
+
 function tallyGroup(g: EngineerGroup): void {
   for (const s of g.stories) {
     g.totals.storyCount++;
     if (s.status === DONE_STATUS) {
       g.totals.doneCount++;
       g.totals.earnedInvoice += s.invoice;
-      g.totals.earnedCommission += s.commission;
+      g.totals.earnedCommission += commissionFor(g, s);
     } else {
       g.totals.openInvoice += s.invoice;
-      g.totals.openCommission += s.commission;
+      g.totals.openCommission += commissionFor(g, s);
       g.totals.activeHoursAssigned += s.hours ?? 0;
       g.totals.activeHoursWorked += s.hoursWorked ?? 0;
     }

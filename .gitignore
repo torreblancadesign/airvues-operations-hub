@@ -43,3 +43,7 @@ out/
 
 # Project-specific
 scripts/output/
+.superpowers/
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo

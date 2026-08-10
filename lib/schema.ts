@@ -528,6 +528,7 @@ export const Tables = {
     name: "🔵 Team Task Payments",
     fields: {
       "Payment Job ID": { id: "fldwKOnImb0Xnzlxw", type: "autoNumber" },
+      "Stories": { id: "fldfu34ybjOyJbcfR", type: "multipleRecordLinks" },
       "Client Invoice": { id: "fld5M4m6N0ZRXQFGn", type: "multipleRecordLinks" },
       "Date (from Client Invoice)": { id: "fldRItOeChQKP6LrG", type: "multipleLookupValues" },
       "Year": { id: "fld7wLicR05QHVxzU", type: "formula" },

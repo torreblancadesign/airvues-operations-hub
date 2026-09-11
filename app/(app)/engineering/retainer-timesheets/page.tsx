@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { RetainerTimesheetsPage } from "@/components/engineering/RetainerTimesheetsPage";
 import { listRetainers } from "@/lib/retainer-timesheets";
 import { getQuoteDetail, listPeopleOptions } from "@/lib/quotes";
+import { listSprintOptions } from "@/lib/sprints";
 import { canMutate } from "@/lib/authz";
 import { assertCanAccess } from "@/lib/page-guard";
 
@@ -24,10 +25,15 @@ export default async function RetainerTimesheetsRoute({
 
   let retainers: Awaited<ReturnType<typeof listRetainers>> = [];
   let people: Awaited<ReturnType<typeof listPeopleOptions>> = [];
+  let sprints: Awaited<ReturnType<typeof listSprintOptions>> = [];
   let error: string | null = null;
 
   try {
-    [retainers, people] = await Promise.all([listRetainers(), listPeopleOptions()]);
+    [retainers, people, sprints] = await Promise.all([
+      listRetainers(),
+      listPeopleOptions(),
+      listSprintOptions(),
+    ]);
   } catch (e) {
     error = (e as Error).message;
   }
@@ -67,6 +73,7 @@ export default async function RetainerTimesheetsRoute({
           selectedId={validSelected}
           selectedQuote={selectedQuote}
           people={people}
+          sprints={sprints}
           canEdit={canEdit}
         />
       )}

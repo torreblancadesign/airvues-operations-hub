@@ -10,7 +10,7 @@ export type CompanyOption = { id: string; name: string };
 export async function listCompanyOptions(): Promise<CompanyOption[]> {
   const rows = await listRecordsCached<Record<string, unknown>>(
     Tables.Companies.id,
-    { fields: [Tables.Companies.fields["Name"].id] },
+    { filterByFormula: "NOT({Archived})", fields: [Tables.Companies.fields["Name"].id] },
     ["retainers:company-names"],
   );
   return rows

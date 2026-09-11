@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { ClientRow } from "@/lib/clients";
+import { ArchiveCompanyButton } from "./ArchiveCompanyButton";
 
 type Props = {
   client: ClientRow | null;
@@ -93,6 +94,15 @@ export function ClientSheet({ client, onClose }: Props) {
           <Field label="NDA on file">{client.hasNDA ? "Yes" : "No"}</Field>
           <Field label="Website">{client.website ?? "—"}</Field>
           <Field label="Airtable Record ID"><span className="font-mono text-[12px]">{client.id}</span></Field>
+        </div>
+
+        <div className="px-5 py-4 border-t border-rule">
+          <ArchiveCompanyButton
+            companyId={client.id}
+            name={client.name}
+            lifetimeRevenue={client.lifetimeRevenue}
+            onArchived={onClose}
+          />
         </div>
       </aside>
     </>

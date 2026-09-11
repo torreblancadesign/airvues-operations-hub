@@ -35,7 +35,11 @@ function toContact(r: { id: string; fields: Record<string, unknown> }): Retainer
     id: r.id,
     // Full Name is a formula (CONCATENATE of the two below) and can be blank
     // on a half-filled record, so fall back rather than render an empty row.
-    name: str(f["Full Name"]) ?? [first, last].filter(Boolean).join(" ") ?? "(unnamed)",
+    // `??` never reaches the last branch: join() returns "" for an empty list,
+    // which isn't nullish, so a blank record rendered as an empty name.
+    name:
+      str(f["Full Name"]) ??
+      ([first, last].filter(Boolean).join(" ") || "(unnamed)"),
     firstName: first,
     lastName: last,
     email: str(f["Primary Email"]),
@@ -76,6 +80,9 @@ export async function listContactsForCompany(
  * creating a second record for them is the failure this guards.
  */
 export async function listPeopleWithEmail(): Promise<RetainerContact[]> {
-  const rows = await listRecords<Record<string, unknown>>(PEOPLE.id, { fields: FIELDS });
+  const rows = await listRecords<Record<string, unknown>>(PEOPLE.id, {
+    filterByFormula: "NOT({Archived})",
+    fields: FIELDS,
+  });
   return rows.map(toContact).filter((c) => c.email !== null);
 }

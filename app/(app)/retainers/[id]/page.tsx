@@ -96,6 +96,7 @@ export default async function RetainerDetailRoute({
           selected={selected}
           comments={comments}
           people={people}
+          canEdit={canEdit}
         />
         <RetainerContacts
           contacts={contacts}

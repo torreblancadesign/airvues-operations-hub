@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { TeamData, TeamMember, Payment } from "@/lib/team";
 import { StatCard } from "@/components/ui/StatCard";
+import { ArchivePersonButton } from "./ArchivePersonButton";
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -211,11 +212,12 @@ function PeopleTable({ rows }: { rows: TeamMember[] }) {
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-right">Comm %</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-right">Lifetime paid</th>
               <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-ink-muted text-right">Owed</th>
+              <th className="px-3 py-2.5" aria-label="Row actions" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-[13px] text-ink-muted">No team members match.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-[13px] text-ink-muted">No team members match.</td></tr>
             ) : (
               rows.map((m) => (
                 <tr key={m.id} className="border-b border-rule-soft last:border-0 hover:bg-bg-elevated">
@@ -244,6 +246,11 @@ function PeopleTable({ rows }: { rows: TeamMember[] }) {
                   <td className="px-3 py-2.5 text-right text-[13px] text-ink-strong font-semibold tabnum">{m.totalPaid > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(m.totalPaid) : "—"}</td>
                   <td className={`px-3 py-2.5 text-right text-[12px] tabnum font-mono ${m.needsPayment > 0 ? "text-amber font-semibold" : "text-ink-faint"}`}>
                     {m.needsPayment > 0 ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(m.needsPayment) : "—"}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <div className="flex justify-end">
+                      <ArchivePersonButton personId={m.id} name={m.name} owed={m.needsPayment} />
+                    </div>
                   </td>
                 </tr>
               ))

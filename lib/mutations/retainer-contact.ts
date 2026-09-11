@@ -23,7 +23,10 @@ import type { PortalRole } from "../retainer-types";
 
 const PEOPLE = Tables.People;
 
-export type ContactMutationResult<T = unknown> = ({ ok: true } & T) | { error: string };
+export type ContactMutationResult<T = unknown> =
+  | ({ ok: true } & T)
+  /** `needsMoveConfirm` asks the caller to re-submit with confirmMove. */
+  | { error: string; needsMoveConfirm?: boolean };
 
 async function gate(): Promise<{ error: string } | null> {
   try {
@@ -71,8 +74,11 @@ async function withHistory(
     const v = rec.fields["Portal History"];
     existing = typeof v === "string" ? v : null;
   } catch {
-    // A history read failure must not block the access change itself.
-    existing = null;
+    // A history read failure must not block the access change itself — but it
+    // must not REWRITE the field either. appendHistory(null, …) returns only
+    // the new line, so patching it here would erase every prior entry on one
+    // transient 429. Leave the field untouched and lose a single entry.
+    return { ...fields };
   }
   return {
     ...fields,
@@ -89,6 +95,12 @@ export type AddContactInput = NewContactInput & {
   companyId: string;
   portalRole: PortalRole;
   grantAccess: boolean;
+  /**
+   * Proceed even though this email already belongs to a DIFFERENT client.
+   * Off by default: the move is destructive and invisible, so it has to be
+   * asked for. See the guard in addRetainerContact.
+   */
+  confirmMove?: boolean;
 };
 
 /**
@@ -115,6 +127,25 @@ export async function addRetainerContact(
 
   try {
     const existing = findByEmail(await listPeopleWithEmail(), input.email);
+
+    // Re-pointing Company is not a harmless link edit. getPortalSession reads
+    // Company live off the People record, so moving someone already attached
+    // to another client instantly repoints their EXISTING portal session at
+    // the new client's data — and a typo'd email does the same to an Airvues
+    // engineer's record. Legitimate when it's a genuine correction, which is
+    // why it's a confirmation rather than a refusal.
+    if (
+      existing &&
+      existing.companyId &&
+      existing.companyId !== input.companyId &&
+      !input.confirmMove
+    ) {
+      return {
+        error:
+          "That email already belongs to a contact at another client. Moving them would repoint any portal session they already have. Confirm to move them.",
+        needsMoveConfirm: true,
+      };
+    }
 
     const portalFields: Record<string, unknown> = {
       "Portal Role": input.portalRole,

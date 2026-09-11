@@ -21,6 +21,8 @@ export type NavItem = {
   group: NavGroup;
   showInSidebar: boolean;
   showOnHome: boolean;
+  /** Hide from nav unless the viewer's role can delete (admin/lead). */
+  requiresDelete?: boolean;
 };
 
 export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
@@ -173,6 +175,15 @@ export const NAV_ITEMS: NavItem[] = [
     group: "operations",
     showInSidebar: true,
     showOnHome: true,
+  },
+  {
+    href: "/archive",
+    label: "Archive",
+    desc: "Soft-deleted projects, accounts and teammates · restore anything",
+    group: "operations",
+    showInSidebar: true,
+    showOnHome: false,
+    requiresDelete: true,
   },
 
   {

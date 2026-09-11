@@ -7,9 +7,9 @@
 "use server";
 
 import { revalidateTag } from "next/cache";
-import { createRecords, patchRecords } from "../airtable";
+import { createRecords, getRecord, patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireRole } from "../authz";
+import { AuthzError, deleteGate, requireRole } from "../authz";
 import { listRetainerTiers } from "../retainers";
 import { legacyTierChoiceFor } from "../retainer-catalog";
 import type { RetainerTier } from "../retainer-types";
@@ -54,6 +54,25 @@ function planFields(tier: RetainerTier | null): Record<string, unknown> {
   const legacy = tier ? legacyTierChoiceFor(tier.name) : null;
   if (legacy) fields["Retainer Selected Tier"] = legacy;
   return fields;
+}
+
+/**
+ * A custom plan belongs to exactly ONE company (`customForCompanyId`), but that
+ * scoping lived only in the picker (`plansAvailableFor`). Nothing server-side
+ * stopped another client's private plan pricing this retainer — by passing its
+ * id directly, or by moving the retainer to a new company and leaving the plan
+ * link alone, after which it vanishes from the picker and the drift is
+ * invisible on the very page that caused it.
+ */
+function customPlanMismatch(
+  tier: RetainerTier | null,
+  companyId: string | null,
+): boolean {
+  return Boolean(
+    tier?.custom &&
+      tier.customForCompanyId &&
+      tier.customForCompanyId !== companyId,
+  );
 }
 
 /** Resolve a plan id to a plan. Uncached — a stale read writes the wrong rate. */
@@ -132,6 +151,9 @@ export async function createRetainer(
   try {
     const tier = await tierById(input.tierId ?? null);
     if (input.tierId && !tier) return { error: "That plan no longer exists." };
+    if (customPlanMismatch(tier, input.companyId)) {
+      return { error: "That plan is private to another client." };
+    }
 
     const [created] = await createRecords(QUOTE.id, [
       {
@@ -147,6 +169,17 @@ export async function createRetainer(
   } catch (e) {
     return { error: (e as Error).message };
   }
+}
+
+/** First id out of an Airtable link field. */
+function firstLink(v: unknown): string | null {
+  return Array.isArray(v) && typeof v[0] === "string" ? v[0] : null;
+}
+
+/** The company currently linked to a retainer, read fresh. */
+async function companyOf(id: string): Promise<string | null> {
+  const rec = await getRecord<Record<string, unknown>>(QUOTE.id, id);
+  return firstLink(rec.fields["Company"]);
 }
 
 export async function updateRetainer(
@@ -166,7 +199,25 @@ export async function updateRetainer(
     if (patch.tierId !== undefined) {
       const tier = await tierById(patch.tierId);
       if (patch.tierId && !tier) return { error: "That plan no longer exists." };
+      const company =
+        patch.companyId !== undefined
+          ? patch.companyId
+          : await companyOf(id);
+      if (customPlanMismatch(tier, company)) {
+        return { error: "That plan is private to another client." };
+      }
       Object.assign(fields, planFields(tier));
+    } else if (patch.companyId !== undefined) {
+      // Moving the retainer to another client while leaving the plan alone is
+      // the same hole from the other side.
+      const current = await getRecord<Record<string, unknown>>(QUOTE.id, id);
+      const tier = await tierById(firstLink(current.fields["Retainer Tier"]));
+      if (customPlanMismatch(tier, patch.companyId)) {
+        return {
+          error:
+            "This retainer is on a plan private to its current client. Change the plan first.",
+        };
+      }
     }
 
     if (Object.keys(fields).length === 0) return { ok: true };
@@ -194,7 +245,7 @@ export async function setRetainerArchived(
   id: string,
   archived: boolean,
 ): Promise<RetainerMutationResult> {
-  const denied = await gate();
+  const denied = await deleteGate();
   if (denied) return denied;
 
   try {

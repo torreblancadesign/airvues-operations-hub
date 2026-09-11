@@ -92,7 +92,19 @@ export async function getPortalData(
 
   const hours = await hoursByRetainerInPeriod([...myIds], now);
 
-  const retainers: PortalRetainer[] = mine.map((agreement) => {
+  // retainers[0] is the "primary": it drives the hours meter, the Plan page's
+  // rate, and the default target for a new request. Non-archived is not the
+  // same as live — a re-quote leaves the superseded proposal in this set, and
+  // if it sorted first the client saw the wrong plan and filed against a dead
+  // quote. Live subscriptions first, then most recently effective. Nothing is
+  // hidden: an unsigned proposal is still the client's own record.
+  const ordered = [...mine].sort(
+    (a, b) =>
+      Number(b.subscriptionActive) - Number(a.subscriptionActive) ||
+      (b.effectiveDate ?? "").localeCompare(a.effectiveDate ?? ""),
+  );
+
+  const retainers: PortalRetainer[] = ordered.map((agreement) => {
     const tier = agreement.tierId
       ? (tiers.find((t) => t.id === agreement.tierId) ?? null)
       : null;

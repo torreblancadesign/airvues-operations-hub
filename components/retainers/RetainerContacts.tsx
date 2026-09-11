@@ -54,6 +54,9 @@ export function RetainerContacts({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<PortalRole>("Member");
   const [grant, setGrant] = useState(true);
+  // Set when the server reports this email already belongs to another client.
+  // Submitting again with it on performs the move, as a deliberate second act.
+  const [confirmMove, setConfirmMove] = useState(false);
 
   // Detach asks why. The company link is cleared by the action, so this reason
   // becomes the only surviving record that they ever belonged to this client.
@@ -89,6 +92,7 @@ export function RetainerContacts({
     setFirstName("");
     setLastName("");
     setEmail("");
+    setConfirmMove(false);
     setRole("Member");
     setGrant(true);
     startTransition(() => router.refresh());
@@ -100,9 +104,13 @@ export function RetainerContacts({
     setMessage(null);
     setBusy(true);
     try {
-      const res = (await fn()) as T & { error?: string };
+      const res = (await fn()) as T & {
+        error?: string;
+        needsMoveConfirm?: boolean;
+      };
       if (res && typeof res === "object" && "error" in res && res.error) {
         setError(res.error as string);
+        if (res.needsMoveConfirm) setConfirmMove(true);
         return;
       }
       done(ok(res));
@@ -167,7 +175,13 @@ export function RetainerContacts({
                 className={`${input} w-full`}
                 placeholder="they sign in with this"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  // A confirmation belongs to ONE email. Carrying it to another
+                  // would move a different person without being asked.
+                  setConfirmMove(false);
+                  setError(null);
+                }}
               />
             </label>
           </div>
@@ -205,6 +219,7 @@ export function RetainerContacts({
                       email,
                       portalRole: role,
                       grantAccess: grant,
+                      confirmMove,
                     }),
                   (r) =>
                     (r as { linked: boolean }).linked
@@ -215,7 +230,11 @@ export function RetainerContacts({
               disabled={locked}
               className="px-3 py-1.5 text-[12px] rounded bg-emerald text-black font-medium disabled:opacity-50"
             >
-              {locked ? "Saving…" : "Add contact"}
+              {locked
+                ? "Saving…"
+                : confirmMove
+                  ? "Move them to this client"
+                  : "Add contact"}
             </button>
             <button
               onClick={() => setAdding(false)}

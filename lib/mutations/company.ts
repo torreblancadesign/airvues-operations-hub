@@ -4,7 +4,7 @@
 import { revalidateTag } from "next/cache";
 import { patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireSignedIn } from "../authz";
+import { AuthzError, deleteGate, requireSignedIn } from "../authz";
 
 export type CompanyPatch = {
   // New blueprint fields
@@ -80,6 +80,32 @@ export async function updateCompany(
       { id: companyId, fields: buildFields(patch) },
     ]);
     revalidateTag("airtable");
+    revalidateTag("client-detail:companies");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/**
+ * Archive or restore an account (company). admin/lead only.
+ *
+ * A SOFT delete, always. A company is the tenant key for quotes, retainers,
+ * requests and attributed revenue — deleting one would detach every number
+ * hanging off it. Archiving takes it off the Accounts board and leaves the
+ * history addressable.
+ */
+export async function setCompanyArchived(
+  companyId: string,
+  archived: boolean,
+): Promise<MutationResult> {
+  if (!companyId || !companyId.startsWith("rec")) return { error: "Invalid companyId" };
+  const denied = await deleteGate();
+  if (denied) return denied;
+  try {
+    await patchRecords(Tables.Companies.id, [{ id: companyId, fields: { Archived: archived } }]);
+    revalidateTag("airtable");
+    revalidateTag("clients:companies");
     revalidateTag("client-detail:companies");
     return { ok: true };
   } catch (e) {

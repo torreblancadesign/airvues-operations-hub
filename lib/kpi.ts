@@ -159,7 +159,7 @@ export async function onRetainerPct(): Promise<KpiResult> {
     ),
     listRecordsCached<{ "Engagement Frequency"?: string }>(
       cT.id,
-      { fields: [cT.fields["Engagement Frequency"].id] },
+      { filterByFormula: "NOT({Archived})", fields: [cT.fields["Engagement Frequency"].id] },
       ["kpi:retainer-companies"],
     ),
   ]);

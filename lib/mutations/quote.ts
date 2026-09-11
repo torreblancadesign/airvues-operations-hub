@@ -6,7 +6,8 @@
 import { revalidateTag } from "next/cache";
 import { createRecords, getRecord, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireSignedIn } from "../authz";
+import { AuthzError, deleteGate, requireSignedIn } from "../authz";
+import { paymentBlockMessage, storiesBlockedByPayments } from "../delete-guards";
 import { getQuoteDetail } from "../quotes";
 import { getStoryById } from "../engineering";
 import type { Story } from "../engineering-types";
@@ -16,6 +17,7 @@ import {
   PROPOSAL_TYPE_CHOICES,
 } from "../quote-types";
 import { logEventInternal } from "./project-log";
+import { createCompletionPayments } from "../completion-payments";
 
 export type MutationResult<T = void> = ({ ok: true } & T) | { error: string };
 
@@ -151,6 +153,24 @@ export async function loadStoryDetail(
   }
 }
 
+// Flip a "Run AI ... Agent" checkbox so the Airtable automation fires.
+//
+// The automation un-checks the box when it finishes, so a run that errored (or
+// was abandoned) leaves the box checked forever — and patching `true` over
+// `true` writes nothing, so the automation never fires again and the UI is
+// stuck on "Generating…". Uncheck first when it is already set, so re-running
+// always produces a real false → true transition.
+async function flipAgentCheckbox(quoteId: string, field: string): Promise<void> {
+  const rec = await getRecord<Record<string, unknown>>(Tables.Quotes.id, quoteId);
+  if (rec.fields[field] === true) {
+    await patchRecords(Tables.Quotes.id, [{ id: quoteId, fields: { [field]: false } }]);
+    // Airtable's trigger watches for the checked state; a same-instant
+    // false→true can be coalesced into no change at all.
+    await new Promise((r) => setTimeout(r, 1200));
+  }
+  await patchRecords(Tables.Quotes.id, [{ id: quoteId, fields: { [field]: true } }]);
+}
+
 // Flip the Airtable "Run AI Proposal Agent" checkbox so the automation runs.
 export async function triggerAiProposalAgent(
   quoteId: string,
@@ -159,9 +179,7 @@ export async function triggerAiProposalAgent(
   const denied = await gate();
   if (denied) return denied;
   try {
-    await patchRecords(Tables.Quotes.id, [
-      { id: quoteId, fields: { "Run AI Proposal Agent": true } },
-    ]);
+    await flipAgentCheckbox(quoteId, "Run AI Proposal Agent");
     invalidateQuote(quoteId);
     const quote = await getQuoteDetail(quoteId);
     return { ok: true, quote };
@@ -178,9 +196,7 @@ export async function triggerAiChangeOrderAgent(
   const denied = await gate();
   if (denied) return denied;
   try {
-    await patchRecords(Tables.Quotes.id, [
-      { id: quoteId, fields: { "Run AI Change Order Agent": true } },
-    ]);
+    await flipAgentCheckbox(quoteId, "Run AI Change Order Agent");
     invalidateQuote(quoteId);
     const quote = await getQuoteDetail(quoteId);
     return { ok: true, quote };
@@ -317,6 +333,8 @@ export type CreateQuoteStoryInput = {
   cost?: number;
   clientNotes?: string;
   status?: string;
+  /** People record ids. Stories.Assignee is multi-link — multi-dev is supported. */
+  assigneeIds?: string[];
   isChangeOrder?: boolean;
   /** Optional ISO YYYY-MM-DD; used for retainer monthly grouping. */
   completedDate?: string | null;
@@ -352,6 +370,7 @@ export async function createQuoteStory(
     fields["Invoice"] = input.cost;
   }
   if (input.description) fields["Description"] = input.description;
+  if (input.assigneeIds && input.assigneeIds.length > 0) fields["Assignee"] = input.assigneeIds;
   if (input.clientNotes) fields["Client Notes"] = input.clientNotes;
   if (input.isChangeOrder) fields["Change Order"] = true;
   if (input.completedDate) fields["Completed Date"] = input.completedDate;
@@ -369,6 +388,23 @@ export async function createQuoteStory(
 
     const created = await createRecords(Tables.Stories.id, [{ fields }]);
     invalidateQuote(quoteId);
+
+    // Same rule as updateStory: Completed + assignees + cost => commission rows.
+    // Creating a story already marked Completed would otherwise skip the
+    // automation entirely, because nothing ever "flips" the status.
+    if (fields["Story Status"] === "Completed" && created[0]?.id) {
+      try {
+        await createCompletionPayments(created[0].id);
+        invalidateQuote(quoteId);
+      } catch (e) {
+        await logEventInternal({
+          projectId: quoteId,
+          eventType: "Payment automation failed",
+          detail: `Story ${created[0].id}: ${(e as Error).message}`,
+        });
+      }
+    }
+
     const quote = await getQuoteDetail(quoteId);
     await logEventInternal({
       accountId: quote.preparedForIds[0] ?? null,
@@ -376,7 +412,6 @@ export async function createQuoteStory(
       eventType: "Story created",
       detail: `${input.name.trim()}${input.isChangeOrder ? " (change order)" : ""} · ${input.hours}h${input.cost !== undefined ? ` · $${input.cost}` : ""}`,
     });
-    void created;
     return { ok: true, quote };
   } catch (e) {
     return { error: (e as Error).message };
@@ -455,9 +490,14 @@ export async function bulkDeleteQuoteStories(
     const quote = await getQuoteDetail(quoteId);
     return { ok: true, quote };
   }
-  const denied = await gate();
+  const denied = await deleteGate();
   if (denied) return denied;
   try {
+    // All-or-nothing: if any story in the selection carries commission payments,
+    // nothing is deleted. A partial delete would be the worst outcome — half the
+    // selection gone, and no way to tell which half from the toast.
+    const blocked = await storiesBlockedByPayments(storyIds);
+    if (blocked.length > 0) return { error: paymentBlockMessage(blocked) };
     // No batch DELETE wrapper — fire sequentially in small concurrency.
     for (const id of storyIds) {
       await deleteRecord(Tables.Stories.id, id);
@@ -542,6 +582,44 @@ export async function createDraftQuote(args: {
       detail: fields["Project Name"] as string,
     });
     return { ok: true, quoteId: newId };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/**
+ * Archive or restore a project (quote).
+ *
+ * A SOFT delete: the quote keeps its stories, invoices, payments and project
+ * log, and every list simply stops showing it. Projects carry money — invoices
+ * paid, commissions owed — so there is no hard delete for them at all. Restore
+ * by unchecking Archived here or in Airtable.
+ *
+ * Retainers live in this same table but archive through
+ * `setRetainerArchived` in lib/mutations/retainer.ts, which drives the
+ * separate "Retainer Archived" flag the retainer board already filters on.
+ */
+export async function setQuoteArchived(
+  quoteId: string,
+  archived: boolean,
+): Promise<{ ok: true } | { error: string }> {
+  if (!quoteId || !quoteId.startsWith("rec")) return { error: "Invalid quoteId" };
+  const denied = await deleteGate();
+  if (denied) return denied;
+  try {
+    await patchRecords(Tables.Quotes.id, [{ id: quoteId, fields: { Archived: archived } }]);
+    invalidateQuote(quoteId);
+    // Reuses the existing "Project status changed" choice rather than inventing
+    // one — createRecords runs with typecast, so a new string would silently add
+    // an option to the production select.
+    await logEventInternal({
+      projectId: quoteId,
+      eventType: "Project status changed",
+      detail: archived
+        ? "Archived — hidden from Projects. Nothing was deleted."
+        : "Restored to the Projects board.",
+    });
+    return { ok: true };
   } catch (e) {
     return { error: (e as Error).message };
   }

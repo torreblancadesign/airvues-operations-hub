@@ -20,10 +20,13 @@ export function RequestThread({
   requestId,
   comments,
   awaitingFirstResponse,
+  canEdit,
 }: {
   requestId: string;
   comments: RetainerComment[];
   awaitingFirstResponse: boolean;
+  /** Read-only viewers must not get a live reply box. */
+  canEdit: boolean;
 }) {
   const router = useRouter();
   const [body, setBody] = useState("");
@@ -31,25 +34,35 @@ export function RequestThread({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // `pending` stays false for the whole await, so the button was live during
+  // the write. A double-click here sends the CLIENT two copies of the same
+  // reply — and the first one stamps First Responded At.
+  const [busy, setBusy] = useState(false);
+  const locked = busy || pending || !canEdit;
 
   async function post() {
     const text = body.trim();
-    if (!text) return;
+    if (!text || locked) return;
     setError(null);
     setNotice(null);
-    const res = await addRetainerComment({
-      requestId,
-      body: text,
-      side: "Airvues",
-      visibleToClient,
-    });
-    if ("error" in res) {
-      setError(res.error);
-      return;
+    setBusy(true);
+    try {
+      const res = await addRetainerComment({
+        requestId,
+        body: text,
+        side: "Airvues",
+        visibleToClient,
+      });
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      setBody("");
+      if (res.stoppedClock) setNotice("First response recorded — SLA clock stopped.");
+      startTransition(() => router.refresh());
+    } finally {
+      setBusy(false);
     }
-    setBody("");
-    if (res.stoppedClock) setNotice("First response recorded — SLA clock stopped.");
-    startTransition(() => router.refresh());
   }
 
   return (
@@ -128,10 +141,10 @@ export function RequestThread({
           <button
             type="button"
             onClick={post}
-            disabled={pending || body.trim() === ""}
+            disabled={locked || body.trim() === ""}
             className="px-3 py-1.5 text-[12px] rounded-md bg-emerald/15 text-emerald border border-emerald/40 hover:bg-emerald/25 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {pending ? "Posting…" : "Post reply"}
+            {locked ? "Posting…" : "Post reply"}
           </button>
         </div>
         {error && <p className="text-[11px] text-red">{error}</p>}

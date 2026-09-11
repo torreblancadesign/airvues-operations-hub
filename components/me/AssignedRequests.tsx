@@ -62,8 +62,12 @@ export function AssignedRequests({
       <ul className="divide-y divide-rule/60">
         {requests.map((r) => (
           <li key={r.id}>
+            {/* A request with no retainer link would render /retainers/null,
+                which 404s. The label below already guards the same null. */}
             <Link
-              href={`/retainers/${r.retainerId}?r=${r.id}`}
+              href={
+                r.retainerId ? `/retainers/${r.retainerId}?r=${r.id}` : "/retainers"
+              }
               className="block px-4 py-2.5 hover:bg-bg-elevated"
             >
               <div className="flex items-center justify-between gap-2">

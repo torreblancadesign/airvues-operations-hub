@@ -8,10 +8,9 @@ type Option = { id: string; label: string };
 type Props = {
   clients: Option[];
   quotes: Option[];
-  ownerFirstName: string | null;
 };
 
-export function NewLoopForm({ clients, quotes, ownerFirstName }: Props) {
+export function NewLoopForm({ clients, quotes }: Props) {
   const [title, setTitle] = useState("");
   const [clientId, setClientId] = useState<string>("");
   const [quoteId, setQuoteId] = useState<string>("");
@@ -83,7 +82,6 @@ export function NewLoopForm({ clients, quotes, ownerFirstName }: Props) {
           title={title.trim() || "Untitled recording"}
           linkedClientId={clientId || null}
           linkedQuoteId={quoteId || null}
-          ownerFirstName={ownerFirstName}
         />
       </section>
     </div>

@@ -16,6 +16,7 @@ import { getLoopById } from "@/lib/loops";
 import { formatLoopDuration, loopAnalysisState } from "@/lib/loops-types";
 import { canMutate } from "@/lib/authz";
 import { getAppSession } from "@/lib/session";
+import { canDelete as viewerCanDelete } from "@/lib/authz";
 import { resolvePersonByEmail } from "@/lib/people";
 import { listAllClients } from "@/lib/clients";
 import { listQuoteOptions } from "@/lib/quotes-light";
@@ -46,6 +47,9 @@ export default async function LoopDetailPage({
   const isOwner = !!me && me.id === loop.ownerId;
   const canEditTags = isAdmin || isOwner;
   const canDelete = isAdmin || isOwner;
+  // Deleting is role-gated (admin/lead) even for the person who recorded it —
+  // the Server Action refuses anyone else, so don't offer them the button.
+  const mayDelete = await viewerCanDelete();
 
   const analysis = loopAnalysisState(loop);
 
@@ -184,7 +188,7 @@ export default async function LoopDetailPage({
             )
           )}
 
-          {canDelete && (
+          {mayDelete && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule pt-4">
               <p className="text-[12px] text-ink-faint">
                 Deleting removes this Loop from the dashboard and breaks its public share link.

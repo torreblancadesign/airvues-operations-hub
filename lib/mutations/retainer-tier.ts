@@ -79,7 +79,7 @@ async function recomputeSlaForPlan(tierId: string): Promise<number> {
   const [tiers, agreements, requests] = await Promise.all([
     listRetainerTiers({ fresh: true }),
     listRetainerAgreements({ fresh: true }),
-    listRetainerRequests(),
+    listRetainerRequests({ fresh: true }),
   ]);
 
   const tier = tiers.find((t) => t.id === tierId) ?? null;

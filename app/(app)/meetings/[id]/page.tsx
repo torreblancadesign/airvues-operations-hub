@@ -8,7 +8,7 @@ import { DeleteMeetingButton } from "@/components/meetings/DeleteMeetingButton";
 import { LinkLeadEditor } from "@/components/meetings/LinkLeadEditor";
 import { getMeetingById } from "@/lib/meetings";
 import { listAllLeads } from "@/lib/leads";
-import { canMutate } from "@/lib/authz";
+import { canDelete as viewerCanDelete, canMutate } from "@/lib/authz";
 
 export const revalidate = 30;
 
@@ -29,6 +29,7 @@ export default async function MeetingDetailPage({
   if (!meeting) notFound();
 
   const isAdmin = await canMutate();
+  const mayDelete = await viewerCanDelete();
   const leads = isAdmin
     ? (await listAllLeads().catch(() => []))
         .map((l) => ({
@@ -105,7 +106,7 @@ export default async function MeetingDetailPage({
           </details>
         )}
 
-        {isAdmin && (
+        {mayDelete && (
           <div className="flex justify-end">
             <DeleteMeetingButton id={meeting.id} />
           </div>

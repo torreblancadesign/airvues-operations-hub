@@ -6,7 +6,8 @@
 import { revalidateTag } from "next/cache";
 import { createRecords, patchRecords, deleteRecord } from "../airtable";
 import { Tables } from "../schema";
-import { AuthzError, requireSignedIn } from "../authz";
+import { AuthzError, deleteGate, requireSignedIn } from "../authz";
+import { paymentBlockMessage, storiesBlockedByPayments } from "../delete-guards";
 import { logEventInternal } from "./project-log";
 import { createCompletionPayments } from "../completion-payments";
 
@@ -28,7 +29,7 @@ export type StoryPatch = {
 };
 
 export type MutationResult =
-  | { ok: true; paymentsCreated?: number }
+  | { ok: true; paymentsCreated?: number; paymentsFailed?: number }
   | { error: string };
 
 const SPRINT_FIELD_NAME = "📆Sprints";
@@ -92,12 +93,15 @@ export async function updateStory(
     ]);
     invalidateStoryCaches();
     let paymentsCreated: number | undefined;
+    let paymentsFailed: number | undefined;
     if (patch.status === "Completed") {
+      paymentsFailed = 0;
       try {
         const payRes = await createCompletionPayments(storyId);
         paymentsCreated = payRes.created.length;
         invalidateStoryCaches();
       } catch (e) {
+        paymentsFailed = 1;
         // Never fail the status change over payment automation; surface via log.
         await logEventInternal({
           projectId: null,
@@ -111,7 +115,7 @@ export async function updateStory(
         detail: `Story ${storyId} marked Completed`,
       });
     }
-    return { ok: true, paymentsCreated };
+    return { ok: true, paymentsCreated, paymentsFailed };
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -133,13 +137,20 @@ export async function bulkUpdateStories(
     );
     invalidateStoryCaches();
     let paymentsCreated: number | undefined;
+    let paymentsFailed: number | undefined;
     if (patch.status === "Completed") {
       paymentsCreated = 0;
+      paymentsFailed = 0;
       for (const id of storyIds) {
         try {
           const payRes = await createCompletionPayments(id);
           paymentsCreated += payRes.created.length;
         } catch (e) {
+          // Counted, not just logged. Returning ok:true with paymentsCreated:0
+          // was indistinguishable from "all of them threw" — and since the
+          // stories are already Completed, nothing re-triggers the automation.
+          // That is the shape of the $41K of unrouted payments in CLAUDE.md.
+          paymentsFailed += 1;
           await logEventInternal({
             projectId: null,
             eventType: "Payment automation failed",
@@ -149,7 +160,7 @@ export async function bulkUpdateStories(
       }
       invalidateStoryCaches();
     }
-    return { ok: true, paymentsCreated };
+    return { ok: true, paymentsCreated, paymentsFailed };
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -259,10 +270,16 @@ export async function createStory(input: CreateStoryInput): Promise<CreateStoryR
   }
 }
 
+/**
+ * Hard-delete a story. admin/lead only, and refused outright when commission
+ * payments hang off it — see lib/delete-guards.ts for why.
+ */
 export async function deleteStory(storyId: string): Promise<MutationResult> {
-  const denied = await gate();
+  const denied = await deleteGate();
   if (denied) return denied;
   try {
+    const blocked = await storiesBlockedByPayments([storyId]);
+    if (blocked.length > 0) return { error: paymentBlockMessage(blocked) };
     await deleteRecord(Tables.Stories.id, storyId);
     invalidateStoryCaches();
     revalidateTag("pipeline:all-quotes");

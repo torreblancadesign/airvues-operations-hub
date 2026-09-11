@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setRetainerArchived, updateRetainer } from "@/lib/mutations/retainer";
+import { DeleteControl } from "@/components/ui/DeleteControl";
+import { useCanDelete } from "@/components/DeletePermission";
 import { createPlan } from "@/lib/mutations/retainer-tier";
 import { PeriodMeter } from "./Meters";
 import { plansAvailableFor, legacyTierChoiceFor } from "@/lib/retainer-catalog";
@@ -56,6 +58,7 @@ export function RetainerTerms({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const locked = busy || pending;
+  const canDelete = useCanDelete();
   // Client-side clock: the period bar is time-dependent and would otherwise
   // hydrate mismatched against the server render.
   const [nowMs, setNowMs] = useState<number | null>(null);
@@ -156,20 +159,21 @@ export function RetainerTerms({
   }
 
   async function toggleArchived() {
-    if (locked) return;
+    if (locked) return { error: "Retainer is locked." };
     setError(null);
     setBusy(true);
     try {
       const res = await setRetainerArchived(agreement.id, !agreement.archived);
       if ("error" in res) {
         setError(res.error);
-        return;
+        return res;
       }
       refresh(
         agreement.archived
           ? "Retainer restored to the board."
           : "Retainer archived. Nothing was deleted — its requests and stories are intact.",
       );
+      return res;
     } finally {
       setBusy(false);
     }
@@ -293,13 +297,29 @@ export function RetainerTerms({
               >
                 Edit terms
               </button>
-              <button
-                onClick={toggleArchived}
-                disabled={locked}
-                className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-faint hover:text-amber hover:border-amber disabled:opacity-50 transition-colors"
-              >
-                {agreement.archived ? "Restore" : "Archive"}
-              </button>
+              {agreement.archived ? (
+                // Restoring is safe — only the archive direction needs a confirm.
+                canDelete && (
+                  <button
+                    onClick={toggleArchived}
+                    disabled={locked}
+                    className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-faint hover:text-amber hover:border-amber disabled:opacity-50 transition-colors"
+                  >
+                    Restore
+                  </button>
+                )
+              ) : (
+                canDelete && (
+                  <DeleteControl
+                    variant="archive"
+                    label="Archive"
+                    question="Archive this retainer?"
+                    confirmLabel="Yes, archive"
+                    consequence="It leaves the retainer board. Requests, comments, stories and invoices are untouched, and Restore brings it back."
+                    onConfirm={toggleArchived}
+                  />
+                )
+              )}
             </div>
           )}
         </div>

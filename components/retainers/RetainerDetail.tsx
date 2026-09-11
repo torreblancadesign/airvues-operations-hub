@@ -49,6 +49,8 @@ type Props = {
   selected: RetainerRequest | null;
   comments: RetainerComment[];
   people: PersonOption[];
+  /** Delivery-permissioned viewers can read this page but not mutate it. */
+  canEdit: boolean;
 };
 
 export function RetainerDetail({
@@ -57,6 +59,7 @@ export function RetainerDetail({
   selected,
   comments,
   people,
+  canEdit,
 }: Props) {
   const router = useRouter();
   const [showNew, setShowNew] = useState(false);
@@ -66,6 +69,15 @@ export function RetainerDetail({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // `pending` only covers the router transition, NOT the awaited server action,
+  // so on its own it leaves the submit buttons live during the write. A second
+  // click files a duplicate request — with its own SLA clock — or a duplicate
+  // Story, which then creates duplicate commission rows on completion.
+  const [busy, setBusy] = useState(false);
+  // Read-only viewers get no live controls: every action here is requireRole
+  // gated server-side, so leaving them enabled only produced an authz banner
+  // after the fact.
+  const locked = busy || pending || !canEdit;
 
   const [triageName, setTriageName] = useState("");
   const [triageHours, setTriageHours] = useState("1");
@@ -79,27 +91,33 @@ export function RetainerDetail({
   const engineers = people.filter((p) => p.isInternal && p.isActive);
 
   async function submitNew() {
+    if (locked) return;
     setError(null);
-    const res = await createRetainerRequest({
-      retainerId: agreement.id,
-      title,
-      description,
-      priority,
-    });
-    if ("error" in res) {
-      setError(res.error);
-      return;
+    setBusy(true);
+    try {
+      const res = await createRetainerRequest({
+        retainerId: agreement.id,
+        title,
+        description,
+        priority,
+      });
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      setTitle("");
+      setDescription("");
+      setPriority("Medium");
+      setShowNew(false);
+      // push() alone serves Next's client Router Cache and shows a stale list —
+      // refresh() forces the server component to refetch the new request.
+      startTransition(() => {
+        router.push(`/retainers/${agreement.id}?r=${res.id}`);
+        router.refresh();
+      });
+    } finally {
+      setBusy(false);
     }
-    setTitle("");
-    setDescription("");
-    setPriority("Medium");
-    setShowNew(false);
-    // push() alone serves Next's client Router Cache and shows a stale list —
-    // refresh() forces the server component to refetch the new request.
-    startTransition(() => {
-      router.push(`/retainers/${agreement.id}?r=${res.id}`);
-      router.refresh();
-    });
   }
 
   async function patch(id: string, p: Parameters<typeof updateRetainerRequest>[1]) {
@@ -135,23 +153,28 @@ export function RetainerDetail({
   }
 
   async function submitTriage() {
-    if (!selected) return;
+    if (!selected || locked) return;
     setError(null);
-    const res = await triageRequestToStory({
-      requestId: selected.id,
-      name: triageName.trim() || selected.title,
-      hours: Number(triageHours),
-      invoice: Number(triageValue),
-    });
-    if ("error" in res) {
-      setError(res.error);
-      return;
+    setBusy(true);
+    try {
+      const res = await triageRequestToStory({
+        requestId: selected.id,
+        name: triageName.trim() || selected.title,
+        hours: Number(triageHours),
+        invoice: Number(triageValue),
+      });
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      setShowTriage(false);
+      setTriageName("");
+      setTriageHours("1");
+      setTriageValue("0");
+      startTransition(() => router.refresh());
+    } finally {
+      setBusy(false);
     }
-    setShowTriage(false);
-    setTriageName("");
-    setTriageHours("1");
-    setTriageValue("0");
-    startTransition(() => router.refresh());
   }
 
   return (
@@ -179,6 +202,7 @@ export function RetainerDetail({
             <button
               type="button"
               onClick={() => setShowNew((v) => !v)}
+              disabled={locked}
               className="px-3 py-1.5 text-[12px] rounded-md bg-emerald/15 text-emerald border border-emerald/40 hover:bg-emerald/25"
             >
               {showNew ? "Cancel" : "+ New request"}
@@ -215,10 +239,10 @@ export function RetainerDetail({
                 <button
                   type="button"
                   onClick={submitNew}
-                  disabled={pending || title.trim() === ""}
+                  disabled={locked || title.trim() === ""}
                   className="px-3 py-1.5 text-[12px] rounded-md bg-emerald/15 text-emerald border border-emerald/40 hover:bg-emerald/25 disabled:opacity-40"
                 >
-                  {pending ? "Filing…" : "File request"}
+                  {locked ? "Filing…" : "File request"}
                 </button>
               </div>
             </div>
@@ -301,7 +325,8 @@ export function RetainerDetail({
                 <select
                   value={selected.status ?? "Submitted"}
                   onChange={(e) => patch(selected.id, { status: e.target.value as RequestStatus })}
-                  className="px-2 py-1 text-[11px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none"
+                  disabled={locked}
+                  className="px-2 py-1 text-[11px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none disabled:opacity-50"
                 >
                   {REQUEST_STATUSES.map((s) => (
                     <option key={s} value={s}>
@@ -314,7 +339,8 @@ export function RetainerDetail({
                   onChange={(e) =>
                     patch(selected.id, { priority: e.target.value as RetainerPriority })
                   }
-                  className="px-2 py-1 text-[11px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none"
+                  disabled={locked}
+                  className="px-2 py-1 text-[11px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none disabled:opacity-50"
                 >
                   {RETAINER_PRIORITIES.map((p) => (
                     <option key={p} value={p}>
@@ -327,6 +353,7 @@ export function RetainerDetail({
                   onChange={(e) =>
                     patch(selected.id, { assignedToId: e.target.value || null })
                   }
+                  disabled={locked}
                   className="px-2 py-1 text-[11px] bg-bg-elevated border border-rule text-ink rounded-md focus:border-emerald focus:outline-none max-w-[180px]"
                 >
                   <option value="">Unassigned</option>
@@ -347,7 +374,7 @@ export function RetainerDetail({
                     <button
                       type="button"
                       onClick={removeRequest}
-                      disabled={deleting}
+                      disabled={deleting || locked}
                       className="px-2 py-1 text-[11px] rounded bg-red/15 text-red border border-red/40 hover:bg-red/25 disabled:opacity-50"
                     >
                       {deleting ? "Deleting…" : "Yes, delete"}
@@ -378,6 +405,7 @@ export function RetainerDetail({
                 requestId={selected.id}
                 comments={comments}
                 awaitingFirstResponse={!selected.firstRespondedAt}
+                canEdit={canEdit}
               />
 
               <div className="border-t border-rule pt-3">
@@ -389,6 +417,7 @@ export function RetainerDetail({
                   <button
                     type="button"
                     onClick={() => setShowTriage((v) => !v)}
+                    disabled={locked}
                     className="text-[11px] text-ink-muted hover:text-ink-strong underline"
                   >
                     {showTriage ? "Cancel" : "+ Create story"}
@@ -428,10 +457,10 @@ export function RetainerDetail({
                       <button
                         type="button"
                         onClick={submitTriage}
-                        disabled={pending}
+                        disabled={locked}
                         className="ml-auto px-3 py-1.5 text-[12px] rounded-md bg-emerald/15 text-emerald border border-emerald/40 hover:bg-emerald/25 disabled:opacity-40"
                       >
-                        {pending ? "Creating…" : "Create story"}
+                        {locked ? "Creating…" : "Create story"}
                       </button>
                     </div>
                   </div>

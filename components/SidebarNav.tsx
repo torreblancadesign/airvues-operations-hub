@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
-import { canAccessRoute, type Permission } from "@/lib/permissions";
+import { canAccessRoute, canRoleDelete, type Permission } from "@/lib/permissions";
 import type { AppRole } from "@/lib/auth";
 
 type Props = {
@@ -16,7 +16,10 @@ export function SidebarNav({ icons, permissions, role }: Props) {
   const pathname = usePathname();
 
   const items = NAV_ITEMS.filter(
-    (n) => n.showInSidebar && canAccessRoute(permissions, n.href, role),
+    (n) =>
+      n.showInSidebar &&
+      canAccessRoute(permissions, n.href, role) &&
+      (!n.requiresDelete || canRoleDelete(role)),
   );
 
   return (

@@ -65,7 +65,7 @@ export async function listTeamData(): Promise<TeamData> {
     }>(
       pT.id,
       {
-        filterByFormula: `OR({Type}='Internal', {Type}='Internal team member')`,
+        filterByFormula: `AND(OR({Type}='Internal', {Type}='Internal team member'), NOT({Archived}))`,
         fields: [
           pT.fields["Full Name"].id,
           pT.fields["Primary Email"].id,

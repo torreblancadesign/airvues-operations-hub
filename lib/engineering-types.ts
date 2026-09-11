@@ -44,6 +44,8 @@ export type EngineerGroup = {
   role: string | null;
   internalType: string | null;
   isOrphan: boolean;
+  /** Person is soft-deleted. Their work still renders; they are not selectable. */
+  archived: boolean;
   stories: Story[];
   totals: {
     storyCount: number;

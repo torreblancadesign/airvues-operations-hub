@@ -70,6 +70,7 @@ export async function getRecentActivity(limit = 12): Promise<ActivityEvent[]> {
     }>(
       Tables.Quotes.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           Tables.Quotes.fields["Project Name"].id,
           Tables.Quotes.fields["Company Name"].id,

@@ -18,6 +18,7 @@ import { getPortalSession } from "../portal-session";
 import { getPortalData } from "../portal-data";
 import { computeSlaDueAt } from "../retainer-policy";
 import { listRetainerTiers } from "../retainers";
+import { RETAINER_PRIORITIES } from "../retainer-types";
 import type { RetainerPriority, RequestStatus } from "../retainer-types";
 
 const REQ = Tables.RetainerRequests;
@@ -49,6 +50,15 @@ export async function submitPortalRequest(
   if (title.length < 3) return { error: "Please give the request a short title." };
   if (title.length > 200) return { error: "That title is too long — 200 characters at most." };
 
+  // The TYPE says RetainerPriority; the wire says whatever was posted. This is
+  // a client-reachable action and createRecords sends typecast:true, so an
+  // unchecked value would CREATE a new Client Priority option in the live base
+  // and land the request on "Not covered" — SLA tracking silently off.
+  const priority = input.priority;
+  if (!RETAINER_PRIORITIES.includes(priority)) {
+    return { error: "Pick a priority from the list." };
+  }
+
   try {
     const data = await getPortalData(session);
     if (data.retainers.length === 0) {
@@ -69,7 +79,7 @@ export async function submitPortalRequest(
       : null;
 
     const submittedAt = new Date();
-    const dueAt = computeSlaDueAt(tier, input.priority, submittedAt);
+    const dueAt = computeSlaDueAt(tier, priority, submittedAt);
 
     const [created] = await createRecords(REQ.id, [
       {
@@ -79,7 +89,7 @@ export async function submitPortalRequest(
           Company: [session.companyId],
           "Submitted By": [session.personId],
           Description: (input.description ?? "").trim(),
-          "Client Priority": input.priority,
+          "Client Priority": priority,
           Status: "Submitted" satisfies RequestStatus,
           "Submitted At": submittedAt.toISOString(),
           "SLA Due At": dueAt ? dueAt.toISOString() : null,

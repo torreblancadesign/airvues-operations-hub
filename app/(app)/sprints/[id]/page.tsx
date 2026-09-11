@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SprintBoard } from "@/components/sprints/SprintBoard";
+import { DeleteSprintButton } from "@/components/sprints/DeleteSprintButton";
 import { getSprintDetail } from "@/lib/sprints";
 import { getEngineeringBoard } from "@/lib/engineering";
 import { canMutate } from "@/lib/authz";
@@ -77,6 +78,14 @@ export default async function SprintDetailPage({ params }: { params: Params }) {
         }
       />
       <SprintBoard sprint={sprint} engineers={engineers} sprints={board.sprintOptions} canEdit={editable} />
+
+      <div className="mt-6 flex justify-end border-t border-rule pt-4">
+        <DeleteSprintButton
+          sprintId={sprint.id}
+          label={sprint.number != null ? `Sprint #${sprint.number}` : sprint.name}
+          storyCount={sprint.storyCount}
+        />
+      </div>
     </main>
   );
 }

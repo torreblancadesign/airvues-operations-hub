@@ -2,7 +2,7 @@
 // Do NOT import from a client component.
 import "server-only";
 
-import { listRecordsCached } from "./airtable";
+import { listRecords, listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { currentPeriod } from "./retainers";
 import type {
@@ -30,8 +30,19 @@ function links(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
 }
 
-export async function listRetainerRequests(): Promise<RetainerRequest[]> {
-  const rows = await listRecordsCached<Record<string, unknown>>(
+/**
+ * `fresh: true` bypasses the 5-minute cache — mirrors listRetainerTiers, and
+ * mutations that rewrite SLA fields must pass it. A request created or answered
+ * outside a server action (staff editing the base directly) is invisible to a
+ * cached read for up to 5 minutes: recomputeSlaForPlan would then either miss
+ * it — leaving a stale deadline that nothing ever recalculates — or still see
+ * an answered request as unanswered and overwrite its recorded "Met".
+ */
+export async function listRetainerRequests(opts?: {
+  fresh?: boolean;
+}): Promise<RetainerRequest[]> {
+  const read = opts?.fresh ? listRecords : listRecordsCached;
+  const rows = await read<Record<string, unknown>>(
     REQ.id,
     {
       fields: [

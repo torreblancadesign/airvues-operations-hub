@@ -271,6 +271,7 @@ export async function listPeopleOptions(): Promise<PersonOption[]> {
   }>(
     t.id,
     {
+      filterByFormula: "NOT({Archived})",
       fields: [
         t.fields["Full Name"].id,
         t.fields["First Name"].id,

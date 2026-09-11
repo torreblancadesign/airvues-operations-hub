@@ -6,6 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { MobileNav } from "@/components/MobileNav";
 import { TopBar } from "@/components/header/TopBar";
 import { CommandPaletteProvider } from "@/components/search/CommandPaletteProvider";
+import { DeletePermissionProvider } from "@/components/DeletePermission";
+import { canDelete } from "@/lib/authz";
 import { signOut } from "@/lib/auth";
 import { isSamlEnabled } from "@/lib/saml";
 import { SAML_COOKIE_NAME } from "@/lib/samlSession";
@@ -46,23 +48,27 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     })),
   ]);
 
+  const viewerCanDelete = await canDelete();
+
   return (
-    <CommandPaletteProvider>
-      <Sidebar />
-      <MobileNav
-        userEmail={session.user.email}
-        userRole={session.user.role}
-        samlActive={samlActive}
-        signOutAction={doSignOut}
-        calendarResult={calendarResult}
-        inboxResult={inboxResult}
-        weather={weather}
-        permissions={session.user.permissions}
-      />
-      <div className="md:ml-[208px] min-h-screen page-enter">
-        <TopBar />
-        {children}
-      </div>
-    </CommandPaletteProvider>
+    <DeletePermissionProvider value={viewerCanDelete}>
+      <CommandPaletteProvider>
+        <Sidebar />
+        <MobileNav
+          userEmail={session.user.email}
+          userRole={session.user.role}
+          samlActive={samlActive}
+          signOutAction={doSignOut}
+          calendarResult={calendarResult}
+          inboxResult={inboxResult}
+          weather={weather}
+          permissions={session.user.permissions}
+        />
+        <div className="md:ml-[208px] min-h-screen page-enter">
+          <TopBar />
+          {children}
+        </div>
+      </CommandPaletteProvider>
+    </DeletePermissionProvider>
   );
 }

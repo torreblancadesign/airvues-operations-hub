@@ -40,6 +40,9 @@ export const EMPTY_FILTER: Filter = {
   showRejected: false,
 };
 
+/** Row grouping in the Projects table. Not a filter — "Clear" does not reset it. */
+export type GroupBy = "none" | "client" | "company";
+
 export type SortKey = "preparedDate" | "totalCost" | "client" | "status" | "autonumber" | "daysSinceSent" | "uninvoiced" | "invoiced";
 export type SortDir = "asc" | "desc";
 

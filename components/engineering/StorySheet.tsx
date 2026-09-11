@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Story } from "@/lib/engineering-types";
 import { updateStory, deleteStory, duplicateStoryToNextSprint } from "@/lib/mutations/story";
+import { DeleteControl } from "@/components/ui/DeleteControl";
+import { useCanDelete } from "@/components/DeletePermission";
 import { statusProgressPct, statusProgressTone } from "@/lib/story-progress";
 
 type EngineerOption = { id: string; name: string };
@@ -86,7 +88,10 @@ export function StorySheet({
   onFilterByEngineer,
   onFilterByClient,
 }: Props) {
-  const allowDelete = canDelete ?? canEdit;
+  // Role gate (admin/lead) first; the prop can still force it off where a
+  // caller mounts the sheet read-only.
+  const viewerCanDelete = useCanDelete();
+  const allowDelete = viewerCanDelete && (canDelete ?? canEdit);
   const [local, setLocal] = useState<Partial<Story>>({});
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -143,7 +148,11 @@ export function StorySheet({
       if (!("ok" in result)) {
         setError(result.error);
       } else {
-        if (result.paymentsCreated) {
+        if (result.paymentsFailed) {
+          setError(
+            "The story was completed, but its commission payment could not be created. It needs creating by hand.",
+          );
+        } else if (result.paymentsCreated) {
           setNotice(
             `${result.paymentsCreated} commission payment${result.paymentsCreated === 1 ? "" : "s"} queued (Needs Payment)`,
           );
@@ -386,26 +395,16 @@ export function StorySheet({
             </button>
           )}
           {allowDelete && (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => {
-                if (!confirm(`Delete story "${current.name}"? This cannot be undone.`)) return;
-                setError(null);
-                startTransition(async () => {
-                  const result = await deleteStory(story!.id);
-                  if (!("ok" in result)) {
-                    setError(result.error);
-                  } else {
-                    onDeleted?.(story!.id);
-                    onClose();
-                  }
-                });
+            <DeleteControl
+              label="Delete story"
+              question={`Delete "${current.name}"?`}
+              consequence="Gone from Airtable for good. Refused if commission payments are attached — archive the story instead."
+              onConfirm={() => deleteStory(story!.id)}
+              onDone={() => {
+                onDeleted?.(story!.id);
+                onClose();
               }}
-              className="px-3 py-1.5 text-[12px] bg-red/10 border border-red/40 text-red rounded hover:bg-red/20 transition-colors disabled:opacity-50"
-            >
-              Delete story
-            </button>
+            />
           )}
         </div>
 

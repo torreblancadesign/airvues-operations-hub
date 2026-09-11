@@ -21,6 +21,8 @@ export type NavItem = {
   group: NavGroup;
   showInSidebar: boolean;
   showOnHome: boolean;
+  /** Hide from nav unless the viewer's role can delete (admin/lead). */
+  requiresDelete?: boolean;
 };
 
 export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
@@ -95,6 +97,15 @@ export const NAV_ITEMS: NavItem[] = [
     showOnHome: true,
   },
 
+  {
+    href: "/retainers",
+    label: "Retainers",
+    desc: "Retainer health · open requests · SLA breaches · hours vs plan",
+    group: "delivery",
+    showInSidebar: true,
+    showOnHome: true,
+  },
+
   // Stories umbrella
   {
     href: "/engineering",
@@ -164,6 +175,15 @@ export const NAV_ITEMS: NavItem[] = [
     group: "operations",
     showInSidebar: true,
     showOnHome: true,
+  },
+  {
+    href: "/archive",
+    label: "Archive",
+    desc: "Soft-deleted projects, accounts and teammates · restore anything",
+    group: "operations",
+    showInSidebar: true,
+    showOnHome: false,
+    requiresDelete: true,
   },
 
   {

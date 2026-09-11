@@ -55,7 +55,7 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
   const engineersWithWork = useMemo(
     () =>
       data.groups
-        .filter((g) => !g.isOrphan)
+        .filter((g) => !g.isOrphan && !g.archived)
         .map((g) => ({ id: g.id, name: g.name })),
     [data.groups],
   );
@@ -101,7 +101,10 @@ export function EngineeringBoard({ data, canEdit = false }: Props) {
       );
     // Engineers with no visible stories under the current filter + assignable
     // people who have no story group at all — folded into one "free" row.
-    const groupIds = new Set(engineers.map((g) => g.id));
+    // Derived from data.groups, NOT the filtered set: with an engineer filter
+    // active, `engineers` holds one id and everyone else gets swept in here and
+    // reported as free while visibly loaded with work.
+    const groupIds = new Set(data.groups.map((g) => g.id));
     const free: { id: string; name: string; role: string | null }[] = [
       ...engineers
         .filter((g) => g.visibleStories.length === 0)

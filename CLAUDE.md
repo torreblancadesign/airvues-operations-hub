@@ -2,7 +2,7 @@
 
 > Read this entirely before touching code. These rules exist because something already broke when they weren't followed.
 >
-> **Last updated:** 2026-08-03 (2026-06 nav restructure + People.Permissions view gating + Loops/Meetings/Founder + Cmd+K)
+> **Last updated:** 2026-09-11 (delete/archive model + /archive restore page; 2026-06 nav restructure + People.Permissions view gating + Loops/Meetings/Founder + Cmd+K)
 
 ## What this is
 
@@ -47,7 +47,9 @@ These break things. Do not bypass.
 10. **DO NOT** add a third place for routes. `lib/nav.ts` is the single source of truth. Sidebar + MobileNav + home Jump-To all consume it.
 11. **DO NOT** ship without running `npx tsc --noEmit` AND `npm run build`. Type errors and build failures should never reach prod.
 12. **DO NOT** invent field IDs. Always extract from `lib/schema.ts`. Wrong IDs silently no-op on writes.
-13. **DO NOT** gate a page by hiding it from the nav only. Sidebar filtering is cosmetic — the real gate is `assertCanAccess(href)` (`lib/page-guard.ts`) at the top of the page, backed by `ROUTE_PERMISSION` in `lib/permissions.ts`.
+13. **DO NOT** add a list read of People / Companies / Quotes without `filterByFormula: "NOT({Archived})"` if that list feeds a board, picker, filter or search. Archived = soft-deleted; it must not be selectable anywhere. Joins and name lookups (resolving a recId to a name on an existing record) are the exception — they keep archived rows so historical records still render.
+14. **DO NOT** hard-delete anything that carries money or identity. Projects, retainers, accounts and people archive only. Stories and sprints hard-delete, and `deleteStory` refuses when 🔵 Team Task Payments are attached (`lib/delete-guards.ts`).
+15. **DO NOT** gate a page by hiding it from the nav only. Sidebar filtering is cosmetic — the real gate is `assertCanAccess(href)` (`lib/page-guard.ts`) at the top of the page, backed by `ROUTE_PERMISSION` in `lib/permissions.ts`.
 
 ## ✅ DO — patterns to follow
 
@@ -94,6 +96,14 @@ These break things. Do not bypass.
 7. **Single source of truth.** Constants in `lib/`. Nav in `lib/nav.ts`. Types in `lib/*-types.ts` (client-safe). Mutations in `lib/mutations/`.
 
 8. **Verify before claiming done.** `npx tsc --noEmit` + `npm run build` + (where relevant) live route checks. Verification pattern: typecheck → build → deploy → curl key routes.
+
+## Delete / archive model (2026-09)
+
+- **Only admin + lead (+ legacy editor) can delete or archive.** `deleteGate()` in `lib/authz.ts` is the server gate on every delete/archive action; `canDelete()` / `canRoleDelete(role)` (client-safe, `lib/permissions.ts`) decide whether the control renders. Delete is the *only* role-gated write left — every other mutation is `requireSignedIn()`.
+- **Soft (archive):** Projects/Quotes, Companies, People via an `Archived` checkbox on each table; Retainers via the older `Retainer Archived` on Quotes; Loops/Meetings via `Deleted`. **Hard:** Stories, Sprints.
+- **`/archive`** lists everything archived with a Restore button — the only way back, since archived rows are filtered out of every board, picker, filter and Cmd+K. Role-gated by `canDelete()`, nav link hidden via `requiresDelete` on the `NavItem`.
+- **One confirm UI:** `components/ui/DeleteControl.tsx`. Two-step inline arm, no `window.confirm`. Don't fork it.
+- `components/DeletePermission.tsx` provides `useCanDelete()` from the `(app)` layout — use it instead of threading a prop.
 
 ## Auth model (current — post 2026-05-18 OAuth flip)
 

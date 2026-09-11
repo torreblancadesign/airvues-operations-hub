@@ -6,7 +6,7 @@ import { PipelineQuote } from "@/lib/pipeline";
 import { PipelineFilterBar } from "./FilterBar";
 import { QuoteTable } from "./QuoteTable";
 import { QuoteSheet } from "./QuoteSheet";
-import { DEFAULT_SORT, EMPTY_FILTER, Filter, Sort, StageBucket } from "./types";
+import { DEFAULT_SORT, EMPTY_FILTER, Filter, GroupBy, Sort, StageBucket } from "./types";
 
 const fmtCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(n);
@@ -132,7 +132,17 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFil
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>({ ...EMPTY_FILTER, ...(initialFilter ?? {}) });
   const [sort, setSort] = useState<Sort>(DEFAULT_SORT);
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
   const [selected, setSelected] = useState<PipelineQuote | null>(null);
+
+  const groupKey = useMemo(() => {
+    if (groupBy === "none") return null;
+    return (q: PipelineQuote) => {
+      const v = groupBy === "client" ? q.client : q.company;
+      // lib/pipeline fills a bare "—" when the lookup is empty; label the bucket instead.
+      return !v || v === "—" ? `No ${groupBy}` : v;
+    };
+  }, [groupBy]);
 
   const clients = useMemo(() => {
     const s = new Set<string>();
@@ -147,7 +157,11 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFil
   }, [quotes]);
 
   const filtered = useMemo(() => applyFilter(quotes, filter), [quotes, filter]);
-  const sorted = useMemo(() => applySort(filtered, sort), [filtered, sort]);
+  const sorted = useMemo(() => {
+    const rows = applySort(filtered, sort);
+    // Array.sort is stable, so grouping keeps the chosen sort order inside each group.
+    return groupKey ? rows.sort((a, b) => groupKey(a).localeCompare(groupKey(b))) : rows;
+  }, [filtered, sort, groupKey]);
   const filteredTotal = filtered.reduce((s, r) => s + r.totalCost, 0);
 
   const filterActive =
@@ -215,6 +229,8 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFil
         preparers={preparers}
         totalCount={quotes.length}
         filteredCount={filtered.length}
+        groupBy={groupBy}
+        setGroupBy={setGroupBy}
       />
 
       {filterActive && (
@@ -229,6 +245,7 @@ export function PipelineDashboard({ quotes, people, sprints, canEdit, initialFil
         setSort={setSort}
         onRowClick={(q) => router.push(`/pipeline/${q.id}`)}
         selectedId={selected?.id ?? null}
+        groupKey={groupKey}
       />
 
       <QuoteSheet

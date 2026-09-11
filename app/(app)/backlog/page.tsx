@@ -67,7 +67,7 @@ export default async function BacklogPage({
   }
 
   const engineersWithWork = data.groups
-    .filter((g) => !g.isOrphan)
+    .filter((g) => !g.isOrphan && !g.archived)
     .map((g) => ({ id: g.id, name: g.name }));
 
   const assignableEngineers = [...data.assignablePeople]

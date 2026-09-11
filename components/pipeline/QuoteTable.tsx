@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment, useMemo } from "react";
 import { PipelineQuote } from "@/lib/pipeline";
 import { deadlineRiskClass, deadlineRiskLabel } from "@/lib/deadline";
 import { Sort, SortKey } from "./types";
@@ -10,6 +11,8 @@ type Props = {
   setSort: (s: Sort) => void;
   onRowClick: (q: PipelineQuote) => void;
   selectedId: string | null;
+  /** When set, rows must already be ordered by this key; a header row opens each group. */
+  groupKey?: ((q: PipelineQuote) => string) | null;
 };
 
 const fmtCurrency = (n: number) =>
@@ -88,11 +91,25 @@ function SortHeader({ label, active, dir, align = "left", onClick }: { label: st
   );
 }
 
-export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Props) {
+export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId, groupKey }: Props) {
   const toggle = (key: SortKey) => {
     if (sort.key === key) setSort({ key, dir: sort.dir === "asc" ? "desc" : "asc" });
     else setSort({ key, dir: "desc" });
   };
+
+  const groupTotals = useMemo(() => {
+    const m = new Map<string, { count: number; total: number; uninvoiced: number }>();
+    if (!groupKey) return m;
+    for (const q of rows) {
+      const k = groupKey(q);
+      const g = m.get(k) ?? { count: 0, total: 0, uninvoiced: 0 };
+      g.count++;
+      g.total += q.totalCost;
+      g.uninvoiced += q.uninvoiced;
+      m.set(k, g);
+    }
+    return m;
+  }, [rows, groupKey]);
 
   return (
     <div className="bg-surface border border-rule rounded-card overflow-hidden">
@@ -169,10 +186,13 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
             {rows.length === 0 ? (
               <tr><td colSpan={14} className="px-3 py-8 text-center text-[13px] text-ink-muted">No quotes match the current filters.</td></tr>
             ) : (
-              rows.map((q) => {
+              rows.map((q, i) => {
                 const days = daysSince(q.preparedDate);
                 const stale = days != null && days > 14 && (q.status === "Sent. Awaiting Approval." || q.status === "Draft" || q.status === "Auditing 🚩");
-                return (
+                const gk = groupKey ? groupKey(q) : null;
+                const opensGroup = gk != null && (i === 0 || groupKey!(rows[i - 1]) !== gk);
+                const g = gk != null ? groupTotals.get(gk) : undefined;
+                const row = (
                   <tr key={q.id} onClick={() => onRowClick(q)} className={`border-b border-rule-soft last:border-0 cursor-pointer ${selectedId === q.id ? "!bg-emerald-soft" : ""}`}>
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.autonumber ?? "—"}</td>
                     <td className="px-3 py-2.5 text-[12px] font-mono tabnum text-ink-muted">{q.preparedDate ? new Date(q.preparedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }) : "—"}</td>
@@ -222,6 +242,30 @@ export function QuoteTable({ rows, sort, setSort, onRowClick, selectedId }: Prop
                       {q.uninvoiced > 0 ? fmtCurrency(q.uninvoiced) : "—"}
                     </td>
                   </tr>
+                );
+                if (!opensGroup) return row;
+                return (
+                  <Fragment key={`g-${q.id}`}>
+                    <tr className="border-b border-rule">
+                      <td colSpan={14} className="!bg-bg-elevated px-3 py-2">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-[13px] font-semibold text-ink-strong">{gk}</span>
+                          <span className="text-[11px] text-ink-muted font-mono tabnum">
+                            {g?.count ?? 0} {g?.count === 1 ? "proposal" : "proposals"}
+                          </span>
+                          <span className="ml-auto text-[12px] font-mono tabnum text-ink-strong">
+                            {fmtCurrency(g?.total ?? 0)}
+                          </span>
+                          {!!g?.uninvoiced && (
+                            <span className="text-[11px] font-mono tabnum text-amber" title="Committed but not yet invoiced">
+                              {fmtCurrency(g.uninvoiced)} uninvoiced
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {row}
+                  </Fragment>
                 );
               })
             )}

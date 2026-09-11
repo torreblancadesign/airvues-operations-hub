@@ -1,0 +1,433 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  addRetainerContact,
+  createPortalSignInLink,
+  removeRetainerContact,
+  setContactPortalAccess,
+  setContactPortalRole,
+} from "@/lib/mutations/retainer-contact";
+import { readinessOf, sortContacts } from "@/lib/retainer-contact-rules";
+import type { PortalRole, RetainerContact } from "@/lib/retainer-types";
+
+const input =
+  "px-2 py-1 text-[12px] bg-bg-elevated border border-rule text-ink rounded focus:border-emerald focus:outline-none";
+
+const STATUS: Record<
+  ReturnType<typeof readinessOf>,
+  { label: string; tone: string; dot: string }
+> = {
+  active: { label: "signed in", tone: "text-emerald", dot: "bg-emerald" },
+  invited: { label: "access granted", tone: "text-sky", dot: "bg-sky" },
+  "no-access": { label: "no portal access", tone: "text-ink-faint", dot: "bg-rule-strong" },
+  "no-email": { label: "no email — cannot sign in", tone: "text-amber", dot: "bg-amber" },
+};
+
+function shortDate(iso: string | null): string {
+  return iso ? iso.slice(0, 10) : "—";
+}
+
+export function RetainerContacts({
+  contacts,
+  companyId,
+  companyName,
+  canEdit,
+}: {
+  contacts: RetainerContact[];
+  companyId: string | null;
+  companyName: string | null;
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [busy, setBusy] = useState(false);
+  const locked = busy || pending;
+
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<PortalRole>("Member");
+  const [grant, setGrant] = useState(true);
+  // Set when the server reports this email already belongs to another client.
+  // Submitting again with it on performs the move, as a deliberate second act.
+  const [confirmMove, setConfirmMove] = useState(false);
+
+  // Detach asks why. The company link is cleared by the action, so this reason
+  // becomes the only surviving record that they ever belonged to this client.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  // The generated link, shown once. Never persisted — it is a bearer credential.
+  const [link, setLink] = useState<{ id: string; url: string; minutes: number } | null>(null);
+
+  const rows = sortContacts(contacts);
+
+  async function issueLink(c: RetainerContact) {
+    if (locked) return;
+    setError(null);
+    setMessage(null);
+    setLink(null);
+    setBusy(true);
+    try {
+      const res = await createPortalSignInLink(c.id);
+      if ("error" in res) {
+        setError(res.error);
+        return;
+      }
+      setLink({ id: c.id, url: res.url, minutes: res.expiresInMinutes });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function done(msg: string) {
+    setError(null);
+    setMessage(msg);
+    setAdding(false);
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setConfirmMove(false);
+    setRole("Member");
+    setGrant(true);
+    startTransition(() => router.refresh());
+  }
+
+  async function run<T>(fn: () => Promise<T | { error: string }>, ok: (r: T) => string) {
+    if (locked) return;
+    setError(null);
+    setMessage(null);
+    setBusy(true);
+    try {
+      const res = (await fn()) as T & {
+        error?: string;
+        needsMoveConfirm?: boolean;
+      };
+      if (res && typeof res === "object" && "error" in res && res.error) {
+        setError(res.error as string);
+        if (res.needsMoveConfirm) setConfirmMove(true);
+        return;
+      }
+      done(ok(res));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="bg-surface border border-rule rounded-card">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-rule">
+        <div>
+          <div className="eyebrow">Client contacts</div>
+          <div className="text-[11px] text-ink-faint mt-0.5">
+            {rows.length === 0
+              ? "Nobody linked yet"
+              : `${rows.length} at ${companyName ?? "this client"}`}
+          </div>
+        </div>
+        {canEdit && companyId && !adding && (
+          <button
+            onClick={() => {
+              setAdding(true);
+              setError(null);
+              setMessage(null);
+            }}
+            className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald transition-colors"
+          >
+            Add contact
+          </button>
+        )}
+      </div>
+
+      {error && <div className="px-4 py-2.5 text-[12px] text-red border-b border-rule">{error}</div>}
+      {message && (
+        <div className="px-4 py-2.5 text-[12px] text-emerald border-b border-rule">{message}</div>
+      )}
+
+      {adding && companyId && (
+        <div className="px-4 py-3 border-b border-rule bg-bg-elevated space-y-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <label className="block">
+              <span className="text-[11px] text-ink-muted block mb-1">First name</span>
+              <input
+                className={`${input} w-full`}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+              />
+            </label>
+            <label className="block">
+              <span className="text-[11px] text-ink-muted block mb-1">Last name</span>
+              <input
+                className={`${input} w-full`}
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+              />
+            </label>
+            <label className="block lg:col-span-2">
+              <span className="text-[11px] text-ink-muted block mb-1">Email</span>
+              <input
+                type="email"
+                className={`${input} w-full`}
+                placeholder="they sign in with this"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  // A confirmation belongs to ONE email. Carrying it to another
+                  // would move a different person without being asked.
+                  setConfirmMove(false);
+                  setError(null);
+                }}
+              />
+            </label>
+          </div>
+          <div className="flex items-center gap-4 flex-wrap">
+            <label className="text-[12px] text-ink-muted flex items-center gap-2">
+              Role
+              <select
+                className={input}
+                value={role}
+                onChange={(e) => setRole(e.target.value as PortalRole)}
+              >
+                <option value="Member">Member — view and submit</option>
+                <option value="Owner">Owner — can also invite colleagues</option>
+              </select>
+            </label>
+            <label className="text-[12px] text-ink-muted flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="accent-emerald"
+                checked={grant}
+                onChange={(e) => setGrant(e.target.checked)}
+              />
+              Grant portal access now
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                run(
+                  () =>
+                    addRetainerContact({
+                      companyId,
+                      firstName,
+                      lastName,
+                      email,
+                      portalRole: role,
+                      grantAccess: grant,
+                      confirmMove,
+                    }),
+                  (r) =>
+                    (r as { linked: boolean }).linked
+                      ? "That email already existed in People — the existing record was linked to this client instead of creating a duplicate."
+                      : "Contact added.",
+                )
+              }
+              disabled={locked}
+              className="px-3 py-1.5 text-[12px] rounded bg-emerald text-black font-medium disabled:opacity-50"
+            >
+              {locked
+                ? "Saving…"
+                : confirmMove
+                  ? "Move them to this client"
+                  : "Add contact"}
+            </button>
+            <button
+              onClick={() => setAdding(false)}
+              className="px-3 py-1.5 text-[12px] rounded border border-rule text-ink-muted"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rows.length === 0 ? (
+        <div className="px-4 py-10 text-center">
+          <div className="text-[13px] text-ink-muted">No client contacts yet</div>
+          <div className="text-[11px] text-ink-faint mt-1 max-w-sm mx-auto leading-snug">
+            {companyId
+              ? "Add the people at this client who should be able to see the retainer and file requests."
+              : "This retainer has no client linked, so contacts cannot be scoped to one."}
+          </div>
+        </div>
+      ) : (
+        <ul className="divide-y divide-rule/60">
+          {rows.map((c) => {
+            const state = STATUS[readinessOf(c)];
+            return (
+              <li key={c.id} className="px-4 py-3 flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <span
+                    className={`mt-1.5 h-1.5 w-1.5 rounded-full shrink-0 ${state.dot}`}
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[13px] text-ink-strong">{c.name}</div>
+                    <div className="text-[11px] text-ink-muted truncate">
+                      {c.email ?? "no email on record"}
+                    </div>
+                    <div className={`text-[10px] mt-0.5 ${state.tone}`}>
+                      {c.portalRole ?? "no role"} · {state.label}
+                      {c.portalLastLogin && ` · last seen ${shortDate(c.portalLastLogin)}`}
+                      {!c.portalLastLogin &&
+                        c.portalInvitedAt &&
+                        ` · granted ${shortDate(c.portalInvitedAt)}`}
+                    </div>
+                  </div>
+                </div>
+
+                {canEdit && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <select
+                      value={c.portalRole ?? "Member"}
+                      onChange={(e) =>
+                        run(
+                          () => setContactPortalRole(c.id, e.target.value as PortalRole),
+                          () => `${c.name} is now ${e.target.value}.`,
+                        )
+                      }
+                      disabled={locked}
+                      className="px-2 py-1 text-[11px] bg-bg-elevated border border-rule text-ink rounded focus:border-emerald focus:outline-none disabled:opacity-50"
+                    >
+                      <option value="Member">Member</option>
+                      <option value="Owner">Owner</option>
+                    </select>
+                    <button
+                      onClick={() =>
+                        run(
+                          () =>
+                            setContactPortalAccess(c.id, !c.portalAccess, {
+                              alreadyInvited: c.portalInvitedAt !== null,
+                            }),
+                          () =>
+                            c.portalAccess
+                              ? `Portal access revoked for ${c.name}.`
+                              : `Portal access granted to ${c.name}. No email was sent.`,
+                        )
+                      }
+                      disabled={locked || !c.email}
+                      title={c.email ? undefined : "Needs an email address first"}
+                      className="text-[11px] text-ink-muted hover:text-emerald disabled:opacity-40 disabled:hover:text-ink-muted"
+                    >
+                      {c.portalAccess ? "Revoke" : "Grant access"}
+                    </button>
+                    {c.portalAccess && (
+                      <button
+                        onClick={() => issueLink(c)}
+                        disabled={locked}
+                        title="Generates a one-click sign-in link to hand over yourself"
+                        className="text-[11px] text-ink-muted hover:text-sky disabled:opacity-40"
+                      >
+                        Sign-in link
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setRemoving(c.id);
+                        setReason("");
+                        setError(null);
+                        setMessage(null);
+                      }}
+                      disabled={locked}
+                      title="Unlinks them from this client. The person record is kept."
+                      className="text-[11px] text-ink-faint hover:text-amber disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+
+                {removing === c.id && (
+                  <div className="basis-full mt-3 pt-3 border-t border-rule/60 space-y-2">
+                    <label className="block">
+                      <span className="text-[11px] text-ink-muted block mb-1">
+                        Why is {c.name} being removed? This is kept on their record —
+                        the client link is cleared, so it becomes the only trace that they
+                        were ever attached here.
+                      </span>
+                      <input
+                        className={`${input} w-full`}
+                        placeholder="e.g. left the company, replaced by another contact"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        autoFocus
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          run(
+                            () =>
+                              removeRetainerContact(c.id, {
+                                companyName,
+                                reason,
+                              }),
+                            () => `${c.name} detached. The reason was saved to their record.`,
+                          ).then(() => setRemoving(null))
+                        }
+                        disabled={locked}
+                        className="px-2.5 py-1 text-[11px] rounded bg-amber/15 text-amber border border-amber/40 hover:bg-amber/25 disabled:opacity-50"
+                      >
+                        {locked ? "Removing…" : "Remove from this client"}
+                      </button>
+                      <button
+                        onClick={() => setRemoving(null)}
+                        className="px-2.5 py-1 text-[11px] rounded border border-rule text-ink-muted"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {link?.id === c.id && (
+                  <div className="basis-full mt-3 pt-3 border-t border-rule/60">
+                    <div className="text-[11px] text-ink-muted mb-1.5">
+                      One-click sign-in for {c.name}. Expires in {link.minutes} minutes, and
+                      anyone holding it signs in as them — send it the way you would a password.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        readOnly
+                        value={link.url}
+                        onFocus={(e) => e.currentTarget.select()}
+                        className={`${input} flex-1 font-mono text-[11px]`}
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(link.url);
+                          setMessage("Link copied.");
+                        }}
+                        className="px-2.5 py-1 text-[11px] rounded border border-rule text-ink-muted hover:text-emerald hover:border-emerald"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        onClick={() => setLink(null)}
+                        className="px-2.5 py-1 text-[11px] rounded border border-rule text-ink-faint"
+                      >
+                        Hide
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <div className="px-4 py-2.5 border-t border-rule text-[11px] text-ink-faint leading-snug">
+        Granting access records who is allowed in. Nothing is emailed yet — until the mail
+        provider is wired up, use <span className="text-ink-muted">Sign-in link</span> and send
+        it yourself. Links last 30 minutes; access is re-checked on every page, so revoking
+        someone locks them out immediately even mid-session.
+      </div>
+    </section>
+  );
+}

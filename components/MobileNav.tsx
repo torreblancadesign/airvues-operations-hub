@@ -8,7 +8,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS, NAV_GROUPS } from "@/lib/nav";
-import { canAccessRoute, type Permission } from "@/lib/permissions";
+import { canAccessRoute, canRoleDelete, type Permission } from "@/lib/permissions";
 import type { AppRole } from "@/lib/auth";
 import { CalendarWidget } from "@/components/header/CalendarWidget";
 import { GmailWidget } from "@/components/header/GmailWidget";
@@ -157,7 +157,8 @@ export function MobileNav({ userEmail, userRole, samlActive, signOutAction, cale
                     (n) =>
                       n.showInSidebar &&
                       n.group === group.id &&
-                      canAccessRoute(permissions, n.href, userRole),
+                      canAccessRoute(permissions, n.href, userRole) &&
+                      (!n.requiresDelete || canRoleDelete(userRole)),
                   );
                   if (groupItems.length === 0) return null;
                   return (

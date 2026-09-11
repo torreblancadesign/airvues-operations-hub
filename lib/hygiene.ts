@@ -37,6 +37,7 @@ export async function getHygieneIndex(): Promise<HygieneIndex> {
     listRecordsCached<{ "Engagement Frequency"?: string }>(
       Tables.Companies.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [Tables.Companies.fields["Engagement Frequency"].id],
       },
       ["hygiene:companies"],
@@ -49,6 +50,7 @@ export async function getHygieneIndex(): Promise<HygieneIndex> {
     listRecordsCached<{ Status?: string; "Total Project Cost"?: number; "Prepared Date"?: string }>(
       Tables.Quotes.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           Tables.Quotes.fields["Status"].id,
           Tables.Quotes.fields["Total Project Cost"].id,

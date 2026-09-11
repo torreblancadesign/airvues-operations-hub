@@ -269,6 +269,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           pTbl.fields["Status"].id,
           pTbl.fields["Type"].id,
           pTbl.fields["Commission Percentage"].id,
+          pTbl.fields["Archived"].id,
         ],
       },
       ["engineering:people"],
@@ -317,6 +318,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     status: string | null;
     type: string | null;
     commissionPct: number;
+    archived: boolean;
   };
 
   const peopleMap = new Map<string, PersonRow>();
@@ -333,6 +335,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
       status: (f["Status"] as string) ?? null,
       type: (f["Type"] as string) ?? null,
       commissionPct: normalizePct(f["Commission Percentage"]),
+      archived: f["Archived"] === true,
     });
   }
 
@@ -410,6 +413,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     role: null,
     internalType: null,
     isOrphan: true,
+    archived: false,
     stories: [],
     totals: emptyTotals(),
   };
@@ -433,6 +437,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
           role: personRow?.role ?? null,
           internalType: personRow?.internalType ?? null,
           isOrphan: false,
+          archived: personRow?.archived ?? false,
           stories: [],
           totals: emptyTotals(),
         };
@@ -454,6 +459,7 @@ export async function getEngineeringBoard(): Promise<EngineeringBoardData> {
     .filter(
       (p) =>
         p.status === "Active" &&
+        !p.archived &&
         (p.type === "Internal" || p.type === "Internal team member"),
     )
     .map((p) => ({

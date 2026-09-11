@@ -621,6 +621,25 @@ function formatElapsed(ms: number): string {
   return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
 }
 
+// Airtable un-checks the "Run AI ... Agent" box when the automation finishes,
+// so a run that errored leaves the UI reporting "Generating…" forever with the
+// primary button disabled. This is the way back out — and after adding more
+// context, the way to re-run without waiting on a run that is never coming.
+function RerunAnyway({ onClick, what }: { onClick: () => void; what: string }) {
+  return (
+    <div className="mt-2 text-[11px] text-ink-faint">
+      Added more context, or the run looks stuck?{" "}
+      <button
+        type="button"
+        onClick={onClick}
+        className="underline underline-offset-2 text-ink-muted hover:text-emerald"
+      >
+        Re-run the {what} agent anyway
+      </button>
+    </div>
+  );
+}
+
 function CreateAiProposalRow({
   canEdit,
   hasClientInput,
@@ -698,6 +717,9 @@ function CreateAiProposalRow({
           <span>{label}</span>
         </button>
       </div>
+      {isAgentRunning && canEdit && !isTriggering && (
+        <RerunAnyway onClick={onClick} what="proposal" />
+      )}
       {error ? (
         <div className="mt-2 text-[11px] text-red">⚠ {error}</div>
       ) : null}
@@ -781,6 +803,9 @@ function CreateAiChangeOrderRow({
           <span>{label}</span>
         </button>
       </div>
+      {isAgentRunning && canEdit && !isTriggering && (
+        <RerunAnyway onClick={onClick} what="change order" />
+      )}
       {error ? <div className="mt-2 text-[11px] text-red">⚠ {error}</div> : null}
     </div>
   );
@@ -1395,6 +1420,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         quoteId={quoteId}
         onClose={() => setShowAddStory(false)}
         onCreated={(next) => setQuote(next)}
+        people={people}
         isRetainer={quote.proposalType === "Retainer Agreement"}
       />
 
@@ -1404,6 +1430,7 @@ export function QuoteSheetEditor({ quoteId, initial, people, sprints, canEdit }:
         quoteId={quoteId}
         onClose={() => setShowAddChangeOrder(false)}
         onCreated={(next) => setQuote(next)}
+        people={people}
         isChangeOrder
       />
 

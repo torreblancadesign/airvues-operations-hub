@@ -4,7 +4,7 @@
 import { revalidateTag } from "next/cache";
 import { patchRecords } from "../airtable";
 import { Tables } from "../schema";
-import { canMutate } from "../authz";
+import { canMutate, deleteGate } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 
@@ -89,3 +89,29 @@ export async function updateContact(
   }
 }
 
+
+/**
+ * Archive or restore a person. admin/lead only.
+ *
+ * A SOFT delete, always. People rows are payees: they carry commission
+ * percentages and are linked from Team Task Payments, Stories and Time Entries.
+ * Removing one would strand money exactly the way support@airvues.com did.
+ * Archiving hides them from Team and from assignee pickers; the history stays.
+ */
+export async function setPersonArchived(
+  personId: string,
+  archived: boolean,
+): Promise<MutationResult> {
+  if (!personId || !personId.startsWith("rec")) return { error: "Invalid personId" };
+  const denied = await deleteGate();
+  if (denied) return denied;
+  try {
+    await patchRecords(Tables.People.id, [{ id: personId, fields: { Archived: archived } }]);
+    revalidateTag("airtable");
+    revalidateTag("team:internal-people");
+    revalidateTag("client-detail:people");
+    return { ok: true };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

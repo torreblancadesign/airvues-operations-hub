@@ -84,6 +84,8 @@ export async function listAllQuotes(): Promise<PipelineQuote[]> {
   }>(
     t.id,
     {
+      // Archived projects are soft-deleted (lib/mutations/quote.ts).
+      filterByFormula: "NOT({Archived})",
       fields: [
         t.fields["Autonumber"].id,
         t.fields["Project Name"].id,

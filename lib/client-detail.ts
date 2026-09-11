@@ -117,6 +117,7 @@ export async function getClientDetail(companyId: string): Promise<ClientDetail> 
     }>(
       pT.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           pT.fields["Full Name"].id,
           pT.fields["First Name"].id,

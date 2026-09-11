@@ -6,7 +6,7 @@ import { randomBytes } from "crypto";
 import { del } from "@vercel/blob";
 import { waitUntil } from "@vercel/functions";
 import { createRecords, patchRecords, getRecord } from "../airtable";
-import { AuthzError, requireSignedIn } from "../authz";
+import { AuthzError, deleteGate, requireSignedIn } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { RECORDINGS_TABLE } from "../loops";
@@ -185,7 +185,7 @@ export async function updateLoopLinks(
 }
 
 export async function deleteLoop(id: string): Promise<LoopMutationResult> {
-  const g = await gate();
+  const g = await deleteGate();
   if (g) return g;
   try {
     // Read first so we can purge the Blob assets.

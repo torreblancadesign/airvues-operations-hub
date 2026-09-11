@@ -24,6 +24,7 @@ export async function listPayerOptions(): Promise<PayerOption[]> {
   }>(
     t.id,
     {
+      filterByFormula: "NOT({Archived})",
       fields: [
         t.fields["Full Name"].id,
         t.fields["First Name"].id,

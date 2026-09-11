@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 import { del } from "@vercel/blob";
 import { waitUntil } from "@vercel/functions";
 import { createRecords, patchRecords, getRecord } from "../airtable";
-import { AuthzError, requireSignedIn } from "../authz";
+import { AuthzError, deleteGate, requireSignedIn } from "../authz";
 import { getAppSession } from "../session";
 import { resolvePersonByEmail } from "../people";
 import { MEETINGS_TABLE } from "../meetings";
@@ -219,7 +219,7 @@ export async function updateMeetingTitle(
 }
 
 export async function deleteMeeting(id: string): Promise<MeetingMutationResult> {
-  const g = await gate();
+  const g = await deleteGate();
   if (g) return g;
   try {
     const rec = await getRecord<{ "Audio URL"?: string; Lead?: string[] }>(MEETINGS_TABLE, id);

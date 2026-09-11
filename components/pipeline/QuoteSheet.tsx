@@ -7,6 +7,7 @@ import { PipelineQuote } from "@/lib/pipeline";
 import type { PersonOption } from "@/lib/quote-types";
 import { QuoteSheetEditor } from "./QuoteSheetEditor";
 import { DrawerErrorBoundary } from "./DrawerErrorBoundary";
+import { ArchiveQuoteControl } from "./ArchiveQuoteControl";
 
 
 type SprintOption = { id: string; number: number | null; status: string | null };
@@ -152,6 +153,12 @@ export function QuoteSheet({ quote, people, sprints, canEdit, onClose, onFilterB
         <DrawerErrorBoundary airtableUrl={quote.airtableUrl} onClose={onClose} label="This quote">
           <QuoteSheetEditor quoteId={quote.id} people={people} sprints={sprints} canEdit={canEdit} />
         </DrawerErrorBoundary>
+
+        <ArchiveQuoteControl
+          quoteId={quote.id}
+          projectName={quote.projectName ?? quote.client}
+          onArchived={onClose}
+        />
 
       </aside>
     </>,

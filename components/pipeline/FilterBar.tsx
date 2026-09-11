@@ -1,6 +1,6 @@
 "use client";
 
-import { Filter, EMPTY_FILTER } from "./types";
+import { Filter, EMPTY_FILTER, GroupBy } from "./types";
 
 const inputCls =
   "px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none transition-colors";
@@ -14,9 +14,11 @@ type Props = {
   preparers: string[];
   totalCount: number;
   filteredCount: number;
+  groupBy: GroupBy;
+  setGroupBy: (g: GroupBy) => void;
 };
 
-export function PipelineFilterBar({ filter, setFilter, clients, preparers, totalCount, filteredCount }: Props) {
+export function PipelineFilterBar({ filter, setFilter, clients, preparers, totalCount, filteredCount, groupBy, setGroupBy }: Props) {
   const update = <K extends keyof Filter>(key: K, value: Filter[K]) =>
     setFilter({ ...filter, [key]: value });
 
@@ -103,6 +105,17 @@ export function PipelineFilterBar({ filter, setFilter, clients, preparers, total
           />
           Show rejected
         </label>
+
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as GroupBy)}
+          className={selectCls}
+          title="Group rows so every proposal for the same client sits together"
+        >
+          <option value="none">No grouping</option>
+          <option value="client">Group by client</option>
+          <option value="company">Group by company</option>
+        </select>
 
         {hasActive && (
           <button

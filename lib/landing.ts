@@ -59,6 +59,7 @@ export async function getLandingBoards(): Promise<LandingBoards> {
     }>(
       Tables.Quotes.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           Tables.Quotes.fields["Quote ID"].id,
           Tables.Quotes.fields["Project Name"].id,

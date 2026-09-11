@@ -5,6 +5,7 @@
 import "server-only";
 
 import { AppSession, getAppSession } from "./session";
+import { canRoleDelete } from "./permissions";
 import type { AppRole } from "./auth";
 
 export class AuthzError extends Error {
@@ -44,6 +45,36 @@ export async function getCurrentRole(): Promise<AppRole | null> {
 export async function canMutate(): Promise<boolean> {
   const session = await getAppSession();
   return !!session?.user;
+}
+
+// ---------------------------------------------------------------------------
+// Deleting is the ONE mutation still gated by role. Every other write is open
+// to any signed-in user (see canMutate above) because edits are reversible and
+// the audit trail is the record itself. A delete is not reversible: a hard
+// delete is gone from Airtable, and even a soft one hides a record other people
+// are looking for. So it stays with admin + lead.
+//
+// The role list lives in lib/permissions.ts because the nav (a client bundle)
+// needs it too; this file stays the only place that reads the session.
+export async function canDelete(): Promise<boolean> {
+  const session = await getAppSession();
+  return canRoleDelete(session?.user.role);
+}
+
+/**
+ * Gate for every delete/archive Server Action.
+ *
+ * Returns a ready-to-surface `{ error }` instead of throwing, because that is
+ * the shape every mutation in lib/mutations already returns to the client, and
+ * the message is written for a human reading a toast — not "forbidden".
+ */
+export async function deleteGate(): Promise<{ error: string } | null> {
+  const session = await getAppSession();
+  if (!session?.user) return { error: "Your session has ended. Sign in again." };
+  if (!canRoleDelete(session.user.role)) {
+    return { error: "Only admins and leads can delete. Ask one of them to do it." };
+  }
+  return null;
 }
 
 // Server-Action / route-handler gate: throws AuthzError if there is no session.

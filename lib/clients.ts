@@ -54,6 +54,9 @@ export async function listAllClients(): Promise<ClientRow[]> {
     }>(
       cT.id,
       {
+        // Archived companies are soft-deleted (lib/mutations/company.ts) —
+        // they stay in the base but leave every board.
+        filterByFormula: "NOT({Archived})",
         fields: [
           cT.fields["Name"].id,
           cT.fields["Website"].id,
@@ -91,6 +94,7 @@ export async function listAllClients(): Promise<ClientRow[]> {
     }>(
       pT.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           pT.fields["Company"].id,
           pT.fields["Partner Status"].id,

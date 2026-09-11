@@ -28,6 +28,9 @@ import {
   bulkUpdateQuoteStoriesFields,
 } from "@/lib/mutations/quote";
 import { updateStory } from "@/lib/mutations/story";
+import { listPeriods } from "@/lib/retainer-period";
+import { DeleteControl } from "@/components/ui/DeleteControl";
+import { useCanDelete } from "@/components/DeletePermission";
 
 type Props = {
   stories: QuoteStoryRow[];
@@ -44,9 +47,12 @@ type Props = {
   onReordered?: (next: QuoteDetail) => void;
   onChanged?: (next: QuoteDetail) => void;
   groupByMonth?: boolean;
+  /** Retainer Effective Date. Present => the filter offers billing periods
+   *  (anniversary-anchored) instead of calendar months. */
+  periodAnchor?: string | null;
 };
 
-const STORY_STATUSES = [
+export const STORY_STATUSES = [
   "Todo",
   "In progress",
   "QA Review",
@@ -56,6 +62,12 @@ const STORY_STATUSES = [
   "Analysis Required",
   "Archived",
 ] as const;
+
+// Fallback height for browsers without CSS `field-sizing: content` (which does
+// this natively). ~34 chars per wrapped line at the Description column's width.
+// Uncapped on purpose: the whole point is never having to drag the corner.
+const autoRows = (text: string) =>
+  Math.max(2, text.split("\n").length, Math.ceil(text.length / 34));
 
 const fmtMoney = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n);
@@ -113,7 +125,7 @@ function InlineText({
     return (
       <textarea
         value={draft}
-        rows={2}
+        rows={autoRows(draft)}
         placeholder={placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
@@ -124,7 +136,7 @@ function InlineText({
           }
         }}
         disabled={disabled || pending}
-        className={`${baseCls} resize-y min-h-[2rem]`}
+        className={`${baseCls} resize-y min-h-[2rem] [field-sizing:content]`}
       />
     );
   }
@@ -547,7 +559,7 @@ function SortableStoryRow({
         {canEdit ? (
           <InlineText value={s.description} multiline onSave={(v) => onPatch(s.id, { description: v })} placeholder="—" />
         ) : (
-          <div className="px-1.5 py-1 text-ink-muted line-clamp-2" title={s.description}>{s.description || "—"}</div>
+          <div className="px-1.5 py-1 text-ink-muted whitespace-pre-wrap break-words">{s.description || "—"}</div>
         )}
       </td>
 
@@ -604,7 +616,7 @@ function SortableStoryRow({
         {canEdit ? (
           <InlineText value={s.clientNotes} multiline onSave={(v) => onPatch(s.id, { clientNotes: v })} placeholder="—" />
         ) : (
-          <div className="px-1.5 py-1 text-ink-muted line-clamp-2" title={s.clientNotes}>{s.clientNotes || "—"}</div>
+          <div className="px-1.5 py-1 text-ink-muted whitespace-pre-wrap break-words">{s.clientNotes || "—"}</div>
         )}
       </td>
 
@@ -669,11 +681,12 @@ function BulkBar({
   selectedCount: number;
   engineers: PersonOption[];
   onClear: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<{ ok: true } | { error: string } | Record<string, unknown>>;
   onReassign: (ids: string[]) => void;
   onStatus: (status: string) => void;
   pending: boolean;
 }) {
+  const canDelete = useCanDelete();
   const [showAssign, setShowAssign] = useState(false);
   const [query, setQuery] = useState("");
   const [pickedIds, setPickedIds] = useState<string[]>([]);
@@ -759,14 +772,14 @@ function BulkBar({
         )}
       </div>
 
-      <button
-        type="button"
-        disabled={pending}
-        onClick={onDelete}
-        className="px-2 py-1 text-[11px] bg-red/10 border border-red/40 text-red rounded hover:bg-red/20 disabled:opacity-50"
-      >
-        Delete
-      </button>
+      {canDelete && (
+        <DeleteControl
+          label="Delete"
+          question={`Delete ${selectedCount} ${selectedCount === 1 ? "story" : "stories"}?`}
+          consequence="Gone from Airtable for good. Refused as a batch if any of them carry commission payments."
+          onConfirm={onDelete}
+        />
+      )}
 
       <button
         type="button"
@@ -1023,12 +1036,15 @@ export function QuoteStoriesTable({
   onReordered,
   onChanged,
   groupByMonth = false,
+  periodAnchor = null,
 }: Props) {
   const [localStories, setLocalStories] = useState<QuoteStoryRow[]>(stories);
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set());
   const [collapsedTagKeys, setCollapsedTagKeys] = useState<Set<string>>(new Set());
+  // "" = every period. "unscheduled" = stories with no Completed Date.
+  const [periodKey, setPeriodKey] = useState<string>("");
 
   
 
@@ -1136,7 +1152,6 @@ export function QuoteStoriesTable({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const ids = useMemo(() => localStories.map((s) => s.id), [localStories]);
 
   const monthKeyFor = (s: QuoteStoryRow): string => {
     const src = s.completedDate || s.createdTime;
@@ -1145,6 +1160,58 @@ export function QuoteStoriesTable({
     if (isNaN(d.getTime())) return "0000-00-unscheduled";
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   };
+
+  // Filter options: billing periods when the retainer's anchor date is known,
+  // otherwise the calendar months the stories actually fall in.
+  const periodOptions = useMemo(() => {
+    if (!groupByMonth) return [];
+    const fmt = (d: Date) =>
+      d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+    if (periodAnchor) {
+      return listPeriods(periodAnchor, new Date()).map((p) => ({
+        key: p.start.toISOString().slice(0, 10),
+        label: `${fmt(p.start)} – ${fmt(p.end)}, ${p.end.getUTCFullYear()}`,
+        start: p.start,
+        end: p.end,
+      }));
+    }
+    const months = new Map<string, { key: string; label: string; start: Date; end: Date }>();
+    for (const s of localStories) {
+      if (!s.completedDate) continue;
+      const d = new Date(s.completedDate);
+      if (isNaN(d.getTime())) continue;
+      const y = d.getUTCFullYear();
+      const mo = d.getUTCMonth();
+      const key = `${y}-${String(mo + 1).padStart(2, "0")}`;
+      if (months.has(key)) continue;
+      months.set(key, {
+        key,
+        label: d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }),
+        start: new Date(Date.UTC(y, mo, 1)),
+        end: new Date(Date.UTC(y, mo + 1, 1)),
+      });
+    }
+    return [...months.values()].sort((a, b) => b.key.localeCompare(a.key));
+  }, [groupByMonth, periodAnchor, localStories]);
+
+  const visibleStories = useMemo(() => {
+    if (!periodKey) return localStories;
+    if (periodKey === "unscheduled") return localStories.filter((s) => !s.completedDate);
+    const p = periodOptions.find((o) => o.key === periodKey);
+    if (!p) return localStories;
+    return localStories.filter((s) => {
+      if (!s.completedDate) return false;
+      const t = new Date(s.completedDate).getTime();
+      return t >= p.start.getTime() && t < p.end.getTime();
+    });
+  }, [localStories, periodKey, periodOptions]);
+
+  const ids = useMemo(() => visibleStories.map((s) => s.id), [visibleStories]);
+
+  const hasUnscheduled = useMemo(
+    () => groupByMonth && localStories.some((s) => !s.completedDate),
+    [groupByMonth, localStories],
+  );
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -1165,7 +1232,7 @@ export function QuoteStoriesTable({
       tagGroups?: TagBucket[];
     };
     const map = new Map<string, MonthBucket>();
-    for (const s of localStories) {
+    for (const s of visibleStories) {
       const key = monthKeyFor(s);
       const src = s.completedDate || s.createdTime;
       const isUnscheduled = key === "0000-00-unscheduled" || !s.completedDate;
@@ -1213,7 +1280,7 @@ export function QuoteStoriesTable({
       if (b.key === "0000-00-unscheduled") return 1;
       return b.key.localeCompare(a.key);
     });
-  }, [groupByMonth, localStories]);
+  }, [groupByMonth, visibleStories]);
 
   function commitReorder(next: QuoteStoryRow[]) {
     const updates = next.map((s, i) => ({ id: s.id, order: (i + 1) * 10 }));
@@ -1298,27 +1365,25 @@ export function QuoteStoriesTable({
   }
 
   function toggleSelectAll() {
-    if (selected.size === localStories.length) setSelected(new Set());
-    else setSelected(new Set(localStories.map((s) => s.id)));
+    if (selected.size === visibleStories.length) setSelected(new Set());
+    else setSelected(new Set(visibleStories.map((s) => s.id)));
   }
 
   function clearSelection() {
     setSelected(new Set());
   }
 
+  // Returns the result so DeleteControl can show a refusal inline — the payment
+  // guard's message is a paragraph, and window.alert ate it.
   async function handleBulkDelete() {
     const ids = [...selected];
-    if (ids.length === 0) return;
-    if (!window.confirm(`Delete ${ids.length} ${ids.length === 1 ? "story" : "stories"}? This cannot be undone.`)) return;
-    startTransition(async () => {
-      const res = await bulkDeleteQuoteStories(quoteId, ids);
-      if ("ok" in res) {
-        clearSelection();
-        if (onChanged) onChanged(res.quote);
-      } else {
-        window.alert(res.error);
-      }
-    });
+    if (ids.length === 0) return { error: "Nothing selected" };
+    const res = await bulkDeleteQuoteStories(quoteId, ids);
+    if ("ok" in res) {
+      clearSelection();
+      if (onChanged) onChanged(res.quote);
+    }
+    return res;
   }
 
   async function handleBulkStatus(status: string) {
@@ -1349,7 +1414,7 @@ export function QuoteStoriesTable({
     });
   }
 
-  const allSelected = localStories.length > 0 && selected.size === localStories.length;
+  const allSelected = visibleStories.length > 0 && selected.size === visibleStories.length;
 
   return (
     <div className="bg-bg-elevated/60 border border-rule rounded-md overflow-hidden">
@@ -1366,25 +1431,48 @@ export function QuoteStoriesTable({
             )}
             {!groupByMonth && totalHours != null && (
               <div className="text-[11px] text-ink-muted font-mono tabnum">
-                {totalHours}h · {localStories.length} {localStories.length === 1 ? "story" : "stories"}
+                {totalHours}h · {visibleStories.length} {visibleStories.length === 1 ? "story" : "stories"}
               </div>
             )}
             {groupByMonth && (
               <div className="text-[11px] text-ink-muted font-mono tabnum">
-                {localStories.length} {localStories.length === 1 ? "story" : "stories"}
+                {visibleStories.length} {visibleStories.length === 1 ? "story" : "stories"}
+                {periodKey && ` of ${localStories.length}`}
+                {" · "}
+                {visibleStories.reduce((h, s) => h + (s.hours ?? 0), 0).toFixed(1)}h
               </div>
             )}
           </div>
         </div>
-        {canEdit && (
-          <button
-            type="button"
-            onClick={onAddClick}
-            className="px-3 py-1.5 text-[12px] font-semibold bg-emerald text-bg rounded hover:bg-emerald/80 transition-colors"
-          >
-            {addLabel}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {groupByMonth && (periodOptions.length > 0 || hasUnscheduled) && (
+            <select
+              value={periodKey}
+              onChange={(e) => {
+                setPeriodKey(e.target.value);
+                clearSelection();
+              }}
+              className="px-2.5 py-1.5 text-[12px] bg-surface border border-rule text-ink rounded-md focus:border-emerald focus:outline-none cursor-pointer"
+              title={periodAnchor ? "Filter to one billing period" : "Filter to one month"}
+              aria-label={periodAnchor ? "Billing period" : "Month"}
+            >
+              <option value="">{periodAnchor ? "All periods" : "All months"}</option>
+              {periodOptions.map((o) => (
+                <option key={o.key} value={o.key}>{o.label}</option>
+              ))}
+              {hasUnscheduled && <option value="unscheduled">Unscheduled</option>}
+            </select>
+          )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={onAddClick}
+              className="px-3 py-1.5 text-[12px] font-semibold bg-emerald text-bg rounded hover:bg-emerald/80 transition-colors"
+            >
+              {addLabel}
+            </button>
+          )}
+        </div>
       </div>
 
 
@@ -1402,9 +1490,11 @@ export function QuoteStoriesTable({
         </div>
       )}
 
-      {localStories.length === 0 ? (
+      {visibleStories.length === 0 ? (
         <div className="px-4 py-8 text-center text-[12px] text-ink-faint">
-          {emptyLabel ?? `No stories yet.${canEdit ? " Click + Add story to build the quote." : ""}`}
+          {periodKey
+            ? "No stories in this period."
+            : (emptyLabel ?? `No stories yet.${canEdit ? " Click + Add story to build the quote." : ""}`)}
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -1467,7 +1557,7 @@ export function QuoteStoriesTable({
                         />
 
                       ))
-                    : localStories.map((s) => (
+                    : visibleStories.map((s) => (
                         <SortableStoryRow
                           key={s.id}
                           story={s}

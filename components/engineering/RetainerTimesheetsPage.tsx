@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { QuoteStoriesTable } from "@/components/pipeline/QuoteStoriesTable";
 import { NewQuoteStoryModal } from "@/components/pipeline/NewQuoteStoryModal";
+import { DrawerErrorBoundary } from "@/components/pipeline/DrawerErrorBoundary";
+import { StorySheet } from "@/components/engineering/StorySheet";
+import { loadQuoteDetail, loadStoryDetail } from "@/lib/mutations/quote";
+import type { Story } from "@/lib/engineering-types";
 import type { PersonOption, QuoteDetail } from "@/lib/quote-types";
 import type { RetainerListItem } from "@/lib/retainer-timesheets";
 
@@ -13,6 +17,7 @@ type Props = {
   selectedId: string | null;
   selectedQuote: QuoteDetail | null;
   people: PersonOption[];
+  sprints: { id: string; number: number | null; status: string | null }[];
   canEdit: boolean;
 };
 
@@ -34,12 +39,15 @@ export function RetainerTimesheetsPage({
   selectedId,
   selectedQuote: selectedQuoteProp,
   people,
+  sprints,
   canEdit,
 }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeOnly, setActiveOnly] = useState(true);
   const [showAddStory, setShowAddStory] = useState(false);
+  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [storyLoading, setStoryLoading] = useState(false);
   const [, startTransition] = useTransition();
 
   // Keep a local copy of the selected quote so inline edits + add-story stick
@@ -69,6 +77,29 @@ export function RetainerTimesheetsPage({
       router.push(`/engineering/retainer-timesheets?retainer=${id}`);
     });
   }
+
+  const openStory = (storyId: string) => {
+    setStoryLoading(true);
+    loadStoryDetail(storyId).then((res) => {
+      setStoryLoading(false);
+      if ("ok" in res) setSelectedStory(res.story);
+    });
+  };
+
+  // Re-read the quote on close so hours/status edits made in the sheet show up
+  // in the monthly rollup without a page refresh.
+  const closeStory = () => {
+    setSelectedStory(null);
+    if (!quote) return;
+    loadQuoteDetail(quote.id).then((res) => {
+      if ("ok" in res) setQuote(res.quote);
+    });
+  };
+
+  const selectedRetainer = useMemo(
+    () => retainers.find((r) => r.id === (quote?.id ?? selectedId)) ?? null,
+    [retainers, quote?.id, selectedId],
+  );
 
   const originalStories = useMemo(
     () => quote?.stories.filter((s) => !s.isChangeOrder) ?? [],
@@ -179,10 +210,15 @@ export function RetainerTimesheetsPage({
               addLabel="+ Add story"
               quoteId={quote.id}
               people={people}
+              onRowClick={openStory}
               onReordered={(next) => setQuote(next)}
               onChanged={(next) => setQuote(next)}
               groupByMonth
+              periodAnchor={selectedRetainer?.effectiveDate ?? null}
             />
+            {storyLoading && (
+              <div className="mt-2 text-[11px] text-ink-faint">Loading story…</div>
+            )}
           </div>
         </section>
       ) : (
@@ -197,8 +233,28 @@ export function RetainerTimesheetsPage({
           quoteId={quote.id}
           onClose={() => setShowAddStory(false)}
           onCreated={(next) => setQuote(next)}
+          people={people}
           isRetainer
         />
+      )}
+
+      {selectedStory && (
+        <DrawerErrorBoundary
+          airtableUrl={selectedStory.airtableUrl}
+          onClose={closeStory}
+          label="This story"
+        >
+          <StorySheet
+            story={selectedStory}
+            engineers={people.filter((p) => p.isInternal && p.isActive).map((p) => ({ id: p.id, name: p.name }))}
+            sprints={sprints}
+            canEdit={canEdit}
+            onClose={closeStory}
+            onDeleted={closeStory}
+            onFilterByEngineer={() => {}}
+            onFilterByClient={() => {}}
+          />
+        </DrawerErrorBoundary>
       )}
     </div>
   );

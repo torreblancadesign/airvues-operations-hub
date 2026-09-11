@@ -63,6 +63,11 @@ export default async function middleware(req: NextRequest) {
     nextUrl.pathname.startsWith("/api/auth") ||
     nextUrl.pathname.startsWith("/_next") ||
     nextUrl.pathname.startsWith("/r/") || // public Loops share pages
+    // Client portal. Public at the edge because its visitors are clients who
+    // have no ops account and must never be bounced to the ops login. It is
+    // NOT unguarded: every /portal page resolves getPortalSession(), which
+    // re-reads People and re-checks Portal Access on every request.
+    nextUrl.pathname.startsWith("/portal") ||
     nextUrl.pathname === "/favicon.ico" ||
     isStaticAsset;
 

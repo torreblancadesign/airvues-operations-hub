@@ -30,6 +30,14 @@ export function BulkBar({ selectedIds, engineers, onClear, onSuccess }: Props) {
       if (!("ok" in res)) {
         setError(`${label}: ${res.error}`);
       } else {
+        // The stories ARE Completed at this point and nothing re-runs the
+        // automation, so a silent success here is how commission rows go
+        // missing. Say it instead.
+        if (res.paymentsFailed) {
+          setError(
+            `${label}: ${res.paymentsFailed} commission payment${res.paymentsFailed === 1 ? "" : "s"} could not be created. The stories were completed — those payments need creating by hand.`,
+          );
+        }
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 1200);
         onSuccess();

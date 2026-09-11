@@ -1,0 +1,494 @@
+/* Client portal design system.
+ *
+ * Scoped to .portal-root, never :root — app/globals.css owns the dark ops
+ * palette on html/body, and the portal must not inherit or fight it.
+ *
+ * Quality bar: Mercury / Ramp. Muted ground, white panels, near-black ink,
+ * colour only ever carrying meaning.
+ *
+ * EVERY size on this surface comes from a step below. No component may set a
+ * raw pixel value — the first build did, and the result had three container
+ * widths and eleven font sizes, which is why nothing lined up. */
+
+.portal-root {
+  /* --- palette --- */
+  --p-ground: #f6f7f9;
+  --p-panel: #ffffff;
+  --p-sunk: #f9fafb;
+  --p-line: #e8eaee;
+  --p-line-strong: #d3d8e0;
+
+  --p-ink: #0b1020;
+  --p-ink-2: #565f70;
+  --p-ink-3: #8a92a1;
+
+  --p-ok: #067a5e;
+  --p-ok-bg: #e6f4f0;
+  --p-warn: #b45309;
+  --p-warn-bg: #fdf3e7;
+  --p-bad: #b42318;
+  --p-bad-bg: #feeceb;
+  --p-info: #175cd3;
+  --p-info-bg: #eaf1fd;
+
+  /* --- type scale --- */
+  --t-2xs: 11px;
+  --t-xs: 12px;
+  --t-sm: 13px;
+  --t-base: 14px;
+  --t-md: 15px;
+  --t-lg: 17px;
+  --t-xl: 20px;
+  --t-2xl: 26px;
+  --t-hero: 52px;
+
+  /* --- space scale --- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-14: 56px;
+
+  --p-radius: 12px;
+  --p-radius-sm: 8px;
+  --p-rail: 248px;
+
+  --p-shadow: 0 1px 2px rgba(11, 16, 32, 0.04), 0 2px 8px -4px rgba(11, 16, 32, 0.06);
+  --p-shadow-lift: 0 2px 4px rgba(11, 16, 32, 0.05), 0 14px 30px -14px rgba(11, 16, 32, 0.16);
+
+  background: var(--p-ground);
+  color: var(--p-ink);
+  font-family: var(--font-sans), -apple-system, system-ui, sans-serif;
+  font-size: var(--t-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+.portal-root *,
+.portal-root *::before,
+.portal-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- shell ---------- */
+
+.p-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: 100dvh;
+}
+@media (min-width: 900px) {
+  .p-shell {
+    grid-template-columns: var(--p-rail) minmax(0, 1fr);
+  }
+}
+
+.p-rail {
+  display: none;
+  background: var(--p-panel);
+  border-right: 1px solid var(--p-line);
+  padding: var(--s-5) var(--s-4);
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+}
+@media (min-width: 900px) {
+  .p-rail {
+    display: flex;
+  }
+}
+
+.p-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  background: var(--p-panel);
+  border-bottom: 1px solid var(--p-line);
+  padding: var(--s-3) var(--s-4);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+@media (min-width: 900px) {
+  .p-topbar {
+    display: none;
+  }
+}
+
+/* One content measure. The whole page aligns to this and nothing else.
+   1080 carries the desktop two-column overview; inner elements that need a
+   reading measure (threads, forms) constrain themselves inside it. */
+.p-main {
+  padding: var(--s-6) var(--s-4) var(--s-14);
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .p-main {
+    padding: var(--s-10) var(--s-8) var(--s-14);
+  }
+}
+.p-measure {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.p-navlink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--p-radius-sm);
+  font-size: var(--t-base);
+  font-weight: 500;
+  color: var(--p-ink-2);
+  transition: background 140ms ease, color 140ms ease;
+}
+.p-navlink:hover {
+  background: var(--p-sunk);
+  color: var(--p-ink);
+}
+.p-navlink[aria-current="page"] {
+  background: var(--p-sunk);
+  color: var(--p-ink);
+  font-weight: 600;
+}
+
+/* Bottom bar is the mobile nav; the rail is the desktop one. Same items. */
+.p-tabbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: var(--p-panel);
+  border-top: 1px solid var(--p-line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@media (min-width: 900px) {
+  .p-tabbar {
+    display: none;
+  }
+}
+.p-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: var(--s-2) var(--s-1) var(--s-3);
+  font-size: var(--t-2xs);
+  font-weight: 550;
+  color: var(--p-ink-3);
+}
+.p-tab[aria-current="page"] {
+  color: var(--p-ink);
+}
+.p-tab-dot {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: transparent;
+}
+.p-tab[aria-current="page"] .p-tab-dot {
+  background: var(--p-ink);
+}
+
+/* ---------- surfaces ---------- */
+
+.p-panel {
+  background: var(--p-panel);
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-radius);
+  box-shadow: var(--p-shadow);
+}
+
+/* Three weights, so the eye has somewhere to land:
+   hero (the one number), panel (grouped facts), sunk (supporting). */
+.p-hero {
+  background: var(--p-panel);
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-radius);
+  box-shadow: var(--p-shadow-lift);
+}
+.p-sunk {
+  background: var(--p-sunk);
+  border: 1px solid var(--p-line);
+  border-radius: var(--p-radius-sm);
+}
+
+/* ---------- type ---------- */
+
+.t-hero {
+  font-size: var(--t-hero);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.94;
+  font-variant-numeric: tabular-nums;
+}
+.t-h1 {
+  font-size: var(--t-2xl);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.t-h2 {
+  font-size: var(--t-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.t-num {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.t-body {
+  font-size: var(--t-base);
+  color: var(--p-ink-2);
+}
+.t-small {
+  font-size: var(--t-sm);
+  color: var(--p-ink-2);
+}
+.t-fine {
+  font-size: var(--t-xs);
+  color: var(--p-ink-3);
+}
+.t-label {
+  font-size: var(--t-xs);
+  font-weight: 550;
+  color: var(--p-ink-2);
+}
+.fig {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- components ---------- */
+
+.p-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 3px var(--s-2);
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  font-weight: 550;
+  white-space: nowrap;
+}
+.p-pill::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: none;
+}
+
+.p-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: 38px;
+  padding: 0 var(--s-4);
+  border-radius: var(--p-radius-sm);
+  font-size: var(--t-base);
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+.p-btn-primary {
+  background: var(--p-ink);
+  color: #fff;
+  border: 1px solid var(--p-ink);
+  box-shadow: var(--p-shadow);
+}
+.p-btn-primary:hover:not(:disabled) {
+  background: #1a2133;
+  box-shadow: var(--p-shadow-lift);
+}
+.p-btn-secondary {
+  background: var(--p-panel);
+  color: var(--p-ink);
+  border: 1px solid var(--p-line-strong);
+}
+.p-btn-secondary:hover:not(:disabled) {
+  background: var(--p-sunk);
+  border-color: var(--p-ink-3);
+}
+.p-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.p-input {
+  width: 100%;
+  background: var(--p-panel);
+  border: 1px solid var(--p-line-strong);
+  border-radius: var(--p-radius-sm);
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--t-md);
+  font-family: inherit;
+  color: var(--p-ink);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.p-input::placeholder {
+  color: var(--p-ink-3);
+}
+.p-input:focus {
+  outline: none;
+  border-color: var(--p-ink);
+  box-shadow: 0 0 0 3px rgba(11, 16, 32, 0.07);
+}
+
+.portal-root a:focus-visible,
+.portal-root button:focus-visible,
+.portal-root select:focus-visible,
+.portal-root textarea:focus-visible,
+.portal-root input:focus-visible {
+  outline: 2px solid var(--p-ink);
+  outline-offset: 2px;
+}
+
+.p-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: #e9ecf1;
+  overflow: hidden;
+}
+.p-meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.p-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  transition: background 140ms ease;
+}
+.p-row:hover {
+  background: var(--p-sunk);
+}
+.p-row + .p-row {
+  border-top: 1px solid var(--p-line);
+}
+/* List rows wrapped in <li> are not .p-row siblings, so the rule above never
+   fires for them — the list carries the separators instead. */
+.p-rows > li + li {
+  border-top: 1px solid var(--p-line);
+}
+
+/* Initials disc for attribution rows. Typography, not an icon system. */
+.p-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--p-sunk);
+  border: 1px solid var(--p-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--p-ink-2);
+  flex: none;
+}
+
+/* Response-record chart: one bar per answered request, each normalized to its
+   own promised window so a single dashed line can mean "the promise" for all
+   of them. Green under the line is a promise kept; red over it is not. */
+.p-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  height: 116px;
+  padding-top: var(--s-5);
+  /* Ground the bars — without a baseline they float in the panel. */
+  border-bottom: 1px solid var(--p-line);
+}
+.p-chart-bar {
+  flex: 1 1 0;
+  max-width: 28px;
+  min-width: 6px;
+  border-radius: 3px 3px 1px 1px;
+}
+.p-chart-promise {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed var(--p-line-strong);
+  z-index: 1;
+  pointer-events: none;
+}
+.p-chart-promise > span {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  font-size: var(--t-2xs);
+  letter-spacing: 0.02em;
+  color: var(--p-ink-3);
+  background: var(--p-panel);
+  padding-left: var(--s-2);
+}
+
+/* Step numbers in the how-it-works sequence — the order is the information. */
+.p-step-num {
+  width: 26px;
+  flex: none;
+  font-size: var(--t-md);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--p-ink-3);
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-root *,
+  .portal-root *::before,
+  .portal-root *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- loading ---------- */
+
+.portal-root .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Breathing, not spinning: the skeleton says "arriving", a spinner says
+   "waiting". Held above 0.55 so it never reads as a flash. */
+.p-skeleton {
+  animation: p-pulse 1.5s ease-in-out infinite;
+}
+@keyframes p-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .p-skeleton { animation: none; }
+}

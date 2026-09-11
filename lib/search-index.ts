@@ -5,6 +5,7 @@ import "server-only";
 import { listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { NAV_ITEMS } from "./nav";
+import { canDelete } from "./authz";
 
 export type SearchItem = {
   id: string;
@@ -27,6 +28,7 @@ export async function getSearchIndex(): Promise<SearchItem[]> {
     }>(
       Tables.Companies.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           Tables.Companies.fields["Name"].id,
           Tables.Companies.fields["Engagement Frequency"].id,
@@ -59,6 +61,7 @@ export async function getSearchIndex(): Promise<SearchItem[]> {
     }>(
       Tables.Quotes.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           Tables.Quotes.fields["Project Name"].id,
           Tables.Quotes.fields["Company Name"].id,
@@ -93,6 +96,7 @@ export async function getSearchIndex(): Promise<SearchItem[]> {
     }>(
       Tables.People.id,
       {
+        filterByFormula: "NOT({Archived})",
         fields: [
           Tables.People.fields["Full Name"].id,
           Tables.People.fields["First Name"].id,
@@ -105,8 +109,10 @@ export async function getSearchIndex(): Promise<SearchItem[]> {
 
   const items: SearchItem[] = [];
 
+  const viewerCanDelete = await canDelete();
   for (const n of NAV_ITEMS) {
     if (!n.showInSidebar) continue;
+    if (n.requiresDelete && !viewerCanDelete) continue;
     items.push({
       id: `route-${n.href}`,
       type: "route",

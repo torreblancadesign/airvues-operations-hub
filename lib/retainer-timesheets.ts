@@ -15,6 +15,8 @@ export type RetainerListItem = {
   projectStatus: string | null;
   storiesCount: number;
   totalHours: number | null;
+  /** Quotes."Retainer Effective Date" — anchors the billing-period filter. */
+  effectiveDate: string | null;
 };
 
 function firstStr(v: unknown): string | null {
@@ -32,6 +34,7 @@ export async function listRetainers(): Promise<RetainerListItem[]> {
     "Project Status"?: string;
     "Stories"?: string[];
     "Total Hours"?: number;
+    "Retainer Effective Date"?: string;
   }>(
     t.id,
     {
@@ -43,6 +46,7 @@ export async function listRetainers(): Promise<RetainerListItem[]> {
         t.fields["Project Status"].id,
         t.fields["Stories"].id,
         t.fields["Total Hours"].id,
+        t.fields["Retainer Effective Date"].id,
       ],
       filterByFormula: `AND({Proposal Type} = 'Retainer Agreement', OR({Status} = 'Approved and Signed', {Status} = 'Project In Progress'))`,
     },
@@ -59,6 +63,7 @@ export async function listRetainers(): Promise<RetainerListItem[]> {
       projectStatus: (f["Project Status"] as string) ?? null,
       storiesCount: Array.isArray(f["Stories"]) ? (f["Stories"] as string[]).length : 0,
       totalHours: typeof f["Total Hours"] === "number" ? (f["Total Hours"] as number) : null,
+      effectiveDate: (f["Retainer Effective Date"] as string) ?? null,
     };
   });
 

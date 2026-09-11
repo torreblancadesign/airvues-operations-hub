@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { createQuoteStory } from "@/lib/mutations/quote";
-import type { QuoteDetail } from "@/lib/quote-types";
+import { MultiPersonPicker } from "./MultiPersonPicker";
+import { STORY_STATUSES } from "./QuoteStoriesTable";
+import type { PersonOption, QuoteDetail } from "@/lib/quote-types";
 
 type Props = {
   open: boolean;
   quoteId: string;
   onClose: () => void;
   onCreated: (next: QuoteDetail) => void;
+  /** Full people list; internal + active are offered as developers. */
+  people: PersonOption[];
   isChangeOrder?: boolean;
   /** When true: hide Cost, show optional Completed Date (drives monthly bucket). */
   isRetainer?: boolean;
@@ -24,6 +28,7 @@ export function NewQuoteStoryModal({
   quoteId,
   onClose,
   onCreated,
+  people,
   isChangeOrder = false,
   isRetainer = false,
 }: Props) {
@@ -32,9 +37,16 @@ export function NewQuoteStoryModal({
   const [hours, setHours] = useState("");
   const [cost, setCost] = useState("");
   const [completedDate, setCompletedDate] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [status, setStatus] = useState("Todo");
   // Client notes removed from creation; edit inline after the story exists.
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const engineers = useMemo(
+    () => people.filter((p) => p.isInternal && p.isActive),
+    [people],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +55,8 @@ export function NewQuoteStoryModal({
     setHours("");
     setCost("");
     setCompletedDate("");
-    
+    setAssigneeIds([]);
+    setStatus("Todo");
     setError(null);
   }, [open]);
 
@@ -76,7 +89,8 @@ export function NewQuoteStoryModal({
         description: description.trim() || undefined,
         hours: h,
         cost: c,
-        
+        status,
+        assigneeIds,
         isChangeOrder,
         completedDate: isRetainer ? completedDate || null : undefined,
       });
@@ -208,6 +222,36 @@ export function NewQuoteStoryModal({
               )}
             </div>
 
+            <div>
+              <label className={labelCls}>Developer{assigneeIds.length > 1 ? "s" : ""}</label>
+              <MultiPersonPicker
+                values={assigneeIds}
+                options={engineers}
+                onChange={setAssigneeIds}
+                disabled={pending}
+                placeholder="Search engineers…"
+              />
+            </div>
+
+            <div>
+              <label className={labelCls}>Completion Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                disabled={pending}
+                className={inputCls}
+              >
+                {STORY_STATUSES.map((st) => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+              {status === "Completed" && assigneeIds.length > 0 && !isRetainer && (
+                <p className="mt-1.5 text-[11px] text-amber">
+                  Creating this as Completed pays commission to{" "}
+                  {assigneeIds.length === 1 ? "the developer" : `all ${assigneeIds.length} developers`} straight away.
+                </p>
+              )}
+            </div>
 
             {error && (
               <div className="bg-red/10 border border-red/30 rounded-md px-3 py-2 text-[12px] text-red">

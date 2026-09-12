@@ -43,3 +43,4 @@ out/
 
 # Project-specific
 scripts/output/
+.superpowers/

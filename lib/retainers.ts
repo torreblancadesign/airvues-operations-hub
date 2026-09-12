@@ -2,10 +2,6 @@
 // Do NOT import from a client component — this pulls in lib/airtable.ts.
 import "server-only";
 
-import { listRecordsCached } from "./airtable";
-import { Tables } from "./schema";
-import { fromZoned, zonedParts } from "./retainer-sla";
-import type { RetainerPriority, RetainerTier } from "./retainer-types";
 import { getRecord, listRecords, listRecordsCached } from "./airtable";
 import { Tables } from "./schema";
 import { currentPeriod } from "./retainer-period";
@@ -28,9 +24,6 @@ function firstLink(v: unknown): string | null {
   return Array.isArray(v) && typeof v[0] === "string" ? v[0] : null;
 }
 
-/** Active tiers, ordered by rank. Blank SLA columns stay null — not zero. */
-export async function listRetainerTiers(): Promise<RetainerTier[]> {
-  const rows = await listRecordsCached<Record<string, unknown>>(
 /**
  * All tiers, active and inactive, catalog and custom, ordered by rank.
  * Blank SLA columns stay null — not zero.
@@ -58,9 +51,6 @@ export async function listRetainerTiers(opts?: { fresh?: boolean }): Promise<Ret
         TIER.fields["SLA Label (client-facing)"].id,
         TIER.fields["Max Urgent / Month"].id,
         TIER.fields["Client-facing Description"].id,
-      ],
-    },
-    ["retainers:tiers"],
         TIER.fields["Custom"].id,
         TIER.fields["Custom For"].id,
       ],
@@ -92,23 +82,6 @@ export async function listRetainerTiers(opts?: { fresh?: boolean }): Promise<Ret
     };
   });
 
-  return tiers.filter((t) => t.active).sort((a, b) => a.rank - b.rank);
-}
-
-export type RetainerAgreement = {
-  id: string;
-  projectName: string;
-  companyId: string | null;
-  companyName: string | null;
-  tierId: string | null;
-  monthlyRate: number | null;
-  includedHours: number | null;
-  termMonths: number | null;
-  effectiveDate: string | null;
-  subscriptionActive: boolean;
-  dealStatus: string | null;
-};
-
   // Inactive plans are returned deliberately. The board resolves tier names
   // from this list, and tierForRetainer resolves SLA hours from it — filtering
   // here would blank the name on every retainer using a retired plan and drop
@@ -121,8 +94,6 @@ export type RetainerAgreement = {
  * Company is the portal tenant key and an agreement without one is
  * unscopable, so it is invisible by design rather than leaked to everyone.
  */
-export async function listRetainerAgreements(): Promise<RetainerAgreement[]> {
-  const rows = await listRecordsCached<Record<string, unknown>>(
 /** recId -> Company.Name, for resolving the tenant key to a display name. */
 async function companyNameById(): Promise<Map<string, string>> {
   const rows = await listRecordsCached<Record<string, unknown>>(
@@ -161,8 +132,6 @@ export async function listRetainerAgreements(opts?: {
       ],
       filterByFormula: `{Proposal Type} = 'Retainer Agreement'`,
     },
-    ["retainers:agreements"],
-  );
       opts?.fresh ? undefined : ["retainers:agreements"],
     ),
     companyNameById(),
@@ -171,12 +140,6 @@ export async function listRetainerAgreements(opts?: {
   return rows
     .map((r) => {
       const f = r.fields;
-      const names = f["Client Name"];
-      return {
-        id: r.id,
-        projectName: str(f["Project Name"]) ?? "(no name)",
-        companyId: firstLink(f["Company"]),
-        companyName: Array.isArray(names) && typeof names[0] === "string" ? names[0] : null,
       // Quotes."Client Name" is a lookup of the CONTACT, not the company —
       // it renders as "Flavio Almeida", not "Gracie Barra". Resolve the real
       // company through the Company link (the tenant key) and keep the
@@ -204,41 +167,6 @@ export async function listRetainerAgreements(opts?: {
 }
 
 /**
- * The billing period containing `now`, anchored on the anniversary day of
- * effectiveDate (NOT the calendar month) so hours stay aligned with the Stripe
- * subscription date. A day-of-month past the end of a short month clamps to
- * that month's last day.
- */
-export function currentPeriod(
-  effectiveDate: string | null,
-  now: Date,
-): { start: Date; end: Date } | null {
-  if (!effectiveDate) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(effectiveDate);
-  if (!m) return null;
-  const anchorDay = +m[3];
-
-  const p = zonedParts(now);
-  const daysInMonth = (y: number, mo: number) => new Date(Date.UTC(y, mo, 0)).getUTCDate();
-  const startOf = (y: number, mo: number) =>
-    fromZoned(y, mo, Math.min(anchorDay, daysInMonth(y, mo)), 0, 0);
-
-  let sy = p.year;
-  let sm = p.month;
-  if (now < startOf(sy, sm)) {
-    sm -= 1;
-    if (sm === 0) {
-      sm = 12;
-      sy -= 1;
-    }
-  }
-  let ey = sy;
-  let em = sm + 1;
-  if (em === 13) {
-    em = 1;
-    ey += 1;
-  }
-  return { start: startOf(sy, sm), end: startOf(ey, em) };
  * The quote's legacy "Retainer Selected Tier" singleSelect, or null.
  *
  * Read separately from listRetainerAgreements because it exists only to be
